@@ -56,7 +56,9 @@ class InstallTests(unittest.TestCase):
                 "darwin": home / "Library" / "LaunchAgents" / "com.graph-mind.capture.plist",
             }.get(sys.platform, home / ".config" / "autostart" / "graph-mind-capture.desktop")
             self.assertTrue(login_item.exists(), login_item)
-            self.assertTrue((home / ".graph-mind" / "automatic-capture.json").exists())
+            capture = json.loads((home / ".graph-mind" / "automatic-capture.json")
+                                 .read_text(encoding="utf-8"))
+            self.assertEqual(capture["code_workspaces"], [])    # never site-packages
             chosen = json.loads((home / ".graph-mind" / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(chosen["memory_folder"], code)
 

@@ -108,10 +108,13 @@ def capture_service(start: bool) -> str:
     sys.path.insert(0, str(HERE))
     from automatic_capture import _atomic_json, default_config_path, default_service_state_dir, make_config
     if not default_config_path().exists():
-        _atomic_json(default_config_path(), make_config(
-            workspace=str(HERE), project_id="project:graph-mind",
-            session_id="service:automatic-capture-v0.2",
-            sessions_root=str(Path.home() / ".codex" / "sessions")))
+        config = make_config(workspace=str(HERE), project_id="project:graph-mind",
+                             session_id="service:automatic-capture-v0.2",
+                             sessions_root=str(Path.home() / ".codex" / "sessions"))
+        # Conversations only. Watching a code folder is opt-in: this folder is Graph-MIND itself,
+        # or site-packages after a pip install, and the service would rescan it every 2 minutes.
+        config["code_workspaces"], config["workspace_scopes"] = [], {}
+        _atomic_json(default_config_path(), config)
     script = HERE / "automatic_capture_cli.py"
     system = platform.system()
     if system == "Windows":

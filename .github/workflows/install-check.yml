@@ -1,0 +1,44 @@
+name: install-check
+
+# Installs the published package from PyPI on fresh machines, the way a new user does.
+on:
+  workflow_run:
+    workflows: [publish]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "graph-mind-memory version (empty = latest)"
+        required: false
+
+jobs:
+  install:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python: ["3.10", "3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: pip install graph-mind-memory
+        shell: bash
+        run: |
+          SPEC=graph-mind-memory${{ inputs.version && format('=={0}', inputs.version) || '' }}
+          for i in 1 2 3 4 5 6; do   # a release can take a minute to reach every PyPI mirror
+            python -m pip install --no-cache-dir "$SPEC" --extra-index-url https://download.pytorch.org/whl/cpu && break
+            sleep 30
+          done
+          python -m pip show graph-mind-memory
+      - name: graph-mind-install
+        run: graph-mind-install --no-start
+      - name: Capture service, one pass
+        run: graph-mind-capture once
+      - name: Server works
+        run: python .github/smoke_install.py

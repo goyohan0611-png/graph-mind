@@ -5,7 +5,7 @@ Graph-MIND is published under the AGPL-3.0 and is also offered under a commercia
 
 By opening a pull request or otherwise submitting a contribution to this repository, you agree:
 
-1. **Copyright license.** You grant Yohan Go (고요한) (the "Maintainer") a perpetual, worldwide,
+1. **Copyright license.** You grant Yohan Ko (고요한) (the "Maintainer") a perpetual, worldwide,
    non-exclusive, royalty-free, irrevocable license to use, copy, modify, distribute, sublicense
    and relicense your contribution, including under licenses other than the AGPL-3.0, such as
    commercial licenses.

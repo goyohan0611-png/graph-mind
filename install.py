@@ -53,10 +53,12 @@ def _json_entry(path: Path, **extra) -> None:
 
 
 def claude_code(home: Path) -> str:
-    if shutil.which("claude"):
-        subprocess.run(["claude", "mcp", "remove", "-s", "user", NAME], capture_output=True)
+    claude = shutil.which("claude")      # full path: an npm install is claude.CMD, which
+    if claude:                           # Windows will not launch by its bare name
+        subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
         environment = [flag for key, value in ENV.items() for flag in ("-e", f"{key}={value}")]
-        subprocess.run(["claude", "mcp", "add", "-s", "user", *environment, NAME, "--",
+        # the name before -e: the CLI's -e takes every value that follows, the name included
+        subprocess.run([claude, "mcp", "add", "-s", "user", NAME, *environment, "--",
                         sys.executable, str(SERVER)], check=True, capture_output=True)
         return "Claude Code"
     if (home / ".claude.json").exists():

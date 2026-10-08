@@ -28,7 +28,7 @@ class InstallTests(unittest.TestCase):
                 "graph-mind-memory": {"command": "old", "env": {"MINE": "1"}}}}), encoding="utf-8")
             code = "gm1." + base64.urlsafe_b64encode(json.dumps(
                 {"h": ["192.0.2.1"], "p": 54329, "k": "pw"}).encode()).decode()
-            environment = {"USERPROFILE": str(home), "HOME": str(home),
+            environment = {"USERPROFILE": str(home), "HOME": str(home), "XDG_CONFIG_HOME": "",
                            "APPDATA": str(home / "AppData" / "Roaming"),
                            "GRAPH_MIND_HOME": str(home / ".graph-mind"),
                            "GRAPH_MIND_CONFIG": str(home / ".graph-mind" / "config.json")}
@@ -50,10 +50,12 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(entry["args"], [str(install.SERVER)])
             self.assertEqual(entry["env"]["MINE"], "1")
             self.assertNotIn("type", entry)
-            if sys.platform == "win32":                 # login item: Windows only so far
-                self.assertTrue((home / "AppData" / "Roaming" / "Microsoft" / "Windows"
-                                 / "Start Menu" / "Programs" / "Startup"
-                                 / "Graph-MIND Automatic Capture.lnk").exists())
+            login_item = {
+                "win32": home / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu"
+                         / "Programs" / "Startup" / "Graph-MIND Automatic Capture.lnk",
+                "darwin": home / "Library" / "LaunchAgents" / "com.graph-mind.capture.plist",
+            }.get(sys.platform, home / ".config" / "autostart" / "graph-mind-capture.desktop")
+            self.assertTrue(login_item.exists(), login_item)
             self.assertTrue((home / ".graph-mind" / "automatic-capture.json").exists())
             chosen = json.loads((home / ".graph-mind" / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(chosen["memory_folder"], code)

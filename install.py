@@ -112,16 +112,34 @@ def capture_service(start: bool) -> str:
             workspace=str(HERE), project_id="project:graph-mind",
             session_id="service:automatic-capture-v0.2",
             sessions_root=str(Path.home() / ".codex" / "sessions")))
-    if platform.system() != "Windows":
-        return "capture service: start it with `python automatic_capture_cli.py run` (login item)"
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    startup = (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
-               / "Startup" / "Graph-MIND Automatic Capture.lnk")
-    startup.parent.mkdir(parents=True, exist_ok=True)
-    script = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{startup}');"
-              f"$s.TargetPath='{pythonw}';$s.Arguments='\"{HERE / 'automatic_capture_cli.py'}\" run';"
-              f"$s.WorkingDirectory='{HERE}';$s.Save()")
-    subprocess.run(["powershell", "-NoProfile", "-Command", script], check=True, capture_output=True)
+    script = HERE / "automatic_capture_cli.py"
+    system = platform.system()
+    if system == "Windows":
+        python = Path(sys.executable).with_name("pythonw.exe")        # no console window
+        startup = (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu"
+                   / "Programs" / "Startup" / "Graph-MIND Automatic Capture.lnk")
+        startup.parent.mkdir(parents=True, exist_ok=True)
+        shortcut = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{startup}');"
+                    f"$s.TargetPath='{python}';$s.Arguments='\"{script}\" run';"
+                    f"$s.WorkingDirectory='{HERE}';$s.Save()")
+        subprocess.run(["powershell", "-NoProfile", "-Command", shortcut], check=True,
+                       capture_output=True)
+    elif system == "Darwin":
+        import plistlib
+        python = Path(sys.executable)
+        agent = Path.home() / "Library" / "LaunchAgents" / "com.graph-mind.capture.plist"
+        agent.parent.mkdir(parents=True, exist_ok=True)
+        agent.write_bytes(plistlib.dumps({
+            "Label": "com.graph-mind.capture", "RunAtLoad": True, "WorkingDirectory": str(HERE),
+            "ProgramArguments": [str(python), str(script), "run"]}))
+    else:                                       # Linux desktops: XDG autostart
+        python = Path(sys.executable)
+        config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+        entry = config / "autostart" / "graph-mind-capture.desktop"
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        entry.write_text("[Desktop Entry]\nType=Application\nName=Graph-MIND capture\n"
+                         f"Exec=\"{python}\" \"{script}\" run\nPath={HERE}\n"
+                         "X-GNOME-Autostart-enabled=true\n", encoding="utf-8")
     if start:
         import psutil
         pid_file = default_service_state_dir() / "service.pid"
@@ -130,8 +148,9 @@ def capture_service(start: bool) -> str:
         except (OSError, ValueError):
             running = False
         if not running:
-            subprocess.Popen([str(pythonw), str(HERE / "automatic_capture_cli.py"), "run"],
-                             cwd=HERE, creationflags=subprocess.DETACHED_PROCESS)
+            detach = ({"creationflags": subprocess.DETACHED_PROCESS} if system == "Windows"
+                      else {"start_new_session": True})
+            subprocess.Popen([str(python), str(script), "run"], cwd=HERE, **detach)
     return "capture service starts at login"
 
 

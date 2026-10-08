@@ -84,7 +84,7 @@ saves them. Graph-MIND does not.
 Requires Python 3.10+ (64-bit). Windows, macOS or Linux.
 
 ```bash
-pip install graph-mind
+pip install graph-mind-memory
 graph-mind-install
 ```
 

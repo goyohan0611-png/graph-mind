@@ -30,7 +30,7 @@ jobs:
       - name: Wait until PyPI serves the release
         run: |
           for i in $(seq 1 30); do
-            curl -sf "https://pypi.org/pypi/graph-mind/${GITHUB_REF#refs/tags/v}/json" > /dev/null && exit 0
+            curl -sf "https://pypi.org/pypi/graph-mind-memory/${GITHUB_REF#refs/tags/v}/json" > /dev/null && exit 0
             sleep 10
           done
           exit 1

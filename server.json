@@ -11,7 +11,7 @@
   "packages": [
     {
       "registryType": "pypi",
-      "identifier": "graph-mind",
+      "identifier": "graph-mind-memory",
       "version": "0.1.0",
       "transport": {
         "type": "stdio"

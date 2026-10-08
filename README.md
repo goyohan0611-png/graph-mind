@@ -91,6 +91,9 @@ pip install graph-mind-memory
 graph-mind-install
 ```
 
+If `graph-mind-install` is "not recognized", pip put it in a Scripts folder that is not on your
+PATH (common with the Windows Python install manager). `python -m install` runs the same thing.
+
 or from source:
 
 ```bash

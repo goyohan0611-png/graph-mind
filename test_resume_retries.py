@@ -1,5 +1,6 @@
 """A resumed run must retry what failed. It used to count any written row as done: 640 extractions
 that failed with a revoked key were skipped for good and the answers were built on nothing."""
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import json
 import tempfile

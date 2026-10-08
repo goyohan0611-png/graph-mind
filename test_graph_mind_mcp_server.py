@@ -1,3 +1,4 @@
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import tempfile
 import unittest
@@ -72,29 +73,16 @@ class GraphMindMcpServerTests(unittest.IsolatedAsyncioTestCase):
                 by_name = {tool.name: tool for tool in listed.tools}
                 names = set(by_name)
                 self.assertEqual(names, {"brain_remember", "brain_recall", "brain_context",
-                                         "brain_associate", "brain_index", "brain_timeline", "brain_folder",
-                                         "conversation_recall", "code_activity",
-                                         "memory_record", "project_status",
-                                         "resume_project", "explain_decision"})
+                                         "brain_folder", "code_activity"})
                 self.assertFalse(by_name["brain_remember"].annotations.read_only_hint)
-                self.assertTrue(by_name["brain_recall"].annotations.read_only_hint)
-                self.assertTrue(by_name["brain_context"].annotations.read_only_hint)
-                self.assertTrue(by_name["brain_associate"].annotations.read_only_hint)
-                self.assertTrue(by_name["conversation_recall"].annotations.read_only_hint)
-                self.assertTrue(by_name["code_activity"].annotations.read_only_hint)
-                self.assertFalse(by_name["memory_record"].annotations.read_only_hint)
-                for name in ("project_status", "resume_project", "explain_decision"):
+                for name in ("brain_recall", "brain_context", "code_activity"):
                     self.assertTrue(by_name[name].annotations.read_only_hint)
-                    self.assertTrue(by_name[name].annotations.idempotent_hint)
                 recalled = await client.call_tool("brain_recall", {
                     "query": "마인드 프로젝트가 뭐야?"})
                 self.assertFalse(recalled.is_error)
                 self.assertEqual(recalled.structured_content["status"], "KNOWN")
                 self.assertEqual(recalled.structured_content["matches"][0]["memory_id"],
                                  "mind-overview")
-                conversation = await client.call_tool("conversation_recall", {
-                    "query": "결제 함수", "scopes": ["project:test"]})
-                self.assertEqual(conversation.structured_content["status"], "KNOWN")
                 federated = await client.call_tool("brain_recall", {
                     "query": "결제 함수", "scopes": ["project:test"]})
                 self.assertEqual(federated.structured_content["status"], "KNOWN")
@@ -108,11 +96,6 @@ class GraphMindMcpServerTests(unittest.IsolatedAsyncioTestCase):
                 skipped = await client.call_tool("brain_context", {
                     "query": "Explain photosynthesis", "policy": "auto"})
                 self.assertEqual(skipped.structured_content["status"], "SKIPPED")
-                associated = await client.call_tool("brain_associate", {
-                    "query": "memory project", "hops": 2, "grounding": "literal"})
-                self.assertEqual(associated.structured_content["status"], "KNOWN")
-                self.assertEqual(associated.structured_content["evidence_status"],
-                                 "CANDIDATES_REQUIRE_SOURCE_VERIFICATION")
                 code = await client.call_tool("code_activity", {
                     "project_id": "project:test", "symbol": "recall",
                     "happened_from": "2026-01-01T00:00:00+09:00",
@@ -122,30 +105,13 @@ class GraphMindMcpServerTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(code.structured_content["status"], "KNOWN")
                 self.assertEqual(code.structured_content["changes"][0]["file_path"],
                                  "memory.py")
-                recorded = await client.call_tool("memory_record", {
-                    "project_id": "project:test", "session_id": "session:mcp",
-                    "event_type": "NEXT_ACTION_SET", "subject_id": "mcp-next",
-                    "payload": {"action": "Connect another model"},
-                    "source_ref": "mcp-test"})
-                self.assertFalse(recorded.is_error)
-                status = await client.call_tool("project_status", {
-                    "project_id": "project:test", "as_of": "2999-01-01T00:00:00"})
-                self.assertFalse(status.is_error)
-                self.assertEqual(status.structured_content["next_actions"][0]["action"],
-                                 "Connect another model")
-                resumed = await client.call_tool("resume_project", {
-                    "project_id": "project:test", "as_of": "2999-01-01T00:00:00"})
-                self.assertEqual(resumed.structured_content["objective"]["value"],
-                                 "Persistent cross-model memory")
-                explained = await client.call_tool("explain_decision", {
-                    "project_id": "project:test", "decision_id": "storage",
-                    "as_of": "2999-01-01T00:00:00"})
-                self.assertEqual(explained.structured_content["decision_reason"],
-                                 "Preserve audit history")
+                indexed = await client.call_tool("brain_folder", {"reindex": True})
+                self.assertFalse(indexed.is_error)
+                self.assertIn("vectors_warmed", indexed.structured_content)
 
             with DevelopmentMemoryStore(db) as reopened:
                 result = reopened.resume_project("project:test", as_of="2999-01-01T00:00:00")
-            self.assertEqual(result["next_actions"][0]["action"], "Connect another model")
+            self.assertEqual(result["objective"]["value"], "Persistent cross-model memory")
 
 
 if __name__ == "__main__":

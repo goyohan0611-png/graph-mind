@@ -5,6 +5,7 @@ capture service stores a day of turns. Before, the server met hundreds of unembe
 them to a background fill and searched none of them by meaning. Now the service embeds what it
 stores, and the server picks those vectors up from the shared cache before it searches.
 """
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from unittest import mock
 import tempfile

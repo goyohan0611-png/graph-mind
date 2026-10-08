@@ -1,3 +1,4 @@
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 import unittest
 
 from longmemeval_adapter import (evidence_session_ids_from_turns, flatten_turns,

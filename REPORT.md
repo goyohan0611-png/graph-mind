@@ -505,9 +505,10 @@ number above can be recomputed or disputed from the artefacts.
 An MCP server; the memory is SQLite files plus a local vector cache in a folder the user chooses.
 
 - `brain_remember` — store a memory; it is indexed and embedded on the way in
-- `brain_recall` / `brain_context` / `brain_associate` — retrieve (~2.4k tokens of verbatim evidence)
-- `brain_timeline` — one entity's history, oldest first, superseded entries marked
-- `brain_index` — bring an imported backlog up to date
+- `brain_context` / `brain_recall` — retrieve (a few thousand tokens of verbatim evidence);
+  `brain_recall(entity=...)` gives one entity's history, oldest first, superseded entries marked
+- `brain_folder` — where the memory lives, sharing across PCs, reindexing an imported backlog
+- `code_activity` — indexed code changes (0.2.0 cut the server from thirteen tools to these five)
 
 Set `GRAPH_MIND_FOLDER` to a synced folder (Dropbox, OneDrive, Syncthing) or a USB stick and each
 device writes its own file inside it while reads merge across all of them: several machines, no

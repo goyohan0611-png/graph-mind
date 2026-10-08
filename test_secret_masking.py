@@ -1,4 +1,5 @@
 """Secrets never reach the store: not from captured chat, and not from a proactive brain_remember."""
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import tempfile
 import unittest

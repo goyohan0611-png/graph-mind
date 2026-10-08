@@ -1,3 +1,4 @@
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 import unittest
 
 from executable_plan_v2_diagnostic import structural_audit

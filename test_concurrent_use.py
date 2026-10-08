@@ -1,4 +1,5 @@
 """Claude, Codex and the capture service write one memory file from separate processes at once."""
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import subprocess
 import sys

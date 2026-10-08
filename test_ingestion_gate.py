@@ -1,3 +1,4 @@
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 import unittest
 
 from ingestion_gate import GateStatus, classify_event

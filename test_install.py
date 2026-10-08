@@ -1,5 +1,6 @@
 """install.py on a fresh, fake home: every app found gets the memory server, a second run (or a
 run after moving the folder) leaves exactly one entry, and the user's other settings survive."""
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from unittest import mock
 import base64

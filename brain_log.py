@@ -48,7 +48,10 @@ def device_name() -> str:
 def config_path() -> Path:
     """Where the chosen brain folder is remembered for every client on this machine."""
     override = os.environ.get("GRAPH_MIND_CONFIG")
-    return Path(override) if override else Path.home() / ".graph-mind" / "config.json"
+    if override:
+        return Path(override)
+    from development_paths import graph_mind_home
+    return graph_mind_home() / "config.json"            # ~/.graph-mind unless GRAPH_MIND_HOME
 
 
 def _config() -> dict:

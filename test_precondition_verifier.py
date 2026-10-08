@@ -1,3 +1,4 @@
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 import unittest
 
 from precondition_verifier import normalize_phrase, verify_preconditions

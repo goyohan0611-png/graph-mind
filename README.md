@@ -146,19 +146,14 @@ private keys, and passwords inside URLs.
 
 | tool | what it does |
 |---|---|
-| `brain_context` | a bounded packet of the memories and conversation turns that answer a request |
-| `brain_recall` | inspect memories and captured turns directly |
-| `brain_remember` | save a sourced memory (secrets masked) |
-| `brain_associate` | recall from a vague cue |
-| `brain_timeline` | everything about one thing, oldest first, with replaced entries marked |
-| `brain_folder` | show or choose where the memory lives; share it with other PCs |
-| `brain_index` | bring an imported backlog up to date |
-| `conversation_recall` | search the captured turns themselves |
-| `code_activity` | what changed in a project, file or symbol, and when |
-| `memory_record` | record a development event or decision |
-| `project_status` | current state of a project |
-| `resume_project` | everything needed to pick a project back up |
-| `explain_decision` | a decision, its reason and its history |
+| `brain_context` | a bounded packet of the past turns and memories that answer a request; `recent=true` for "where did we leave off?" |
+| `brain_recall` | look memories and captured turns up directly; `entity=` for everything about one thing, in order |
+| `brain_remember` | save a sourced memory or decision (secrets masked) |
+| `brain_folder` | where the memory lives; share it with your other PCs; reindex an imported backlog |
+| `code_activity` | what changed in a project, file or symbol, and when (when a code folder is watched) |
+
+Five tools on purpose: every tool's description is read by the model on every turn, and similar
+tools get confused with each other. Version 0.1 had thirteen.
 
 ---
 

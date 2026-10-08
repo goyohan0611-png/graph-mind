@@ -4,6 +4,7 @@ What has to hold for it to feel like one memory and not two machines reading eac
 saved on one PC is recalled on the other; a fact corrected on the second PC replaces the first PC's
 version everywhere; and nothing but plain log lines is ever written into the shared folder.
 """
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from contextlib import contextmanager
 import importlib.util
@@ -69,7 +70,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual([m["memory_id"] for m
                                       in now.structured_content["matches"]], [busan],
                                      "the correction made on the laptop holds on the desktop")
-                    history = await desktop.call_tool("brain_timeline", {"entity": "사는 곳"})
+                    history = await desktop.call_tool("brain_recall", {"entity": "사는 곳"})
                     entries = history.structured_content["entries"]
                     self.assertEqual([e["memory_id"] for e in entries], [seoul, busan])
                     self.assertTrue(entries[0]["superseded"])
@@ -128,6 +129,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
             root = Path(directory)
             port, brain_log.PORT = brain_log.PORT, 54391        # never the real hub's port
             brain_log._LOCAL_URI.clear()
+            home_before = os.environ["GRAPH_MIND_HOME"]          # the isolated one (_isolate)
             os.environ["GRAPH_MIND_HOME"] = str(root / "home")
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
@@ -165,8 +167,9 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                     brain_log.set_folder("gm1.not-a-code")
             finally:
                 wait_for_index()
-                for name in ("GRAPH_MIND_DEVICE", "GRAPH_MIND_CONFIG", "GRAPH_MIND_HOME"):
+                for name in ("GRAPH_MIND_DEVICE", "GRAPH_MIND_CONFIG"):
                     os.environ.pop(name, None)
+                os.environ["GRAPH_MIND_HOME"] = home_before
                 if (root / "home" / "postgres" / "postmaster.pid").exists():
                     pg_ctl(["-w", "-m", "fast", "stop"], pgdata=root / "home" / "postgres")
                 brain_log.PORT = port

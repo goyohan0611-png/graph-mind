@@ -15,7 +15,6 @@ from mcp.server import MCPServer
 from associative_memory import AssociativeMemoryIndex
 from coding_memory import CodingMemoryStore
 from conversation_memory import ConversationMemoryStore
-from development_memory import DevelopmentMemoryStore
 from development_paths import default_development_db
 from local_brain import LocalBrainStore
 from universal_personal_memory import build_context_pack, decide_recall
@@ -26,14 +25,6 @@ if hasattr(sys.stderr, "reconfigure"):
 
 
 SERVER_VERSION = "0.5.0"
-RecordableEventType = Literal[
-    "OBJECTIVE_SET", "TASK_STARTED", "TASK_COMPLETED", "TASK_BLOCKED",
-    "TASK_CANCELLED", "FILE_CHANGED", "DECISION_RECORDED", "TEST_RECORDED",
-    "NEXT_ACTION_SET", "NEXT_ACTION_COMPLETED", "SESSION_SUMMARY",
-    "EXPERIMENT_STARTED", "EXPERIMENT_STOPPED",
-]
-
-
 # The embedding model is loaded from the local Hugging Face cache, but the library still asks the
 # hub over the network whether a newer revision exists, every time it loads. That made the first
 # save of a session take ~95 s and sent requests off the machine for no reason. Once the model is
@@ -346,17 +337,12 @@ def build_server(db_path=None):
             "stored or noted something, and do not add lines like 'I saved that to memory'. "
             "Mention memory only when the user asks what you remember or whether it was saved. "
             "Call brain_context first when a request may depend on the user's prior conversations, "
-            "facts, preferences, documents, projects or work. It skips unrelated requests and "
-            "returns a bounded evidence packet instead of replaying full history. Use brain_recall "
-            "for direct memory inspection. It searches curated memories and automatically captured "
-            "conversation turns without requiring a project ID. Use brain_associate for vague cues "
-            "or indirect reminders, then verify its candidate sources with the deterministic tools. "
-            "For questions about code changed in a time range, project, file or symbol, translate "
-            "the wording into code_activity filters and use its indexed evidence. "
-            "Call project_status or resume_project when an exact project ID is already known. "
-            "Treat scope_completeness=UNATTESTED as partial observed history. "
-            "Use brain_remember for general sourced memories and memory_record for sourced "
-            "development events. Preserve provenance."
+            "facts, preferences, decisions, projects or work, including 'where did we leave off?'. "
+            "It skips unrelated requests and returns a bounded evidence packet instead of "
+            "replaying full history. Use brain_recall to look memories up directly, or with "
+            "`entity` for the history of one thing in order. For code changed in a time range, "
+            "project, file or symbol, use code_activity. brain_folder shows or changes where the "
+            "memory lives and shares it with the user's other PCs. Preserve provenance."
         ),
         version=SERVER_VERSION,
     )
@@ -395,6 +381,8 @@ def build_server(db_path=None):
         required: put the user's own sentence there verbatim. Add `entities` (who or what it is
         about) and `effective_at` (when it happened, ISO time) when you know them. If it updates
         something remembered earlier, pass that memory's id as `supersedes_memory_id`.
+        Decisions and their reasons are memories too: `memory_type="decision"`, the reason in
+        `content`, the project or component in `entities`.
 
         Save silently. Do not tell the user you saved it ("I've noted that", "저장해 뒀어"); just
         carry on with the conversation. Talk about memory only if the user asks what you remember
@@ -443,14 +431,21 @@ def build_server(db_path=None):
             openWorldHint=False,
         ),
     )
-    def brain_recall(query: str, scopes: list[str] | None = None,
+    def brain_recall(query: str = "", entity: str | None = None,
+                     scopes: list[str] | None = None,
                      as_of: str | None = None,
                      knowledge_cutoff: str | None = None,
                      limit: int = 8, recent: bool = False,
                      since: str | None = None,
                      about_assistant: bool = False,
                      around: str | None = None) -> dict[str, Any]:
-        """Recall relevant local memories from natural wording without requiring a project ID.
+        """Look up memories and captured conversation turns directly, from natural wording.
+
+        `entity` instead answers "what happened to X, in order": every memory about that one
+        thing (the auth module, this project, my address), oldest first, with replaced entries
+        marked and the current one picked out. Similarity search returns only the nearest one or
+        two of four decisions made about one thing in four sessions; this returns all four. With
+        neither `query` nor `entity`, it lists what the store knows about, busiest first.
 
         Set `recent=true` whenever the question is about what happened lately or what the user was
         just doing: "what was I working on?", "where did we leave off?", "what did I do
@@ -467,6 +462,21 @@ def build_server(db_path=None):
         mention events days or weeks before or after, so that date misleads (measured: on dev2
         it pushed the answering turn out in 2 of 11 questions and helped 2).
         """
+        if entity or not query:
+            import sqlite3
+
+            import entity_timeline as timeline_index
+            shared_sync(database)              # every device's memories are in this one index
+            db = sqlite3.connect(database)
+            try:
+                if not entity:
+                    return {"entities": timeline_index.entities(db, limit=max(limit, 50))}
+                rows = timeline_index.timeline(db, entity, limit=max(limit, 50))
+            finally:
+                db.close()
+            current = [r for r in rows if not r["superseded"]]
+            return {"entity": entity, "entries": rows, "count": len(rows),
+                    "current": current[-1] if current else None}
         return gather(database, query, scopes=scopes, as_of=as_of or _now(),
                       knowledge_cutoff=knowledge_cutoff, limit=limit, recent=recent, since=since,
                       about_assistant=about_assistant, around=around)
@@ -527,75 +537,6 @@ def build_server(db_path=None):
         return packet
 
     @server.tool(
-        name="brain_associate",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
-        ),
-    )
-    def brain_associate(query: str, scopes: list[str] | None = None,
-                        concept_cues: list[str] | None = None,
-                        seed_limit: int = 12, hops: int = 2,
-                        fanout: int = 12, max_nodes: int = 40,
-                        limit: int = 8,
-                        minimum_concept_coverage: float = 0.75,
-                        grounding: str = "semantic",
-                        semantic_threshold: float = 0.35) -> dict[str, Any]:
-        """Recall indirect candidate memories through bounded associative activation.
-
-        grounding="semantic" (default, v0.7.3): on-device embedding pipeline — FTS seed ->
-          local-embedding semantic gate -> query re-ranking. On untouched production evals it
-          recovers Korean paraphrase recall (Vague Hit@5 0%->57%) at 0% control false association,
-          and matches or beats literal on exact. Loads a local model lazily; all text stays on-device.
-        grounding="auto": cheap literal gate first, semantic fallback only when literal abstains.
-        grounding="literal": the deterministic token-overlap coverage gate only.
-        """
-        with AssociativeMemoryIndex(database) as index:
-            if grounding in ("semantic", "auto"):
-                from semantic_recall import (auto_associate, default_embedder,
-                                             semantic_associate)
-                embedder = default_embedder(database)
-                if grounding == "auto":
-                    result = auto_associate(index, query, concept_cues, embedder=embedder,
-                        literal_gate=minimum_concept_coverage,
-                        semantic_threshold=semantic_threshold, scopes=scopes)
-                else:
-                    result = semantic_associate(index, query, concept_cues,
-                        embedder=embedder, scopes=scopes, threshold=semantic_threshold)
-            else:
-                result = index.activate(query, scopes=scopes, concept_cues=concept_cues,
-                    seed_limit=seed_limit, hops=hops, fanout=fanout,
-                    max_nodes=max_nodes, limit=limit,
-                    minimum_concept_coverage=minimum_concept_coverage)
-        result["evidence_status"] = "CANDIDATES_REQUIRE_SOURCE_VERIFICATION"
-        return result
-
-    @server.tool(
-        name="brain_index",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=False,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
-        ),
-    )
-    def brain_index(limit: int = 1000) -> dict[str, Any]:
-        """Bring the search index up to date: link new memories, then embed the unembedded ones.
-
-        brain_remember already does this for what it writes; run this after importing a backlog, or
-        on a store that was written by an older version.
-        """
-        from embedding_warmup import warm
-        with AssociativeMemoryIndex(database) as index:
-            synced = index.sync_sources(limit=limit)
-        return {"synced": synced, "vectors_warmed": warm(database, limit=limit),
-                "store": str(database)}
-
-    @server.tool(
         name="brain_folder",
         structured_output=True,
         annotations=types.ToolAnnotations(
@@ -605,7 +546,8 @@ def build_server(db_path=None):
             openWorldHint=False,
         ),
     )
-    def brain_folder(path: str | None = None, share_existing: bool = False) -> dict[str, Any]:
+    def brain_folder(path: str | None = None, share_existing: bool = False,
+                     reindex: bool = False) -> dict[str, Any]:
         """Show or choose the folder that holds the user's brain.
 
         Call it with `path` when the user names a folder for their memory, e.g. "use my Google
@@ -624,7 +566,16 @@ def build_server(db_path=None):
 
         `share_existing=true` copies what this PC already remembered into the folder, which uploads
         it to wherever the folder syncs. Set it only when the user has explicitly agreed to that.
+
+        `reindex=true` brings the search index up to date (links new memories, embeds unembedded
+        ones). Saving already does this; it is for a large imported backlog.
         """
+        if reindex:
+            from embedding_warmup import warm
+            with AssociativeMemoryIndex(database) as index:
+                synced = index.sync_sources(limit=1000)
+            return {"synced": synced, "vectors_warmed": warm(database, limit=1000),
+                    "store": str(database)}
         from brain_log import device_name, devices, export_history, folder, set_folder, share, sync
         shared_out = None
         if path == "share":
@@ -655,62 +606,6 @@ def build_server(db_path=None):
                                                        "setting share_existing=true"}
 
     @server.tool(
-        name="brain_timeline",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
-        ),
-    )
-    def brain_timeline(entity: str | None = None, limit: int = 50) -> dict[str, Any]:
-        """Every memory about ONE thing, oldest first, with replaced entries marked.
-
-        Similarity search answers "what relates to this question"; this answers "what happened to
-        the auth module / this project / this device, in order". Those are the questions that keep
-        failing otherwise, because the four decisions about one thing sit in four different
-        sessions and only the nearest one or two come back. Call it with no entity to list what the
-        store knows about, busiest first.
-        """
-        import sqlite3
-
-        import entity_timeline as timeline_index
-
-        shared_sync(database)                  # every device's memories are in this one index
-        db = sqlite3.connect(database)
-        try:
-            if not entity:
-                return {"entities": timeline_index.entities(db, limit=limit)}
-            rows = timeline_index.timeline(db, entity, limit=limit)
-        finally:
-            db.close()
-        current = [r for r in rows if not r["superseded"]]
-        return {"entity": entity, "entries": rows[:limit], "count": len(rows),
-                "current": current[-1] if current else None}
-
-    @server.tool(
-        name="conversation_recall",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
-        ),
-    )
-    def conversation_recall(query: str, scopes: list[str] | None = None,
-                            limit: int = 10) -> dict[str, Any]:
-        """Search redacted conversation turns captured after Local Brain activation."""
-        try:
-            with ConversationMemoryStore(database) as store:
-                return store.search(query, scopes=scopes, limit=limit)
-        except ValueError as error:
-            return {"status": "UNKNOWN", "reason": "INVALID_CONVERSATION_QUERY",
-                    "detail": str(error), "scope_completeness": "UNATTESTED",
-                    "turns": []}
-
-    @server.tool(
         name="code_activity",
         structured_output=True,
         annotations=types.ToolAnnotations(
@@ -728,7 +623,10 @@ def build_server(db_path=None):
                       change_kind: str | None = None,
                       limit: int = 20,
                       max_diff_chars: int = 6000) -> dict[str, Any]:
-        """Return indexed code changes and diff evidence without rereading a repository."""
+        """Code changes the capture service recorded, with diff excerpts, filtered by project,
+        time range (`happened_from`/`happened_to`, ISO), file, symbol or kind. For "what did I
+        change in auth.py last week?" or "when did the parser change?". Empty unless a code folder
+        is being watched (automatic-capture.json, code_workspaces)."""
         try:
             bounded_diff_chars = max(200, min(max_diff_chars, 20000))
             with CodingMemoryStore(database) as store:
@@ -740,100 +638,6 @@ def build_server(db_path=None):
             return {"status": "UNKNOWN", "reason": "INVALID_CODE_ACTIVITY_QUERY",
                     "detail": str(error), "scope_completeness": "UNATTESTED",
                     "changes": []}
-
-    @server.tool(
-        name="memory_record",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=False,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=False,
-        ),
-    )
-    def memory_record(project_id: str, session_id: str, event_type: RecordableEventType,
-                      subject_id: str, payload: dict[str, Any], source_ref: str,
-                      effective_at: str | None = None,
-                      source_type: str = "mcp-client",
-                      supersedes_event_id: str | None = None,
-                      event_id: str | None = None) -> dict[str, Any]:
-        """Append one sourced development event without overwriting prior history."""
-        known_at = _now()
-        event = {"event_id": event_id or "mcp-" + uuid.uuid4().hex,
-            "project_id": project_id, "session_id": session_id,
-            "event_type": event_type, "effective_at": effective_at or known_at,
-            "known_at": known_at, "actor": "assistant", "subject_id": subject_id,
-            "payload": payload,
-            "provenance": {"source_type": source_type, "source_ref": source_ref},
-            "supersedes_event_id": supersedes_event_id}
-        with DevelopmentMemoryStore(database) as store:
-            result = store.record_event(event)
-        return {**result, "project_id": project_id, "store": str(database)}
-
-    @server.tool(
-        name="project_status",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
-        ),
-    )
-    def project_status(project_id: str, as_of: str | None = None,
-                       knowledge_cutoff: str | None = None) -> dict[str, Any]:
-        """Return the current objective, active work and next actions for a project."""
-        when = as_of or _now()
-        with DevelopmentMemoryStore(database) as store:
-            resumed = store.resume_project(project_id, as_of=when,
-                                           knowledge_cutoff=knowledge_cutoff)
-        if resumed["status"] != "KNOWN":
-            return resumed
-        return {key: resumed[key] for key in (
-            "status", "reason", "project_id", "as_of", "knowledge_cutoff",
-            "scope_completeness", "warnings", "objective", "current_task",
-            "open_tasks", "next_actions", "active_experiments", "last_session",
-            "evidence_event_ids")}
-
-    @server.tool(
-        name="resume_project",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
-        ),
-    )
-    def resume_project(project_id: str, as_of: str | None = None,
-                       knowledge_cutoff: str | None = None,
-                       recent_file_limit: int = 10,
-                       recent_test_limit: int = 10) -> dict[str, Any]:
-        """Build a full evidence-backed packet for continuing work in a new session."""
-        when = as_of or _now()
-        with DevelopmentMemoryStore(database) as store:
-            return store.resume_project(project_id, as_of=when,
-                knowledge_cutoff=knowledge_cutoff, recent_file_limit=recent_file_limit,
-                recent_test_limit=recent_test_limit)
-
-    @server.tool(
-        name="explain_decision",
-        structured_output=True,
-        annotations=types.ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
-        ),
-    )
-    def explain_decision(project_id: str, decision_id: str,
-                         as_of: str | None = None,
-                         knowledge_cutoff: str | None = None) -> dict[str, Any]:
-        """Return the active decision, reason, correction history and provenance."""
-        when = as_of or _now()
-        with DevelopmentMemoryStore(database) as store:
-            return store.explain_decision(project_id, decision_id, as_of=when,
-                                          knowledge_cutoff=knowledge_cutoff)
 
     return server
 

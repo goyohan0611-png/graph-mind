@@ -7,6 +7,7 @@ question, whether the item that actually answers it reaches the top three of the
 
     python -m unittest test_recent_recall -v     # also prints the before/after table
 """
+import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import tempfile
 import unittest

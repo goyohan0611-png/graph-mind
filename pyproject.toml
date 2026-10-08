@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local-first memory for AI coding assistants: verbatim, on your own PC, no LLM calls at write time."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,6 +39,7 @@ Issues = "https://github.com/goyohan0611-png/graph-mind/issues"
 graph-mind = "graph_mind_mcp_server:main"
 graph-mind-install = "install:main"
 graph-mind-capture = "automatic_capture_cli:main"
+graph-mind-forget = "forget:main"
 
 [tool.setuptools]
 # ponytail: flat modules, as in the repository; a graph_mind/ package is the upgrade path.
@@ -54,6 +55,7 @@ py-modules = [
     "development_paths",
     "embedding_warmup",
     "entity_timeline",
+    "forget",
     "graph_mind_mcp_server",
     "install",
     "local_brain",

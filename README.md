@@ -140,6 +140,19 @@ Then restart your AI apps. The server is also listed in the
 Before anything is stored, these are masked: API keys, tokens from GitHub, AWS, Google and Slack,
 private keys, and passwords inside URLs.
 
+Only what you actually send is captured: the service reads each app's transcript, which is written
+after you press Enter, so a paste you delete before sending never reaches it. A plain password
+like `hunter2` has no recognizable format and is **not** masked. To remove something:
+
+```bash
+graph-mind-forget          # asks for the phrase without showing it, then confirms
+```
+
+It deletes every captured turn and memory containing the phrase from this PC and its indexes,
+removes their lines from the shared memory, and tells your other PCs to delete their copies on
+their next sync. Only ids are shared for that, never the phrase. Your AI app's own history
+(for Claude Code, `~/.claude/projects`) is separate and is not touched.
+
 ---
 
 ## MCP tools

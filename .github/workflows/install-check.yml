@@ -42,3 +42,5 @@ jobs:
         run: graph-mind-capture once
       - name: Server works
         run: python .github/smoke_install.py
+      - name: Forget command runs
+        run: graph-mind-forget "no-such-phrase-anywhere" --yes

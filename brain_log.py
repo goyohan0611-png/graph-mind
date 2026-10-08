@@ -36,7 +36,7 @@ import platform
 import re
 import sqlite3
 
-KINDS = ("memory", "turn")
+KINDS = ("memory", "turn", "forget")   # forget: ids another PC erased (forget.py)
 
 
 def device_name() -> str:
@@ -426,6 +426,8 @@ def sync(shared: Path, index: Path) -> dict:
             except ValueError:
                 continue                                  # a corrupt line is skipped, not fatal
         items.sort(key=lambda pair: pair[0].get("written_at", ""))
+        forgets = [item["record"] for item, _ in items if item.get("kind") == "forget"]
+        items = [(item, line) for item, line in items if item.get("kind") != "forget"]
         imported, conflicts, waiting = 0, 0, []
         with LocalBrainStore(index) as brain, ConversationMemoryStore(index) as turns:
             # A supersession can arrive before the memory it replaces when two devices' logs are
@@ -450,6 +452,10 @@ def sync(shared: Path, index: Path) -> dict:
                 if not progress:
                     waiting = [line for _, line in retry]
                     break
+        if forgets:                         # after the imports: a forgotten turn may be in them
+            from forget import erase
+            for record in forgets:
+                erase(index, record)
         with db:
             db.execute("DELETE FROM brain_log_pending")
             db.executemany("INSERT OR IGNORE INTO brain_log_pending VALUES(?)",

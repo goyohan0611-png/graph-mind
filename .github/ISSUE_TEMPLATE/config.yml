@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Commercial license
+    url: https://github.com/goyohan0611-png/graph-mind/blob/main/COMMERCIAL.md
+    about: Using Graph-MIND in a closed-source product or hosted service

@@ -26,6 +26,26 @@ class SecretMaskingTests(unittest.IsolatedAsyncioTestCase):
                          "postgresql://graph:[REDACTED]@100.64.1.2:5432/brain")
         self.assertEqual(_redact("김치볶음밥 먹었어, postgres://me@localhost/db")[1], 0)
 
+    def test_passwords_after_their_name(self):
+        self.assertEqual(_redact("wifi password: qwer1234! ok")[0], "wifi password: [REDACTED] ok")
+        self.assertEqual(_redact("PWD=hunter2")[0], "PWD=[REDACTED]")
+        self.assertEqual(_redact("회의실 비밀번호: 7788ab 이야")[0], "회의실 비밀번호: [REDACTED] 이야")
+        self.assertEqual(_redact("비번=abcd")[0], "비번=[REDACTED]")
+        self.assertEqual(_redact("I forgot my password again")[1], 0)
+
+    def test_unknown_random_tokens(self):
+        """A token from a service no pattern knows is still masked by how random it looks;
+        what people recall on purpose (commit ids, hashes, UUIDs, code names, model names) is not."""
+        for token in ("x7Kq9mP2vL8nR4tY6wZ3aB5c", "tok_Q2w9ErT5yU8iO1pA3sD6fG7h",
+                      "Cj0KCQiA2af-BRDzARIsAIVQUOdNiV5qT"):
+            self.assertEqual(_redact(f"use {token} here")[0], "use [REDACTED_SECRET] here", token)
+        for kept in ("a1e104c9d2f3b4a5c6d7e8f90123456789abcdef",          # commit id
+                     "550e8400-e29b-41d4-a716-446655440000",              # UUID
+                     "Supermarketdata_exclude_store10_dept_summary",       # code name
+                     "paraphrase-multilingual-MiniLM-L12-v2",              # model name
+                     "test_connection_code_joins_another_pc2"):
+            self.assertEqual(_redact(f"see {kept} now")[1], 0, kept)
+
     async def test_brain_remember_masks_what_it_saves(self):
         secret = "sk-proj-" + "z" * 40
         with tempfile.TemporaryDirectory() as directory:

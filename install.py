@@ -96,7 +96,9 @@ def codex(home: Path) -> str:
                 kept.append(line)
         text = "\n".join(kept).rstrip() + "\n"
     environment = "\n".join(f"{key} = '{value}'" for key, value in ENV.items())
-    text += (f"\n{header}\ncommand = '{sys.executable}'\nargs = ['{SERVER}']\n\n"
+    # required: otherwise Codex leaves out a server still starting when the first question comes
+    text += (f"\n{header}\nrequired = true\nstartup_timeout_sec = 60\n"
+             f"command = '{sys.executable}'\nargs = ['{SERVER}']\n\n"
              f"[mcp_servers.{NAME}.env]\n{environment}\n")
     config.write_text(text, encoding="utf-8")
     return "Codex"

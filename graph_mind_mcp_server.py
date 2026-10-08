@@ -848,7 +848,11 @@ def preload(database):
             embedder_for(database).embed(["preload"])
         except Exception:                 # no model on disk: word search still answers
             pass
-    threading.Thread(target=work, name="graph-mind-preload", daemon=True).start()
+    # after a pause: importing torch while the app is still starting its servers delayed the
+    # handshake (19 s inside Codex), and Codex leaves out a server that is not ready yet
+    timer = threading.Timer(15, work)
+    timer.daemon = True
+    timer.start()
 
 
 if __name__ == "__main__":

@@ -159,7 +159,7 @@ def capture_service(start: bool) -> str:
 
 def embedding_model():
     sys.path.insert(0, str(HERE))
-    from local_embedder import LOCAL_MODEL, own_model_cache
+    from local_embedder import LOCAL_MODEL, own_hf_home
     try:
         from transformers import AutoModel, AutoTokenizer
     except OSError as error:
@@ -172,20 +172,24 @@ def embedding_model():
                  "    https://aka.ms/vs/17/release/vc_redist.x64.exe\n"
                  "The apps are already connected; until then recall works by word search only.")
 
-    def download(cache_dir):
-        AutoTokenizer.from_pretrained(LOCAL_MODEL, cache_dir=cache_dir)
-        AutoModel.from_pretrained(LOCAL_MODEL, cache_dir=cache_dir)
     try:
-        download(None)
+        AutoTokenizer.from_pretrained(LOCAL_MODEL)
+        AutoModel.from_pretrained(LOCAL_MODEL)
     except OSError as error:
-        # ~/.cache refused (access denied): keep the model in Graph-MIND's own folder instead,
-        # where the server looks too (local_embedder.model_cache)
+        # ~/.cache refused (access denied): move Hugging Face's whole home under ~/.graph-mind,
+        # where every Graph-MIND process looks from now on (local_embedder.use_own_hf_home)
         if "PermissionError" not in str(error) and not isinstance(error.__cause__, PermissionError):
             raise
-        own = own_model_cache()
+        own = own_hf_home()
         own.mkdir(parents=True, exist_ok=True)
         step(f"the usual model folder is not writable; using {own}")
-        download(str(own))
+        # huggingface_hub fixed its folders when it was imported: download in a fresh process
+        subprocess.run([sys.executable, "-c",
+                        "from transformers import AutoModel, AutoTokenizer; "
+                        f"AutoTokenizer.from_pretrained({LOCAL_MODEL!r}); "
+                        f"AutoModel.from_pretrained({LOCAL_MODEL!r})"],
+                       env={**os.environ, "HF_HOME": str(own),
+                            "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"}, check=True)
 
 
 def main(argv=None):

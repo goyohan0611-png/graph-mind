@@ -68,27 +68,27 @@ class InstallTests(unittest.TestCase):
 
 
     def test_model_goes_to_own_folder_when_the_usual_cache_is_locked(self):
-        """A fresh Windows profile refused ~/.cache (access denied); the model then lives in
-        ~/.graph-mind/models, which the server also reads (local_embedder.model_cache)."""
+        """A fresh Windows profile refused ~/.cache (access denied): Hugging Face's whole home
+        moves to ~/.graph-mind/huggingface, and every later process is pointed there."""
         import types
-        calls = []
 
         class Fake:
             @staticmethod
-            def from_pretrained(name, cache_dir=None):
-                calls.append(cache_dir)
-                if cache_dir is None:
-                    denied = PermissionError(5, "Access is denied")
-                    raise OSError("PermissionError at ~/.cache/huggingface") from denied
+            def from_pretrained(name):
+                denied = PermissionError(5, "Access is denied")
+                raise OSError("PermissionError at ~/.cache/huggingface") from denied
         fake = types.SimpleNamespace(AutoModel=Fake, AutoTokenizer=Fake)
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
-                mock.patch.dict(sys.modules, {"transformers": fake}):
+                mock.patch.dict(sys.modules, {"transformers": fake}), \
+                mock.patch("install.subprocess.run") as retry:
+            os.environ.pop("HF_HOME", None)
             install.embedding_model()
+            own = str(Path(directory) / "huggingface")
+            self.assertEqual(retry.call_args.kwargs["env"]["HF_HOME"], own)
             import local_embedder
-            self.assertEqual(local_embedder.model_cache(), str(Path(directory) / "models"))
-        self.assertIsNone(calls[0])
-        self.assertTrue(calls[-1].endswith("models"))
+            local_embedder.use_own_hf_home()          # what the server does when it starts
+            self.assertEqual(os.environ["HF_HOME"], own)
 
 
 if __name__ == "__main__":

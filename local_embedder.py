@@ -19,22 +19,26 @@ ACTIVATE = dict(seed_limit=12, hops=2, fanout=8, max_nodes=24, limit=8)  # froze
 SEED_LIMIT = ACTIVATE["seed_limit"]
 
 
-def own_model_cache() -> Path:
+def own_hf_home() -> Path:
     from development_paths import graph_mind_home
-    return graph_mind_home() / "models"
+    return graph_mind_home() / "huggingface"
 
 
-def model_cache():
-    """None means Hugging Face's usual cache. Graph-MIND's own folder once the installer had to
-    use it: on one fresh Windows profile ~/.cache could not be written (access denied)."""
-    own = own_model_cache()
-    return str(own) if own.is_dir() else None
+def use_own_hf_home() -> None:
+    """Hugging Face keeps everything under HF_HOME (~/.cache/huggingface): the model, its xet
+    download cache, its lock files. On one fresh Windows profile that folder could not be created
+    (access denied), so the installer moved all of it under ~/.graph-mind; from then on every
+    process must look there. Read before huggingface_hub is imported, which fixes the paths."""
+    if not os.environ.get("HF_HOME") and own_hf_home().is_dir():
+        os.environ["HF_HOME"] = str(own_hf_home())
+
+
+use_own_hf_home()
 
 
 def model_on_disk() -> bool:
-    name = "models--" + LOCAL_MODEL.replace("/", "--")
-    usual = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface") / "hub"
-    return (usual / name).is_dir() or (own_model_cache() / name).is_dir()
+    hf_home = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface")
+    return (hf_home / "hub" / ("models--" + LOCAL_MODEL.replace("/", "--"))).is_dir()
 
 
 class LocalEmbedder:
@@ -61,10 +65,8 @@ class LocalEmbedder:
         if LocalEmbedder._model is None:
             import torch
             from transformers import AutoModel, AutoTokenizer
-            cache = model_cache()
-            LocalEmbedder._tok = AutoTokenizer.from_pretrained(self.model_name, cache_dir=cache)
-            LocalEmbedder._model = AutoModel.from_pretrained(self.model_name,
-                                                             cache_dir=cache).eval()
+            LocalEmbedder._tok = AutoTokenizer.from_pretrained(self.model_name)
+            LocalEmbedder._model = AutoModel.from_pretrained(self.model_name).eval()
             LocalEmbedder._torch = torch
 
     def _key(self, text):

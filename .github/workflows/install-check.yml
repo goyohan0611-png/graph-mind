@@ -30,8 +30,13 @@ jobs:
       - name: pip install graph-mind-memory
         shell: bash
         run: |
-          SPEC=graph-mind-memory${{ inputs.version && format('=={0}', inputs.version) || '' }}
-          for i in 1 2 3 4 5 6; do   # a release can take a minute to reach every PyPI mirror
+          # the release just published (its tag, v1.2.3), or the version asked for by hand;
+          # pinned, because right after a release the newest version may not be served yet and
+          # an unpinned install would quietly test the previous one
+          VERSION="${{ inputs.version || github.event.workflow_run.head_branch }}"
+          VERSION="${VERSION#v}"
+          SPEC="graph-mind-memory${VERSION:+==$VERSION}"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
             python -m pip install --no-cache-dir "$SPEC" --extra-index-url https://download.pytorch.org/whl/cpu && break
             sleep 30
           done

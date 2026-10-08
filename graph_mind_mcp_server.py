@@ -342,7 +342,9 @@ def build_server(db_path=None):
             "replaying full history. Use brain_recall to look memories up directly, or with "
             "`entity` for the history of one thing in order. For code changed in a time range, "
             "project, file or symbol, use code_activity. brain_folder shows or changes where the "
-            "memory lives and shares it with the user's other PCs. Preserve provenance."
+            "memory lives and shares it with the user's other PCs. When the user asks to "
+            "delete something from memory, use brain_forget: list first, delete only what the "
+            "user picks. Preserve provenance."
         ),
         version=SERVER_VERSION,
     )
@@ -604,6 +606,67 @@ def build_server(db_path=None):
                 "imported_from_other_devices": imported["imported"],
                 "existing_memories_shared": exported or "not shared; ask the user before "
                                                        "setting share_existing=true"}
+
+    @server.tool(
+        name="brain_forget",
+        structured_output=True,
+        annotations=types.ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=True,
+            openWorldHint=False,
+        ),
+    )
+    def brain_forget(query: str | None = None, ids: list[str] | None = None) -> dict[str, Any]:
+        """Delete what the user wants gone from memory: "delete the password I typed earlier",
+        "그 토큰 지워줘", "forget what I said about my ex".
+
+        Always two calls. First `query`: what to look for, in general words ("password", "wifi",
+        "DB login"); never repeat a secret the user typed. It returns numbered candidates with
+        masked previews. Show the user exactly those previews and ask which to delete; never
+        quote the original text. Then call again with the `ids` the user picked, and only those.
+
+        Deleting removes them from this PC, its search indexes, the shared memory and the user's
+        other PCs. This exchange about deleting is not saved either. The AI app's own chat
+        history is separate and untouched (Claude Code keeps ~/.claude/projects).
+        """
+        import sqlite3
+
+        from forget import forget_ids, masked_preview
+        if ids:
+            db = sqlite3.connect(database, timeout=30)
+            try:
+                turns = [row[0] for row in db.execute(
+                    "SELECT turn_id FROM conversation_turns WHERE turn_id IN ("
+                    + ",".join("?" * len(ids)) + ")", ids)]
+                memories = [row[0] for row in db.execute(
+                    "SELECT memory_id FROM local_brain_memories WHERE memory_id IN ("
+                    + ",".join("?" * len(ids)) + ")", ids)]
+            except sqlite3.OperationalError:
+                turns, memories = [], []
+            finally:
+                db.close()
+            from brain_log import folder
+            try:
+                shared = folder()
+            except Exception:
+                shared = None
+            result = forget_ids({"turn_ids": turns, "memory_ids": memories}, database, shared)
+            return {"status": "FORGOTTEN", **result,
+                    "not_found": [i for i in ids if i not in turns and i not in memories]}
+        if not query:
+            return {"status": "QUERY_OR_IDS_REQUIRED", "candidates": []}
+        recalled = gather(database, query, as_of=_now(), limit=10)
+        candidates = [{"id": m["memory_id"], "kind": "memory", "when": m.get("effective_at"),
+                       "preview": masked_preview(m.get("content", ""))}
+                      for m in recalled.get("matches", [])]
+        candidates += [{"id": t["turn_id"], "kind": f"{t.get('role')} turn in {t.get('client')}",
+                        "when": t.get("happened_at"),
+                        "preview": masked_preview(t.get("content", ""))}
+                       for t in recalled.get("conversation_turns", [])]
+        return {"status": "CANDIDATES", "candidates": candidates,
+                "next": "Show these numbered with their masked previews exactly as given, ask "
+                        "which to delete, then call brain_forget with those ids."}
 
     @server.tool(
         name="code_activity",

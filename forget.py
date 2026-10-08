@@ -119,17 +119,54 @@ def scrub_shared(shared, ids: dict) -> int:
     return removed
 
 
-def forget(phrase: str, index: Path, shared=None) -> dict:
-    """Find, erase here, scrub the shared log, and tell the other PCs."""
+def forget_ids(ids: dict, index: Path, shared=None) -> dict:
+    """Erase these turns and memories here, scrub the shared log, and tell the other PCs."""
     from brain_log import append
-    ids = find(index, phrase)
-    if not (ids["turn_ids"] or ids["memory_ids"]):
+    if not (ids.get("turn_ids") or ids.get("memory_ids")):
         return {"turns": 0, "memories": 0, "shared_lines_removed": 0}
+    ids = {"turn_ids": list(ids.get("turn_ids", [])),
+           "memory_ids": list(ids.get("memory_ids", []))}
     result = erase(index, ids)
     if shared:
         result["shared_lines_removed"] = scrub_shared(shared, ids)
-        append(shared, "forget", ids)                  # ids only: the phrase never leaves here
+        append(shared, "forget", ids)                  # ids only: the text never leaves here
     return result
+
+
+def forget(phrase: str, index: Path, shared=None) -> dict:
+    """Find everything containing the phrase, then forget it as forget_ids does."""
+    return forget_ids(find(index, phrase), index, shared)
+
+
+SECRET_HINTS = ("password", "passwd", "pw", "pin", "비밀번호", "비번", "암호", "key", "token",
+                "secret", "api")
+LINKS = {"is", "was", "=", ":", "->", "는", "은", "이", "가"}
+
+
+def masked_preview(text: str, width: int = 90) -> str:
+    """Enough of a turn to recognise it, with what could be a secret replaced by ****: the word
+    after "password"/"비번"/"key"..., anything after "password:" or "key=", and any word that
+    mixes letters with digits or symbols. Over-masks on purpose; the original is never shown, so
+    listing candidates does not put a secret back into the chat it is being removed from."""
+    out, hide_next = [], False
+    for token in str(text).split():
+        lowered = token.lower()
+        bare = token.strip(".,!?\"'()[]{}")
+        hint = any(word in lowered for word in SECRET_HINTS)
+        if hint and (":" in token or "=" in token):
+            separator = ":" if ":" in token else "="
+            out.append(token.split(separator, 1)[0] + separator + "****")
+            hide_next = not token.split(separator, 1)[1]
+            continue
+        if hide_next and lowered in LINKS:          # "password is ...", "비번은 = ..."
+            out.append(token)
+            continue
+        secretish = hide_next or (any(c.isdigit() for c in bare) and any(c.isalpha() for c in bare)) \
+            or any(c in "!@#$%^&*_=+<>|~`\\" for c in bare)
+        out.append("****" if secretish else token)
+        hide_next = hint
+    preview = " ".join(out)
+    return preview if len(preview) <= width else preview[:width] + "…"
 
 
 def main(argv=None):

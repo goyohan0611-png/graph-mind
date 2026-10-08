@@ -118,24 +118,26 @@ class AutomaticCaptureService:
         if shared:
             from brain_log import append
             publish = lambda turn: append(shared, "turn", turn)     # a folder or a Postgres URL
+        from forget import forget_ids
+        forget = lambda turn_ids: forget_ids({"turn_ids": turn_ids}, self.db_path, shared)
         sources = []
         # A source whose folder does not exist yet (Codex never run on this PC) is skipped, not
         # fatal: it used to stop every source, so a Claude-Code-only user captured nothing.
         if Path(self.config["codex_sessions_root"]).is_dir():
             sources.append(("codex", CodexConversationCapture(
                 self.config["codex_sessions_root"], store, state_path=self.conversation_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish), self.conversation_cursor))
+                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.conversation_cursor))
         claude_root = Path(self.config.get("claude_projects_root")
                            or Path.home() / ".claude" / "projects")
         if claude_root.is_dir():
             sources.append(("claude-code", ClaudeCodeConversationCapture(
                 claude_root, store, state_path=self.claude_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish), self.claude_cursor))
+                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.claude_cursor))
         cowork = self.config.get("claude_cowork_root") or cowork_root()
         if cowork and Path(cowork).is_dir():
             sources.append(("claude-cowork", ClaudeCoworkConversationCapture(
                 cowork, store, state_path=self.cowork_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish), self.cowork_cursor))
+                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.cowork_cursor))
         return sources
 
     def baseline(self):

@@ -238,7 +238,7 @@ class CodexConversationCapture:
     CLIENT = "codex"
 
     def __init__(self, sessions_root, store, *, state_path, workspace_scopes=None,
-                 now=None, publish=None):
+                 now=None, publish=None, forget=None):
         self.sessions_root = Path(sessions_root).resolve()
         if not self.sessions_root.is_dir():
             raise ValueError("CODEX_SESSIONS_ROOT_NOT_FOUND")
@@ -251,6 +251,46 @@ class CodexConversationCapture:
                                  for key, value in (workspace_scopes or {}).items()}
         self.now = now or (lambda: datetime.now().isoformat(timespec="microseconds"))
         self.publish = publish            # called with each turn that is new to this store
+        # erases captured turns everywhere (forget.forget_ids with the shared log); by default
+        # this store only
+        self.forget = forget or (lambda turn_ids: __import__("forget").erase(
+            self.store.path, {"turn_ids": turn_ids}))
+
+    FORGET_TOOL = "brain_forget"
+    FORGET_WINDOW_MINUTES = 30
+
+    def _forget_call(self, item):
+        """Whether this record is the assistant calling brain_forget. Codex: a function call
+        named for it, or (code mode) a completed MCP tool call of it."""
+        payload = item.get("payload") or {}
+        if payload.get("type") in {"function_call", "custom_tool_call"}:
+            return str(payload.get("name", "")).endswith(self.FORGET_TOOL)
+        call = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+        return call.get("type") == "McpToolCall" and call.get("tool") == self.FORGET_TOOL
+
+    def _forget_exchange(self, session_id, at, sessions):
+        """The assistant called brain_forget: what led up to it is a conversation about deleting,
+        so it goes too. From the user turn that asked (or from the previous forget call, when this
+        is the second, deleting call of the same exchange) up to now; the assistant's reply that
+        follows is skipped until the user speaks again."""
+        at = self.store._time(at)
+        previous = sessions.get(session_id, {}).get("signal_at")
+        db = self.store.db
+        if previous and (datetime.fromisoformat(at) - datetime.fromisoformat(previous)
+                         ).total_seconds() <= self.FORGET_WINDOW_MINUTES * 60:
+            since = previous
+        else:
+            since = db.execute(
+                "SELECT max(happened_at) FROM conversation_turns WHERE client=? AND "
+                "client_session_id=? AND role='user' AND happened_at<=?",
+                (self.CLIENT, session_id, at)).fetchone()[0]
+        if since:
+            ids = [row[0] for row in db.execute(
+                "SELECT turn_id FROM conversation_turns WHERE client=? AND client_session_id=? "
+                "AND happened_at>=?", (self.CLIENT, session_id, since))]
+            if ids:
+                self.forget(ids)
+        sessions[session_id] = {"signal_at": at, "quiet": True}
 
     def _files(self):
         return sorted(self.sessions_root.rglob("*.jsonl"))
@@ -293,11 +333,13 @@ class CodexConversationCapture:
         value = json.loads(self.state_path.read_text(encoding="utf-8"))
         if value.get("capture_version") != CAPTURE_VERSION:
             raise ValueError("CONVERSATION_CAPTURE_VERSION_MISMATCH")
+        self._forget_sessions = value.get("forget_sessions", {})
         return value.get("offsets", {})
 
     def _write_state(self, offsets):
         value = {"capture_version": CAPTURE_VERSION,
-                 "sessions_root": str(self.sessions_root), "offsets": offsets}
+                 "sessions_root": str(self.sessions_root), "offsets": offsets,
+                 "forget_sessions": getattr(self, "_forget_sessions", {})}
         temporary = self.state_path.with_suffix(".tmp")
         temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n",
                              encoding="utf-8")
@@ -332,12 +374,21 @@ class CodexConversationCapture:
                         item = json.loads(line.decode("utf-8", "strict"))
                     except (UnicodeDecodeError, json.JSONDecodeError):
                         continue
+                    if self._forget_call(item):
+                        self._forget_exchange(session_id, item.get("timestamp") or known_at,
+                                              self._forget_sessions)
+                        continue
                     message = self._message(item)
                     if message is None:
                         continue
                     role, raw = message
                     if not raw.strip():
                         continue
+                    quiet = self._forget_sessions.get(session_id)
+                    if quiet and quiet.get("quiet"):
+                        if role == "assistant":
+                            continue           # the reply to a forget call: not remembered
+                        quiet["quiet"] = False  # the user spoke again: the exchange is over
                     cleaned, count = _redact(raw)
                     if not cleaned:
                         continue
@@ -412,6 +463,15 @@ class ClaudeCodeConversationCapture(CodexConversationCapture):
             pass
         resolved_cwd = str(Path(cwd).resolve()) if isinstance(cwd, str) and cwd else None
         return session_id, cwd, self.workspace_scopes.get(resolved_cwd, "global")
+
+    def _forget_call(self, item):
+        """An assistant record with a tool_use block calling brain_forget (any MCP prefix)."""
+        if item.get("type") != "assistant" or item.get("isSidechain"):
+            return False
+        content = (item.get("message") or {}).get("content")
+        return isinstance(content, list) and any(
+            isinstance(block, dict) and block.get("type") == "tool_use"
+            and str(block.get("name", "")).endswith(self.FORGET_TOOL) for block in content)
 
     def _message(self, item):
         if item.get("isSidechain") or item.get("isMeta"):

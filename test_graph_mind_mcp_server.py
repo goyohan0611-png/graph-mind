@@ -73,7 +73,7 @@ class GraphMindMcpServerTests(unittest.IsolatedAsyncioTestCase):
                 by_name = {tool.name: tool for tool in listed.tools}
                 names = set(by_name)
                 self.assertEqual(names, {"brain_remember", "brain_recall", "brain_context",
-                                         "brain_folder", "code_activity"})
+                                         "brain_folder", "brain_forget", "code_activity"})
                 self.assertFalse(by_name["brain_remember"].annotations.read_only_hint)
                 for name in ("brain_recall", "brain_context", "code_activity"):
                     self.assertTrue(by_name[name].annotations.read_only_hint)

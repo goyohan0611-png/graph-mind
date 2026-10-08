@@ -148,6 +148,10 @@ like `hunter2` has no recognizable format and is **not** masked. To remove somet
 graph-mind-forget          # asks for the phrase without showing it, then confirms
 ```
 
+Or just ask your AI: *"delete the password I typed earlier"*. It lists masked candidates
+(`wifi password is ****`), deletes only the ones you pick, and the conversation about deleting
+is not saved.
+
 It deletes every captured turn and memory containing the phrase from this PC and its indexes,
 removes their lines from the shared memory, and tells your other PCs to delete their copies on
 their next sync. Only ids are shared for that, never the phrase. Your AI app's own history
@@ -163,9 +167,10 @@ their next sync. Only ids are shared for that, never the phrase. Your AI app's o
 | `brain_recall` | look memories and captured turns up directly; `entity=` for everything about one thing, in order |
 | `brain_remember` | save a sourced memory or decision (secrets masked) |
 | `brain_folder` | where the memory lives; share it with your other PCs; reindex an imported backlog |
+| `brain_forget` | "delete the password I typed": lists masked candidates, deletes only what you pick, everywhere; the exchange itself is not saved |
 | `code_activity` | what changed in a project, file or symbol, and when (when a code folder is watched) |
 
-Five tools on purpose: every tool's description is read by the model on every turn, and similar
+Six tools on purpose: every tool's description is read by the model on every turn, and similar
 tools get confused with each other. Version 0.1 had thirteen.
 
 ---

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.2.1"
+version = "0.3.0"
 description = "Local-first memory for AI coding assistants: verbatim, on your own PC, no LLM calls at write time."
 readme = "README.md"
 requires-python = ">=3.10"

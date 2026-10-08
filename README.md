@@ -15,6 +15,10 @@ Local-first memory for AI coding assistants. Verbatim storage, on your own PC:
 
 *Switch models; keep the memory.*
 
+<img src="demo/demo.gif" alt="A decision made in Claude Code on Monday, recalled from Codex on Wednesday" width="760">
+
+<sub>A real run, not a mock-up: <code>python demo/record_demo.py</code> records it from a fresh store.</sub>
+
 </div>
 
 > [!NOTE]
@@ -202,6 +206,8 @@ python -m unittest discover -p "test_*.py"
 
 ## Known limits
 
+- **The first question after an AI app starts waits for the embedding model to load** (a few
+  seconds; 30-50 s on a slow or synced disk). Later questions take well under a second.
 - **Daily use on Windows only so far.** macOS and Linux pass the tests in CI but have not seen real
   use.
 - **Capture follows each app's transcript format,** which is not a public interface. An app update

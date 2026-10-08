@@ -1,0 +1,22 @@
+{
+  "role": "oracle-evidence ingestion recall diagnostic",
+  "questions": 120,
+  "sessions": 1922,
+  "model": "gpt-5-mini",
+  "selection": "2 positive per official type plus 6 abstention, SHA256(question_id)",
+  "question_sha256": "f3ac02905e680465ade425df58aeb8cd0a520c622efd5aa13eec5d194becb1e2",
+  "session_sha256": "d8545bddcc5388c151005fc93d7baee1707b236063c893105bc4b5d76bf7d6f1",
+  "ingestion_prompt_sha256": "5ca79463380fd4679da38d476ea383232624d143d848d1ee27b237d7d8d70d02",
+  "ingestion_schema_sha256": "9c927a798247bd83d799bee0971951c3f23ec9e5ea2cd404e3d4aa8469a02aa8",
+  "answer_prompt_sha256": "6ad9473c931a0aaacfc69356691982ba7f0b0e9e5fded66f7babf9df5c02eeb0",
+  "judge_prompt_sha256": "c047c7f4c1c3447e3dabacf93c14cd8437c7c0352357950910c38e1a8894bf74",
+  "ingestion_response_source": "runs\\graph-v2.1-longmemeval-oracle-ingestion-recall-v2\\ingestion.jsonl",
+  "ingestion_model_input_excludes": [
+    "question",
+    "answer",
+    "question_type",
+    "answer_session_ids",
+    "has_answer"
+  ],
+  "claim_limit": "Canonical evidence sessions isolate ingestion; this is not retrieval accuracy."
+}

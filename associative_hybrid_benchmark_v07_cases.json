@@ -1,0 +1,302 @@
+[
+  {
+    "id": "architecture-exact",
+    "style": "EXACT",
+    "query": "Graph-MIND memory architecture v0.6 decision",
+    "expected": [
+      "development:memory-architecture-hybrid-v0.6"
+    ],
+    "concept_cues": [
+      "memory architecture",
+      "bounded associative Engram",
+      "deterministic temporal state executor",
+      "evidence vault"
+    ]
+  },
+  {
+    "id": "architecture-vague",
+    "style": "VAGUE",
+    "query": "사람 뇌처럼 만들자는 얘기 끝에 결국 어떤 조합으로 가기로 했지?",
+    "expected": [
+      "development:memory-architecture-hybrid-v0.6"
+    ],
+    "concept_cues": [
+      "memory architecture",
+      "bounded associative Engram",
+      "deterministic temporal state executor",
+      "evidence vault"
+    ]
+  },
+  {
+    "id": "engram-speed-exact",
+    "style": "EXACT",
+    "query": "Engram associative v0.6 smoke latency",
+    "expected": [
+      "development:engram-associative-v0.6-summary"
+    ],
+    "concept_cues": [
+      "Engram associative v0.6",
+      "smoke latency",
+      "warm median"
+    ]
+  },
+  {
+    "id": "engram-speed-vague",
+    "style": "VAGUE",
+    "query": "새로 붙인 연상 기억 방식 속도가 어느 정도였더라?",
+    "expected": [
+      "development:engram-associative-v0.6-summary"
+    ],
+    "concept_cues": [
+      "Engram associative v0.6",
+      "smoke latency",
+      "warm median"
+    ]
+  },
+  {
+    "id": "universal-contract-exact",
+    "style": "EXACT",
+    "query": "Universal Personal Memory v0.5 shared profile and brain context",
+    "expected": [
+      "development:universal-personal-memory-v0.5-summary"
+    ],
+    "concept_cues": [
+      "Universal Personal Memory v0.5",
+      "shared memory profile",
+      "bounded brain context"
+    ]
+  },
+  {
+    "id": "universal-contract-vague",
+    "style": "VAGUE",
+    "query": "여러 AI가 같이 쓰는 공통 기억 형식을 만들었던 버전에서 뭘 넣었지?",
+    "expected": [
+      "development:universal-personal-memory-v0.5-summary"
+    ],
+    "concept_cues": [
+      "Universal Personal Memory v0.5",
+      "shared memory profile",
+      "bounded brain context"
+    ]
+  },
+  {
+    "id": "verified-extraction-exact",
+    "style": "EXACT",
+    "query": "semantic LLM v0.4 exact source span verification implementation",
+    "expected": [
+      "development:semantic-llm-v0.4-task-complete"
+    ],
+    "concept_cues": [
+      "semantic LLM v0.4",
+      "source span verification",
+      "candidate extractor"
+    ]
+  },
+  {
+    "id": "verified-extraction-vague",
+    "style": "VAGUE",
+    "query": "LLM이 기억 후보를 뽑더라도 사용자 원문에서 확인하도록 만든 작업이 뭐였지?",
+    "expected": [
+      "development:semantic-llm-v0.4-task-complete"
+    ],
+    "concept_cues": [
+      "semantic LLM v0.4",
+      "source span verification",
+      "candidate extractor"
+    ]
+  },
+  {
+    "id": "capture-exact",
+    "style": "EXACT",
+    "query": "automatic capture v0.2 completed incremental redacted Codex conversation capture",
+    "expected": [
+      "development:automatic-capture-v0.2-task-complete"
+    ],
+    "concept_cues": [
+      "automatic capture v0.2",
+      "incremental redacted Codex conversation capture"
+    ]
+  },
+  {
+    "id": "capture-vague",
+    "style": "VAGUE",
+    "query": "새 Codex 대화가 자동으로 계속 쌓이게 했던 작업 결과가 뭐였지?",
+    "expected": [
+      "development:automatic-capture-v0.2-task-complete"
+    ],
+    "concept_cues": [
+      "automatic capture v0.2",
+      "incremental redacted Codex conversation capture"
+    ]
+  },
+  {
+    "id": "layered-memory-exact",
+    "style": "EXACT",
+    "query": "semantic memory v0.3 episodic evidence durable user intent",
+    "expected": [
+      "development:semantic-memory-v0.3-task-complete"
+    ],
+    "concept_cues": [
+      "semantic memory v0.3",
+      "episodic evidence",
+      "durable user intent"
+    ]
+  },
+  {
+    "id": "layered-memory-vague",
+    "style": "VAGUE",
+    "query": "모든 대화는 남기되 중요한 사용자 의도만 따로 올리기로 한 작업이 뭐였지?",
+    "expected": [
+      "development:semantic-memory-v0.3-task-complete"
+    ],
+    "concept_cues": [
+      "semantic memory v0.3",
+      "episodic evidence",
+      "durable user intent"
+    ]
+  },
+  {
+    "id": "live-eval-exact",
+    "style": "EXACT",
+    "query": "semantic LLM live evaluation coverage false promotion token cost latency",
+    "expected": [
+      "development:semantic-llm-live-v0.4.1-next"
+    ],
+    "concept_cues": [
+      "semantic LLM live evaluation",
+      "coverage",
+      "false promotion",
+      "token cost",
+      "latency"
+    ]
+  },
+  {
+    "id": "live-eval-vague",
+    "style": "VAGUE",
+    "query": "기억 추출 API를 실제로 켜면 어떤 품질과 비용 지표를 재기로 했지?",
+    "expected": [
+      "development:semantic-llm-live-v0.4.1-next"
+    ],
+    "concept_cues": [
+      "semantic LLM live evaluation",
+      "coverage",
+      "false promotion",
+      "token cost",
+      "latency"
+    ]
+  },
+  {
+    "id": "adapter-exact",
+    "style": "EXACT",
+    "query": "source neutral ingestion adapters GPT Claude documents next action",
+    "expected": [
+      "development:universal-ingestion-adapters-v0.6-next"
+    ],
+    "concept_cues": [
+      "source neutral ingestion adapters",
+      "GPT",
+      "Claude",
+      "documents",
+      "universal memory contract"
+    ]
+  },
+  {
+    "id": "adapter-vague",
+    "style": "VAGUE",
+    "query": "다른 회사 AI와 문서 도구도 같은 개인 기억을 쓰게 하려면 다음에 뭘 해야 하지?",
+    "expected": [
+      "development:universal-ingestion-adapters-v0.6-next"
+    ],
+    "concept_cues": [
+      "source neutral ingestion adapters",
+      "GPT",
+      "Claude",
+      "documents",
+      "universal memory contract"
+    ]
+  },
+  {
+    "id": "benchmark-exact",
+    "style": "EXACT",
+    "query": "associative hybrid benchmark v0.7 lexical structured false association latency",
+    "expected": [
+      "development:associative-hybrid-benchmark-v0.7-next"
+    ],
+    "concept_cues": [
+      "associative hybrid benchmark v0.7",
+      "lexical",
+      "structured",
+      "false association",
+      "latency"
+    ]
+  },
+  {
+    "id": "benchmark-vague",
+    "style": "VAGUE",
+    "query": "새 연상 방식이 진짜 나은지 다음에 어떤 비교를 하기로 했지?",
+    "expected": [
+      "development:associative-hybrid-benchmark-v0.7-next"
+    ],
+    "concept_cues": [
+      "associative hybrid benchmark v0.7",
+      "lexical",
+      "structured",
+      "false association",
+      "latency"
+    ]
+  },
+  {
+    "id": "missing-dentist",
+    "style": "CONTROL",
+    "query": "내가 예약한 치과 날짜가 언제였지?",
+    "expected": [],
+    "concept_cues": [
+      "dentist appointment date"
+    ]
+  },
+  {
+    "id": "missing-passport",
+    "style": "CONTROL",
+    "query": "내 여권 번호를 알려줘",
+    "expected": [],
+    "concept_cues": [
+      "passport number"
+    ]
+  },
+  {
+    "id": "missing-coffee",
+    "style": "CONTROL",
+    "query": "내가 가장 좋아한다고 말한 커피 브랜드가 뭐였지?",
+    "expected": [],
+    "concept_cues": [
+      "favorite coffee brand"
+    ]
+  },
+  {
+    "id": "missing-pet",
+    "style": "CONTROL",
+    "query": "내 반려동물 이름이 뭐였지?",
+    "expected": [],
+    "concept_cues": [
+      "pet name"
+    ]
+  },
+  {
+    "id": "missing-hotel",
+    "style": "CONTROL",
+    "query": "다음 휴가 때 예약한 호텔이 어디였지?",
+    "expected": [],
+    "concept_cues": [
+      "vacation hotel reservation"
+    ]
+  },
+  {
+    "id": "missing-exercise",
+    "style": "CONTROL",
+    "query": "지난주에 정한 운동 루틴을 보여줘",
+    "expected": [],
+    "concept_cues": [
+      "exercise routine"
+    ]
+  }
+]

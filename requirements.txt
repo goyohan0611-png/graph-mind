@@ -1,0 +1,9 @@
+torch>=2.2,<3
+mcp>=2,<3
+numpy
+transformers
+tiktoken
+pgserver
+psycopg[binary]
+psutil
+fasteners

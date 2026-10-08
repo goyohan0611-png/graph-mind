@@ -1,0 +1,432 @@
+[
+  {
+    "question_id": "4f54b7c9",
+    "question_type": "multi-session",
+    "question": "How many antique items did I inherit or acquire from my family members?",
+    "question_date": "2023/05/30 (Tue) 23:47",
+    "answer": "5",
+    "answer_session_ids": [
+      "answer_50940cb7_2",
+      "answer_50940cb7_1"
+    ]
+  },
+  {
+    "question_id": "2c63a862",
+    "question_type": "temporal-reasoning",
+    "question": "How many days did it take for me to find a house I loved after starting to work with Rachel?",
+    "question_date": "2022/03/02 (Wed) 10:19",
+    "answer": "14 days. 15 days (including the last day) is also acceptable.",
+    "answer_session_ids": [
+      "answer_d39b7977_1",
+      "answer_d39b7977_2"
+    ]
+  },
+  {
+    "question_id": "a11281a2",
+    "question_type": "multi-session",
+    "question": "What was the approximate increase in Instagram followers I experienced in two weeks?",
+    "question_date": "2023/05/30 (Tue) 23:16",
+    "answer": "100",
+    "answer_session_ids": [
+      "answer_c69ee1f9_2",
+      "answer_c69ee1f9_1"
+    ]
+  },
+  {
+    "question_id": "61f8c8f8",
+    "question_type": "multi-session",
+    "question": "How much faster did I finish the 5K run compared to my previous year's time?",
+    "question_date": "2023/10/01 (Sun) 23:53",
+    "answer": "10 minutes",
+    "answer_session_ids": [
+      "answer_872e8da2_2",
+      "answer_872e8da2_1"
+    ]
+  },
+  {
+    "question_id": "488d3006",
+    "question_type": "single-session-assistant",
+    "question": "I'm planning to go back to the Natural Park of Moncayo mountain in Aragón and I was wondering, what was the name of that hiking trail you recommended that takes you through the park's most stunning landscapes and offers panoramic views of the surrounding mountainside?",
+    "question_date": "2023/05/30 (Tue) 23:03",
+    "answer": "The GR-90 trail.",
+    "answer_session_ids": [
+      "answer_ultrachat_275993"
+    ]
+  },
+  {
+    "question_id": "gpt4_b0863698",
+    "question_type": "temporal-reasoning",
+    "question": "How many days ago did I participate in the 5K charity run?",
+    "question_date": "2023/03/26 (Sun) 04:13",
+    "answer": "7 days ago. 8 days (including the last day) is also acceptable.",
+    "answer_session_ids": [
+      "answer_550bb2d1_1"
+    ]
+  },
+  {
+    "question_id": "2ebe6c90",
+    "question_type": "temporal-reasoning",
+    "question": "How many days did it take me to finish 'The Nightingale' by Kristin Hannah?",
+    "question_date": "2023/05/01 (Mon) 21:05",
+    "answer": "21 days. 22 days (including the last day) is also acceptable.",
+    "answer_session_ids": [
+      "answer_c9d35c00_1",
+      "answer_c9d35c00_2"
+    ]
+  },
+  {
+    "question_id": "gpt4_d9af6064",
+    "question_type": "temporal-reasoning",
+    "question": "Which device did I set up first, the smart thermostat or the new router?",
+    "question_date": "2023/03/28 (Tue) 01:25",
+    "answer": "new router",
+    "answer_session_ids": [
+      "answer_da704e79_2",
+      "answer_da704e79_1"
+    ]
+  },
+  {
+    "question_id": "87f22b4a",
+    "question_type": "multi-session",
+    "question": "How much have I made from selling eggs this month?",
+    "question_date": "2023/05/30 (Tue) 09:50",
+    "answer": "$120",
+    "answer_session_ids": [
+      "answer_f56e6152_2",
+      "answer_f56e6152_1"
+    ]
+  },
+  {
+    "question_id": "gpt4_7f6b06db",
+    "question_type": "temporal-reasoning",
+    "question": "What is the order of the three trips I took in the past three months, from earliest to latest?",
+    "question_date": "2023/06/01 (Thu) 03:56",
+    "answer": "I went on a day hike to Muir Woods National Monument with my family, then I went on a road trip with friends to Big Sur and Monterey, and finally I started my solo camping trip to Yosemite National Park.",
+    "answer_session_ids": [
+      "answer_5d8c99d3_1",
+      "answer_5d8c99d3_2",
+      "answer_5d8c99d3_3"
+    ]
+  },
+  {
+    "question_id": "gpt4_385a5000",
+    "question_type": "temporal-reasoning",
+    "question": "Which seeds were started first, the tomatoes or the marigolds?",
+    "question_date": "2023/03/10 (Fri) 15:30",
+    "answer": "Tomatoes",
+    "answer_session_ids": [
+      "answer_7a4a93f1_2",
+      "answer_7a4a93f1_1"
+    ]
+  },
+  {
+    "question_id": "06db6396",
+    "question_type": "knowledge-update",
+    "question": "How many projects have I completed since starting painting classes?",
+    "question_date": "2023/11/08 (Wed) 09:08",
+    "answer": "5",
+    "answer_session_ids": [
+      "answer_da72b1b4_1",
+      "answer_da72b1b4_2"
+    ]
+  },
+  {
+    "question_id": "gpt4_70e84552",
+    "question_type": "temporal-reasoning",
+    "question": "Which task did I complete first, fixing the fence or trimming the goats' hooves?",
+    "question_date": "2023/05/25 (Thu) 08:03",
+    "answer": "Fixing the fence",
+    "answer_session_ids": [
+      "answer_b3070ec4_2",
+      "answer_b3070ec4_1"
+    ]
+  },
+  {
+    "question_id": "gpt4_194be4b3",
+    "question_type": "multi-session",
+    "question": "How many musical instruments do I currently own?",
+    "question_date": "2023/05/30 (Tue) 23:29",
+    "answer": "I currently own 4 musical instruments. I've had the Fender Stratocaster electric guitar for 5 years, the Yamaha FG800 acoustic guitar for 8 years, the 5-piece Pearl Export drum set for an unspecified amount of time, and the Korg B1 piano for 3 years.",
+    "answer_session_ids": [
+      "answer_3826dc55_1",
+      "answer_3826dc55_3",
+      "answer_3826dc55_5",
+      "answer_3826dc55_2",
+      "answer_3826dc55_4"
+    ]
+  },
+  {
+    "question_id": "eac54adc",
+    "question_type": "temporal-reasoning",
+    "question": "How many days ago did I launch my website when I signed a contract with my first client?",
+    "question_date": "2023/03/25 (Sat) 19:57",
+    "answer": "19 days ago. 20 days (including the last day) is also acceptable.",
+    "answer_session_ids": [
+      "answer_0d4d0347_1",
+      "answer_0d4d0347_2"
+    ]
+  },
+  {
+    "question_id": "66f24dbb",
+    "question_type": "single-session-user",
+    "question": "What did I buy for my sister's birthday gift?",
+    "question_date": "2023/05/30 (Tue) 17:09",
+    "answer": "a yellow dress",
+    "answer_session_ids": [
+      "answer_fea2e4d3"
+    ]
+  },
+  {
+    "question_id": "c8090214",
+    "question_type": "temporal-reasoning",
+    "question": "How many days before I bought the iPhone 13 Pro did I attend the Holiday Market?",
+    "question_date": "2023/12/10 (Sun) 17:17",
+    "answer": "7 days. 8 days (including the last day) is also acceptable.",
+    "answer_session_ids": [
+      "answer_70dc7d08_2",
+      "answer_70dc7d08_1"
+    ]
+  },
+  {
+    "question_id": "b29f3365",
+    "question_type": "temporal-reasoning",
+    "question": "How long had I been taking guitar lessons when I bought the new guitar amp?",
+    "question_date": "2023/05/25 (Thu) 19:07",
+    "answer": "Four weeks",
+    "answer_session_ids": [
+      "answer_436d4309_2",
+      "answer_436d4309_1"
+    ]
+  },
+  {
+    "question_id": "c5e8278d",
+    "question_type": "single-session-user",
+    "question": "What was my last name before I changed it?",
+    "question_date": "2023/05/30 (Tue) 22:36",
+    "answer": "Johnson",
+    "answer_session_ids": [
+      "answer_f6168136"
+    ]
+  },
+  {
+    "question_id": "b759caee",
+    "question_type": "single-session-assistant",
+    "question": "I was looking back at our previous conversation about buying unique engagement rings directly from designers. Can you remind me of the Instagram handle of the UK-based designer who works with unusual gemstones?",
+    "question_date": "2023/05/30 (Tue) 23:50",
+    "answer": "@jessica_poole_jewellery",
+    "answer_session_ids": [
+      "answer_sharegpt_2BSXlAr_0"
+    ]
+  },
+  {
+    "question_id": "726462e0",
+    "question_type": "single-session-user",
+    "question": "What was the discount I got on my first purchase from the new clothing brand?",
+    "question_date": "2023/05/30 (Tue) 23:15",
+    "answer": "10%",
+    "answer_session_ids": [
+      "answer_f38f679b"
+    ]
+  },
+  {
+    "question_id": "caf9ead2",
+    "question_type": "single-session-user",
+    "question": "How long did it take to move to the new apartment?",
+    "question_date": "2023/05/30 (Tue) 22:44",
+    "answer": "5 hours",
+    "answer_session_ids": [
+      "answer_0714183a"
+    ]
+  },
+  {
+    "question_id": "6cb6f249",
+    "question_type": "multi-session",
+    "question": "How many days did I take social media breaks in total?",
+    "question_date": "2023/03/14 (Tue) 23:56",
+    "answer": "17 days",
+    "answer_session_ids": [
+      "answer_a4204937_2",
+      "answer_a4204937_1"
+    ]
+  },
+  {
+    "question_id": "gpt4_468eb063",
+    "question_type": "temporal-reasoning",
+    "question": "How many days ago did I meet Emma?",
+    "question_date": "2023/04/20 (Thu) 10:12",
+    "answer": "9 days ago. 10 days (including the last day) is also acceptable.",
+    "answer_session_ids": [
+      "answer_9b09d95b_1"
+    ]
+  },
+  {
+    "question_id": "69fee5aa",
+    "question_type": "knowledge-update",
+    "question": "How many pre-1920 American coins do I have in my collection?",
+    "question_date": "2023/06/09 (Fri) 11:14",
+    "answer": "38",
+    "answer_session_ids": [
+      "answer_d6028d6e_1",
+      "answer_d6028d6e_2"
+    ]
+  },
+  {
+    "question_id": "7e974930",
+    "question_type": "knowledge-update",
+    "question": "How much did I earn at the Downtown Farmers Market on my most recent visit?",
+    "question_date": "2023/10/26 (Thu) 11:44",
+    "answer": "$420",
+    "answer_session_ids": [
+      "answer_c9f5693c_1",
+      "answer_c9f5693c_2"
+    ]
+  },
+  {
+    "question_id": "5d3d2817",
+    "question_type": "single-session-user",
+    "question": "What was my previous occupation?",
+    "question_date": "2023/05/30 (Tue) 20:08",
+    "answer": "Marketing specialist at a small startup",
+    "answer_session_ids": [
+      "answer_235eb6fb"
+    ]
+  },
+  {
+    "question_id": "ed4ddc30",
+    "question_type": "knowledge-update",
+    "question": "How many dozen eggs do we currently have stocked up in our refrigerator?",
+    "question_date": "2023/03/16 (Thu) 14:24",
+    "answer": "20",
+    "answer_session_ids": [
+      "answer_babbaccb_1",
+      "answer_babbaccb_2"
+    ]
+  },
+  {
+    "question_id": "faba32e5",
+    "question_type": "single-session-user",
+    "question": "How long did Alex marinate the BBQ ribs in special sauce?",
+    "question_date": "2023/05/30 (Tue) 22:10",
+    "answer": "24 hours",
+    "answer_session_ids": [
+      "answer_39b12014"
+    ]
+  },
+  {
+    "question_id": "4388e9dd",
+    "question_type": "single-session-assistant",
+    "question": "I was going through our previous chat and I was wondering, what was Andy wearing in the script you wrote for the comedy movie scene?",
+    "question_date": "2023/05/30 (Tue) 20:43",
+    "answer": "Andy was wearing an untidy, stained white shirt.",
+    "answer_session_ids": [
+      "answer_sharegpt_qTi81nS_0"
+    ]
+  },
+  {
+    "question_id": "0e4e4c46",
+    "question_type": "knowledge-update",
+    "question": "What is my current highest score in Ticket to Ride?",
+    "question_date": "2023/06/10 (Sat) 16:46",
+    "answer": "132 points",
+    "answer_session_ids": [
+      "answer_f2f998c7_1",
+      "answer_f2f998c7_2"
+    ]
+  },
+  {
+    "question_id": "28bcfaac",
+    "question_type": "single-session-assistant",
+    "question": "I'm going back to our previous conversation about music theory. You mentioned some online resources for learning music theory. Can you remind me of the website you recommended for free lessons and exercises?",
+    "question_date": "2023/05/30 (Tue) 11:46",
+    "answer": "MusicTheory.net",
+    "answer_session_ids": [
+      "answer_ultrachat_446979"
+    ]
+  },
+  {
+    "question_id": "affe2881",
+    "question_type": "knowledge-update",
+    "question": "How many different species of birds have I seen in my local park?",
+    "question_date": "2023/06/07 (Wed) 02:42",
+    "answer": "32",
+    "answer_session_ids": [
+      "answer_90de9b4d_1",
+      "answer_90de9b4d_2"
+    ]
+  },
+  {
+    "question_id": "5a7937c8",
+    "question_type": "multi-session",
+    "question": "How many days did I spend participating in faith-related activities in December?",
+    "question_date": "2024/01/10 (Wed) 23:41",
+    "answer": "3 days.",
+    "answer_session_ids": [
+      "answer_4cef8a3c_3",
+      "answer_4cef8a3c_1",
+      "answer_4cef8a3c_2"
+    ]
+  },
+  {
+    "question_id": "f9e8c073",
+    "question_type": "knowledge-update",
+    "question": "How many sessions of the bereavement support group did I attend?",
+    "question_date": "2023/11/07 (Tue) 04:54",
+    "answer": "five",
+    "answer_session_ids": [
+      "answer_b191df5b_1",
+      "answer_b191df5b_2"
+    ]
+  },
+  {
+    "question_id": "a1cc6108",
+    "question_type": "multi-session",
+    "question": "How old was I when Alex was born?",
+    "question_date": "2023/05/30 (Tue) 20:23",
+    "answer": "11",
+    "answer_session_ids": [
+      "answer_17dc2f5b_2",
+      "answer_17dc2f5b_1"
+    ]
+  },
+  {
+    "question_id": "8979f9ec",
+    "question_type": "multi-session",
+    "question": "What is the total number of lunch meals I got from the chicken fajitas and lentil soup?",
+    "question_date": "2023/05/30 (Tue) 21:03",
+    "answer": "8 meals",
+    "answer_session_ids": [
+      "answer_35e36341_1",
+      "answer_35e36341_2"
+    ]
+  },
+  {
+    "question_id": "d24813b1",
+    "question_type": "single-session-preference",
+    "question": "I'm thinking of inviting my colleagues over for a small gathering. Any tips on what to bake?",
+    "question_date": "2023/05/30 (Tue) 17:57",
+    "answer": "The user would prefer baking suggestions that take into account their previous success with the lemon poppyseed cake, such as variations of that recipe or other desserts that share similar qualities. They might prefer suggestions that balance impressiveness with manageability, considering their previous experience. The user may not prefer overly complex or unfamiliar recipes, or suggestions that do not build upon their existing baking experience.",
+    "answer_session_ids": [
+      "answer_7c0ade93"
+    ]
+  },
+  {
+    "question_id": "8a2466db",
+    "question_type": "single-session-preference",
+    "question": "Can you recommend some resources where I can learn more about video editing?",
+    "question_date": "2023/05/30 (Tue) 22:03",
+    "answer": "The user would prefer responses that suggest resources specifically tailored to Adobe Premiere Pro, especially those that delve into its advanced settings. They might not prefer general video editing resources or resources related to other video editing software.",
+    "answer_session_ids": [
+      "answer_edb03329"
+    ]
+  },
+  {
+    "question_id": "07b6f563",
+    "question_type": "single-session-preference",
+    "question": "Can you suggest some useful accessories for my phone?",
+    "question_date": "2023/05/30 (Tue) 21:46",
+    "answer": "The user would prefer suggestions of accessories that are compatible with an iPhone 13 Pro, such as high-quality screen protectors, durable cases, portable power banks, or phone wallet cases. They may not prefer suggestions of accessories that are not compatible with Apple products or do not enhance the functionality or protection of their phone.",
+    "answer_session_ids": [
+      "answer_d03098f9"
+    ]
+  }
+]

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+external/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.vec/
+embed-cache*.json
+.venv*/

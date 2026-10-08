@@ -38,8 +38,9 @@ RecordableEventType = Literal[
 # hub over the network whether a newer revision exists, every time it loads. That made the first
 # save of a session take ~95 s and sent requests off the machine for no reason. Once the model is
 # on disk, stay offline.
-if (Path.home() / ".cache" / "huggingface" / "hub"
-        / "models--sentence-transformers--paraphrase-multilingual-MiniLM-L12-v2").is_dir():
+from local_embedder import model_on_disk  # noqa: E402
+
+if model_on_disk():
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 

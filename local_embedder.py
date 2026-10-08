@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import math
+import os
 import threading
 
 from associative_memory import _terms
@@ -16,6 +17,24 @@ from vector_cache import VectorCache, convert
 LOCAL_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 ACTIVATE = dict(seed_limit=12, hops=2, fanout=8, max_nodes=24, limit=8)  # frozen v0.7.1 params
 SEED_LIMIT = ACTIVATE["seed_limit"]
+
+
+def own_model_cache() -> Path:
+    from development_paths import graph_mind_home
+    return graph_mind_home() / "models"
+
+
+def model_cache():
+    """None means Hugging Face's usual cache. Graph-MIND's own folder once the installer had to
+    use it: on one fresh Windows profile ~/.cache could not be written (access denied)."""
+    own = own_model_cache()
+    return str(own) if own.is_dir() else None
+
+
+def model_on_disk() -> bool:
+    name = "models--" + LOCAL_MODEL.replace("/", "--")
+    usual = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface") / "hub"
+    return (usual / name).is_dir() or (own_model_cache() / name).is_dir()
 
 
 class LocalEmbedder:
@@ -42,8 +61,10 @@ class LocalEmbedder:
         if LocalEmbedder._model is None:
             import torch
             from transformers import AutoModel, AutoTokenizer
-            LocalEmbedder._tok = AutoTokenizer.from_pretrained(self.model_name)
-            LocalEmbedder._model = AutoModel.from_pretrained(self.model_name).eval()
+            cache = model_cache()
+            LocalEmbedder._tok = AutoTokenizer.from_pretrained(self.model_name, cache_dir=cache)
+            LocalEmbedder._model = AutoModel.from_pretrained(self.model_name,
+                                                             cache_dir=cache).eval()
             LocalEmbedder._torch = torch
 
     def _key(self, text):

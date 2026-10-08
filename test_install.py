@@ -67,5 +67,29 @@ class InstallTests(unittest.TestCase):
             install.main(["--skip-packages", "--join", "gm1.%%%"])
 
 
+    def test_model_goes_to_own_folder_when_the_usual_cache_is_locked(self):
+        """A fresh Windows profile refused ~/.cache (access denied); the model then lives in
+        ~/.graph-mind/models, which the server also reads (local_embedder.model_cache)."""
+        import types
+        calls = []
+
+        class Fake:
+            @staticmethod
+            def from_pretrained(name, cache_dir=None):
+                calls.append(cache_dir)
+                if cache_dir is None:
+                    denied = PermissionError(5, "Access is denied")
+                    raise OSError("PermissionError at ~/.cache/huggingface") from denied
+        fake = types.SimpleNamespace(AutoModel=Fake, AutoTokenizer=Fake)
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
+                mock.patch.dict(sys.modules, {"transformers": fake}):
+            install.embedding_model()
+            import local_embedder
+            self.assertEqual(local_embedder.model_cache(), str(Path(directory) / "models"))
+        self.assertIsNone(calls[0])
+        self.assertTrue(calls[-1].endswith("models"))
+
+
 if __name__ == "__main__":
     unittest.main()

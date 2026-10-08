@@ -2,7 +2,7 @@ from pathlib import Path
 import unittest
 
 from longmemeval_ingestion_v7 import (
-    deterministic_entity_id, normalized, sanitize_enrichment, select_sessions,
+    RETRIEVAL_RUNTIME, deterministic_entity_id, normalized, sanitize_enrichment, select_sessions,
 )
 
 
@@ -20,8 +20,9 @@ class IngestionV7Tests(unittest.TestCase):
     def test_normalization(self):
         self.assertEqual(normalized("Natural-History Museum!"), "natural history museum")
 
-    @unittest.skipUnless(Path("external/longmemeval/longmemeval_s_cleaned.json").exists(),
-                         "LongMemEval data not downloaded (see README)")
+    @unittest.skipUnless(Path("external/longmemeval/longmemeval_s_cleaned.json").exists()
+                         and RETRIEVAL_RUNTIME.exists(),
+                         "needs the LongMemEval data and a research-phase run file")
     def test_selection_is_frozen_to_twelve(self):
         rows = select_sessions()
         self.assertEqual(len(rows), 12)

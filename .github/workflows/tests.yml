@@ -3,6 +3,9 @@ name: tests
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "47 21 * * 1"          # Tuesdays 06:47 in Korea: newest dependencies, unchanged code
+  workflow_dispatch:
 
 jobs:
   test:

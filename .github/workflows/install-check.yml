@@ -10,10 +10,14 @@ on:
       version:
         description: "graph-mind-memory version (empty = latest)"
         required: false
+  # every day, unchanged code included: a new torch, transformers or Python release can break a
+  # fresh install with nothing changed here (Python 3.14 and pgserver did exactly that)
+  schedule:
+    - cron: "17 21 * * *"          # 06:17 in Korea
 
 jobs:
   install:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     strategy:
       fail-fast: false
       matrix:

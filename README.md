@@ -22,7 +22,7 @@ Local-first memory for AI coding assistants. Verbatim storage, on your own PC:
 </div>
 
 > [!NOTE]
-> **Alpha (v0.1).** Used daily on Windows 11, and checked in a fresh-install, two-PC end-to-end run.
+> **Alpha.** Used daily on Windows 11, and checked in a fresh-install, two-PC end-to-end run.
 > The test suite also passes on Linux and macOS in CI, but nobody has used it day to day there yet.
 
 ---
@@ -40,7 +40,9 @@ calls Graph-MIND over MCP and gets back a few thousand tokens of the conversatio
   stores the turns and embeds them as they arrive.
 - **One memory across your PCs.** One sentence to the AI on the first PC, one command on the
   others (see [below](#one-memory-across-pcs)).
-- **Nothing leaves your machines.** There is no cloud, no account and no telemetry.
+- **No cloud of its own.** No account, no telemetry; the memory stays on your machines. What
+  leaves them is what your AI app already sends: the recalled turns go to your model's
+  provider with your question.
 
 ---
 
@@ -150,20 +152,19 @@ tell it **where the key is**, not the key: *"my OpenAI key is in 1Password, unde
 
 Only what you actually send is captured: the service reads each app's transcript, which is written
 after you press Enter, so a paste you delete before sending never reaches it. A plain password
-like `hunter2` has no recognizable format and is **not** masked. To remove something:
+like `hunter2` has no recognizable format and is **not** masked. To remove something,
+
+just ask your AI: *"delete the password I typed earlier"*. It lists masked candidates
+(`wifi password is ****`), deletes only the ones you pick, and the conversation about deleting
+is not saved. Or, from a terminal:
 
 ```bash
 graph-mind-forget          # asks for the phrase without showing it, then confirms
 ```
 
-Or just ask your AI: *"delete the password I typed earlier"*. It lists masked candidates
-(`wifi password is ****`), deletes only the ones you pick, and the conversation about deleting
-is not saved.
-
-It deletes every captured turn and memory containing the phrase from this PC and its indexes,
-removes their lines from the shared memory, and tells your other PCs to delete their copies on
-their next sync. Only ids are shared for that, never the phrase. Your AI app's own history
-(for Claude Code, `~/.claude/projects`) is separate and is not touched.
+Either way, what you pick is deleted from this PC and its search indexes, from the shared memory,
+and from your other PCs on their next sync; only ids are shared for that, never the text. Your AI
+app's own history (for Claude Code, `~/.claude/projects`) is separate and is not touched.
 
 ---
 
@@ -236,7 +237,7 @@ python -m unittest discover -p "test_*.py"
 - **Multi-session questions are the weakest type at 80%.** These are questions that count or
   combine facts across many conversations.
 - **The repository still holds the research-phase experiments** next to the product (see
-  [Repository layout](#repository-layout)); the installed package carries only the 21 product
+  [Repository layout](#repository-layout)); the installed package carries only the 22 product
   modules.
 
 The full list is in [REPORT.md §9](REPORT.md#9-known-limits).
@@ -245,7 +246,7 @@ The full list is in [REPORT.md §9](REPORT.md#9-known-limits).
 
 | | files |
 |---|---|
-| **Product** (what `pip install graph-mind-memory` installs) | `graph_mind_mcp_server.py` (MCP server), `automatic_capture*.py` (capture service), `install.py`, `brain_log.py` (sharing across PCs), `local_brain.py` / `conversation_memory.py` / `coding_memory.py` / `development_memory.py` (stores), `semantic_recall.py` / `local_embedder.py` / `vector_cache.py` / `embedding_warmup.py` (search), and their helpers |
+| **Product** (what `pip install graph-mind-memory` installs) | `graph_mind_mcp_server.py` (MCP server), `automatic_capture*.py` (capture service), `install.py`, `brain_log.py` (sharing across PCs), `forget.py` (deleting), `local_brain.py` / `conversation_memory.py` / `coding_memory.py` / `development_memory.py` (stores), `semantic_recall.py` / `local_embedder.py` / `vector_cache.py` / `embedding_warmup.py` (search), and their helpers |
 | **Benchmarks** | `product_answer_eval.py`, `official_judge_v073.py`, `rival_mem0.py`, `rival_mempalace.py`, `rival_clean_prereg.py`, and the result files under `runs/` |
 | **Research phase** | the other modules: earlier extraction pipelines and analyses that REPORT.md cites |
 | **Tests** | `test_*.py` |

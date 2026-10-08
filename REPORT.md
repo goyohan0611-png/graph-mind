@@ -508,7 +508,8 @@ An MCP server; the memory is SQLite files plus a local vector cache in a folder 
 - `brain_context` / `brain_recall` — retrieve (a few thousand tokens of verbatim evidence);
   `brain_recall(entity=...)` gives one entity's history, oldest first, superseded entries marked
 - `brain_folder` — where the memory lives, sharing across PCs, reindexing an imported backlog
-- `code_activity` — indexed code changes (0.2.0 cut the server from thirteen tools to these five)
+- `brain_forget` — lists masked candidates, deletes the ones the user picks on every PC
+- `code_activity` — indexed code changes (0.2.0 cut thirteen tools to five; 0.3.0 added brain_forget)
 
 Set `GRAPH_MIND_FOLDER` to a synced folder (Dropbox, OneDrive, Syncthing) or a USB stick and each
 device writes its own file inside it while reads merge across all of them: several machines, no

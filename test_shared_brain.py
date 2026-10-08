@@ -5,14 +5,30 @@ saved on one PC is recalled on the other; a fact corrected on the second PC repl
 version everywhere; and nothing but plain log lines is ever written into the shared folder.
 """
 from pathlib import Path
+from contextlib import contextmanager
 import os
+import shutil
 import tempfile
+import time
 import unittest
 import unittest.mock
 
 from mcp import Client
 
 from graph_mind_mcp_server import build_server, wait_for_index
+
+
+@contextmanager
+def plain_directory():
+    """A temporary directory made with plain mkdir. tempfile's directories are owner-only, and
+    when the tests run elevated (CI) the owner is the Administrators group, which initdb drops
+    from its token before it starts: it then cannot see the directory and fails."""
+    path = Path(tempfile.gettempdir()) / f"graph-mind-test-{os.getpid()}-{time.time_ns()}"
+    path.mkdir()
+    try:
+        yield str(path)
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def remember(text, **extra):
@@ -66,7 +82,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
     async def test_two_pcs_share_one_brain_through_postgres(self):
         """The same, with the log in Postgres (pgserver: a real server, started on a temp dir)."""
         import pgserver
-        with tempfile.TemporaryDirectory() as directory:
+        with plain_directory() as directory:
             root = Path(directory)
             server = pgserver.get_server(root / "pg", cleanup_mode="stop")
             os.environ["GRAPH_MIND_FOLDER"] = server.get_uri()
@@ -102,7 +118,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
         import brain_log
         import psycopg
         from pgserver._commands import pg_ctl
-        with tempfile.TemporaryDirectory() as directory:
+        with plain_directory() as directory:
             root = Path(directory)
             port, brain_log.PORT = brain_log.PORT, 54391        # never the real hub's port
             brain_log._LOCAL_URI.clear()

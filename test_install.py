@@ -50,8 +50,10 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(entry["args"], [str(install.SERVER)])
             self.assertEqual(entry["env"]["MINE"], "1")
             self.assertNotIn("type", entry)
-            self.assertTrue((home / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu"
-                             / "Programs" / "Startup" / "Graph-MIND Automatic Capture.lnk").exists())
+            if sys.platform == "win32":                 # login item: Windows only so far
+                self.assertTrue((home / "AppData" / "Roaming" / "Microsoft" / "Windows"
+                                 / "Start Menu" / "Programs" / "Startup"
+                                 / "Graph-MIND Automatic Capture.lnk").exists())
             self.assertTrue((home / ".graph-mind" / "automatic-capture.json").exists())
             chosen = json.loads((home / ".graph-mind" / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(chosen["memory_folder"], code)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local-first memory for AI coding assistants: verbatim, on your own PC, no LLM calls at write time."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,7 +23,9 @@ dependencies = [
     "numpy",
     "transformers",
     "tiktoken",
-    "pgserver",
+    # hosts the shared brain's Postgres; built for Python 3.9-3.12 only. Joining another PC's
+    # brain (psycopg) and everything else work on any supported Python.
+    "pgserver; python_version < '3.13'",
     "psycopg[binary]",
     "psutil",
     "fasteners",
@@ -39,44 +41,27 @@ graph-mind-install = "install:main"
 graph-mind-capture = "automatic_capture_cli:main"
 
 [tool.setuptools]
-# ponytail: flat modules, as in the repository; a graph_mind/ package is the upgrade once the
-# research-phase modules are trimmed out of the product's imports.
+# ponytail: flat modules, as in the repository; a graph_mind/ package is the upgrade path.
 py-modules = [
     "associative_memory",
     "automatic_capture",
     "automatic_capture_cli",
     "brain_log",
+    "clock",
     "coding_memory",
-    "concept_plan_benchmark_v071",
     "conversation_memory",
     "development_memory",
     "development_paths",
     "embedding_warmup",
     "entity_timeline",
-    "executable_memory",
-    "executable_plan_v2_diagnostic",
     "graph_mind_mcp_server",
-    "grounded_concept_bridge_v072",
-    "ingestion_gate",
-    "ingestion_synonyms",
     "install",
-    "llm_concept_planner",
     "local_brain",
-    "longmemeval_adapter",
-    "longmemeval_ingestion_calibration",
-    "longmemeval_ingestion_preflight",
-    "longmemeval_ingestion_v7",
-    "memory_algebra",
-    "memory_contract",
-    "memory_normalization",
-    "memory_vocabulary",
-    "semantic_grounding_v073",
+    "local_embedder",
     "semantic_llm_extractor",
     "semantic_memory",
     "semantic_recall",
-    "state_relation_contract",
     "temporal_resolver",
-    "temporal_state",
     "universal_personal_memory",
     "vector_cache",
 ]

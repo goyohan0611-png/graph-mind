@@ -3,7 +3,7 @@ mcp>=2,<3
 numpy
 transformers
 tiktoken
-pgserver
+pgserver; python_version < "3.13"
 psycopg[binary]
 psutil
 fasteners

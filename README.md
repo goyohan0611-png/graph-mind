@@ -11,6 +11,7 @@ Local-first memory for AI coding assistants. Verbatim storage, on your own PC:
 [![][platform-shield]][platform-link]
 [![][longmemeval-shield]][benchmarks-link]
 [![][ci-shield]][ci-link]
+[![][pypi-shield]][pypi-link]
 
 *Switch models; keep the memory.*
 
@@ -81,7 +82,9 @@ saves them. Graph-MIND does not.
 
 ## Install
 
-Requires Python 3.10+ (64-bit). Windows, macOS or Linux.
+Requires Python 3.10+ (64-bit). Windows, macOS or Linux. Hosting a brain that other PCs join
+needs Python 3.12 or older on that one PC (its Postgres helper, pgserver, has no newer build yet);
+everything else, joining included, works on 3.13 and 3.14 too.
 
 ```bash
 pip install graph-mind-memory
@@ -105,7 +108,8 @@ The installer:
   autostart entry on Linux);
 - downloads the embedding model.
 
-Then restart your AI apps. Running the installer again is safe. Run it again if you move the folder.
+Then restart your AI apps. The server is also listed in the
+[MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.goyohan0611-png/graph-mind`. Running the installer again is safe. Run it again if you move the folder.
 
 > [!TIP]
 > If `pip` fails with "No such file or directory", Windows' 260-character path limit is the usual
@@ -198,9 +202,20 @@ python -m unittest discover -p "test_*.py"
   can stop capture until Graph-MIND is updated.
 - **Multi-session questions are the weakest type at 80%.** These are questions that count or
   combine facts across many conversations.
-- **The code base still carries modules from the research phase.** It will be slimmed down.
+- **The repository still holds the research-phase experiments** next to the product (see
+  [Repository layout](#repository-layout)); the installed package carries only the 21 product
+  modules.
 
 The full list is in [REPORT.md §9](REPORT.md#9-known-limits).
+
+## Repository layout
+
+| | files |
+|---|---|
+| **Product** (what `pip install graph-mind-memory` installs) | `graph_mind_mcp_server.py` (MCP server), `automatic_capture*.py` (capture service), `install.py`, `brain_log.py` (sharing across PCs), `local_brain.py` / `conversation_memory.py` / `coding_memory.py` / `development_memory.py` (stores), `semantic_recall.py` / `local_embedder.py` / `vector_cache.py` / `embedding_warmup.py` (search), and their helpers |
+| **Benchmarks** | `product_answer_eval.py`, `official_judge_v073.py`, `rival_mem0.py`, `rival_mempalace.py`, `rival_clean_prereg.py`, and the result files under `runs/` |
+| **Research phase** | the other modules: earlier extraction pipelines and analyses that REPORT.md cites |
+| **Tests** | `test_*.py` |
 
 ## Contributing
 
@@ -224,3 +239,5 @@ available for products that cannot.
 [benchmarks-link]: #benchmarks
 [ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/graph-mind/tests.yml?style=flat-square&label=tests
 [ci-link]: https://github.com/goyohan0611-png/graph-mind/actions/workflows/tests.yml
+[pypi-shield]: https://img.shields.io/pypi/v/graph-mind-memory?style=flat-square&label=pypi
+[pypi-link]: https://pypi.org/project/graph-mind-memory/

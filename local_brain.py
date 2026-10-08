@@ -11,7 +11,7 @@ import sqlite3
 import unicodedata
 import uuid
 
-from temporal_state import timestamp
+from clock import timestamp
 from universal_personal_memory import (PROFILE_FIELDS, SCHEMA_VERSION,
                                        default_profile, normalize_profile)
 

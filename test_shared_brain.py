@@ -6,6 +6,7 @@ version everywhere; and nothing but plain log lines is ever written into the sha
 """
 from pathlib import Path
 from contextlib import contextmanager
+import importlib.util
 import os
 import shutil
 import tempfile
@@ -29,6 +30,9 @@ def plain_directory():
         yield str(path)
     finally:
         shutil.rmtree(path, ignore_errors=True)
+
+
+HOSTS_POSTGRES = importlib.util.find_spec("pgserver") is not None   # Python 3.9-3.12 only
 
 
 def remember(text, **extra):
@@ -79,6 +83,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 os.environ.pop("GRAPH_MIND_FOLDER", None)
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
 
+    @unittest.skipUnless(HOSTS_POSTGRES, "pgserver is built for Python 3.9-3.12 only")
     async def test_two_pcs_share_one_brain_through_postgres(self):
         """The same, with the log in Postgres (pgserver: a real server, started on a temp dir)."""
         import pgserver
@@ -112,6 +117,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
                 server.cleanup()
 
+    @unittest.skipUnless(HOSTS_POSTGRES, "pgserver is built for Python 3.9-3.12 only")
     async def test_connection_code_joins_another_pc(self):
         """'다른 PC도 붙게 해줘' on the desktop, the code pasted on the laptop: one brain. The laptop
         comes in over the network address (not 127.0.0.1), so it is the password that lets it in."""
@@ -204,3 +210,13 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoPgserverTests(unittest.TestCase):
+    def test_hosting_without_pgserver_says_why(self):
+        """Python 3.13+: no pgserver build. Hosting must explain itself, not raise ImportError."""
+        import brain_log
+        brain_log._LOCAL_URI.clear()
+        with unittest.mock.patch.dict("sys.modules", {"pgserver": None, "pgserver._commands": None}):
+            with self.assertRaisesRegex(RuntimeError, "Python 3.12"):
+                brain_log.local_postgres()

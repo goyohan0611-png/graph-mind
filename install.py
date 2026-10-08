@@ -156,7 +156,7 @@ def capture_service(start: bool) -> str:
 
 def embedding_model():
     sys.path.insert(0, str(HERE))
-    from semantic_grounding_v073 import LOCAL_MODEL
+    from local_embedder import LOCAL_MODEL
     from transformers import AutoModel, AutoTokenizer
     AutoTokenizer.from_pretrained(LOCAL_MODEL)
     AutoModel.from_pretrained(LOCAL_MODEL)

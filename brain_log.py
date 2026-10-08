@@ -85,7 +85,13 @@ def local_postgres() -> str:
     role other PCs log in as."""
     if "uri" not in _LOCAL_URI:
         import fasteners
-        from pgserver._commands import initdb, pg_ctl
+        try:
+            from pgserver._commands import initdb, pg_ctl
+        except ImportError:
+            raise RuntimeError(
+                "Hosting the shared brain on this PC needs pgserver, which is built for Python "
+                "3.9-3.12 only. Run Graph-MIND on this PC with Python 3.12, or use a synced "
+                "folder instead. Joining a brain another PC hosts works on any Python.") from None
         from pgserver.utils import PostmasterInfo
         data = _pg_data()
         data.parent.mkdir(parents=True, exist_ok=True)
@@ -121,8 +127,8 @@ def share(open_firewall: bool = True) -> dict:
     to the user and never posted anywhere."""
     import psycopg
     import secrets
+    local_postgres()                        # first: it explains a missing pgserver
     from pgserver._commands import pg_ctl
-    local_postgres()
     password = _config().get("share_password") or secrets.token_urlsafe(18)
     data = _pg_data()
     with psycopg.connect(_admin_uri(), autocommit=True) as admin:

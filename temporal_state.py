@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import math
 
+from clock import timestamp  # noqa: F401  (re-exported for the research modules)
 from executable_memory import TypedMemoryIndex
 from memory_contract import strict_object
 from state_relation_contract import SINGLE_STATE_RELATIONS, VERSION as STATE_CONTRACT_VERSION, single_state_relation
@@ -30,21 +31,6 @@ class StateScopeCertificate:
     knowledge_through: str
     history_complete: bool = False
     carry_forward: bool = False
-
-
-def timestamp(value, clock):
-    if not isinstance(value, str) or "T" not in value:
-        raise ValueError("TIMESTAMP_REQUIRED")
-    try:
-        result = datetime.fromisoformat(value)
-    except ValueError:
-        raise ValueError("INVALID_TIMESTAMP") from None
-    aware = result.utcoffset() is not None
-    if clock == "UTC" and aware:
-        return result.astimezone(timezone.utc)
-    if clock == "SOURCE_LOCAL" and not aware:
-        return result
-    raise ValueError("CLOCK_DOMAIN_MISMATCH")
 
 
 def observation_timestamp(event, recorded, clock):

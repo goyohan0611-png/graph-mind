@@ -14,7 +14,7 @@ import re
 import sqlite3
 import uuid
 
-from temporal_state import timestamp
+from clock import timestamp
 
 
 CONTRACT_VERSION = "development-memory-v0.1"

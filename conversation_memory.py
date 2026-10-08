@@ -11,7 +11,7 @@ import os
 import re
 import sqlite3
 
-from temporal_state import timestamp
+from clock import timestamp
 
 
 CAPTURE_VERSION = "codex-conversation-capture-v0.1"

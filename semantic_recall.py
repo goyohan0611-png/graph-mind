@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from semantic_grounding_v073 import (ACTIVATE, LocalEmbedder, cosine,
+from local_embedder import (ACTIVATE, LocalEmbedder, cosine,
     _seed_texts, semantic_coverage)
 
 DEFAULT_THRESHOLD = 0.35   # pre-registered on the local MiniLM scale (dev safe window [0.30,0.40])

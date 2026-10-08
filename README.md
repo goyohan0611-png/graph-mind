@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.goyohan0611-png/graph-mind -->
 <div align="center">
 
 # Graph-MIND
@@ -83,6 +84,13 @@ saves them. Graph-MIND does not.
 Requires Python 3.10+ (64-bit). Windows, macOS or Linux.
 
 ```bash
+pip install graph-mind
+graph-mind-install
+```
+
+or from source:
+
+```bash
 git clone https://github.com/goyohan0611-png/graph-mind.git
 cd graph-mind
 python install.py
@@ -149,7 +157,7 @@ On the PC that holds the memory, tell its AI:
 It replies with a connection code (`gm1.…`). On each other PC:
 
 ```bash
-python install.py --join gm1.…
+graph-mind-install --join gm1.…     # or: python install.py --join gm1.…
 ```
 
 The memory then lives in a Postgres server on the first PC, which Graph-MIND sets up itself. Other

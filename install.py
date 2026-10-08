@@ -175,7 +175,7 @@ def main(argv=None):
         sys.path.insert(0, str(HERE))
         from brain_log import _decode
         _decode(args.join)
-    if not args.skip_packages:
+    if not args.skip_packages and (HERE / "requirements.txt").exists():   # pip: already done
         step("installing packages (the first time takes a few minutes)")
         packages()
     home = Path.home()

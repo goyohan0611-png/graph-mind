@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.goyohan0611-png/graph-mind",
+  "title": "Graph-MIND",
+  "description": "Local-first memory for Claude Code, Codex and Claude Desktop, kept verbatim on your own PC.",
+  "repository": {
+    "url": "https://github.com/goyohan0611-png/graph-mind",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "graph-mind",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

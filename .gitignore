@@ -7,3 +7,6 @@ external/
 *.vec/
 embed-cache*.json
 .venv*/
+dist/
+build/
+*.egg-info/

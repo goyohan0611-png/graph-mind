@@ -855,6 +855,10 @@ def preload(database):
     timer.start()
 
 
-if __name__ == "__main__":
+def main():
     preload(configured_db_path())
     server.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()

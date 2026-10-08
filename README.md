@@ -140,6 +140,10 @@ Then restart your AI apps. The server is also listed in the
 Before anything is stored, these are masked: API keys, tokens from GitHub, AWS, Google and Slack,
 private keys, and passwords inside URLs.
 
+There is no switch to keep keys: a recalled memory goes to your model's provider with the question,
+so a stored key would leave your PC the first time it is useful. To have Graph-MIND remember a key,
+tell it **where the key is**, not the key: *"my OpenAI key is in 1Password, under Dev"*.
+
 Only what you actually send is captured: the service reads each app's transcript, which is written
 after you press Enter, so a paste you delete before sending never reaches it. A plain password
 like `hunter2` has no recognizable format and is **not** masked. To remove something:

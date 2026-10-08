@@ -30,8 +30,16 @@ def step(message):
 
 
 def packages():
-    subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q",
-                    "-r", str(HERE / "requirements.txt")], check=True)
+    done = subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
+                           "-q", "-r", str(HERE / "requirements.txt")])
+    if done.returncode:
+        # PyTorch ships files nested deep enough to pass Windows' 260-character path limit when
+        # Python lives under a long folder: pip then fails halfway with "No such file".
+        sys.exit("\nPackage install failed. On Windows the usual cause is the 260-character path "
+                 "limit:\n  enable long paths (run as administrator, then restart):\n"
+                 "    reg add HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem "
+                 "/v LongPathsEnabled /t REG_DWORD /d 1 /f\n"
+                 "  or install Python or this folder under a shorter path, e.g. C:\\graph-mind")
 
 
 def _json_entry(path: Path, **extra) -> None:

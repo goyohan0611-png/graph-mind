@@ -118,9 +118,13 @@ class AutomaticCaptureService:
         if shared:
             from brain_log import append
             publish = lambda turn: append(shared, "turn", turn)     # a folder or a Postgres URL
-        sources = [("codex", CodexConversationCapture(
-            self.config["codex_sessions_root"], store, state_path=self.conversation_cursor,
-            workspace_scopes=scopes, now=self.now, publish=publish), self.conversation_cursor)]
+        sources = []
+        # A source whose folder does not exist yet (Codex never run on this PC) is skipped, not
+        # fatal: it used to stop every source, so a Claude-Code-only user captured nothing.
+        if Path(self.config["codex_sessions_root"]).is_dir():
+            sources.append(("codex", CodexConversationCapture(
+                self.config["codex_sessions_root"], store, state_path=self.conversation_cursor,
+                workspace_scopes=scopes, now=self.now, publish=publish), self.conversation_cursor))
         claude_root = Path(self.config.get("claude_projects_root")
                            or Path.home() / ".claude" / "projects")
         if claude_root.is_dir():

@@ -49,6 +49,32 @@ class AutomaticCaptureTests(unittest.TestCase):
             status = json.loads((state / "status.json").read_text(encoding="utf-8"))
             self.assertEqual(status["status"], "CAPTURE_OK")
 
+    def test_claude_code_is_captured_on_a_pc_without_codex(self):
+        """A fresh PC with only Claude Code: a missing Codex folder used to stop every source."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); workspace = root / "workspace"; workspace.mkdir()
+            projects = root / "claude-projects"; (projects / "demo").mkdir(parents=True)
+            transcript = projects / "demo" / "session.jsonl"
+            transcript.write_text(json.dumps({"type": "summary", "sessionId": "s1"}) + "\n",
+                                  encoding="utf-8")
+            config = make_config(workspace=workspace, project_id="project:test",
+                session_id="capture:test", sessions_root=root / "no-codex-yet",
+                db_path=root / "brain.sqlite", poll_seconds=1)
+            config["code_workspaces"][0]["state_dir"] = str(root / "coding")
+            config["claude_projects_root"] = str(projects)
+            config["claude_cowork_root"] = str(root / "no-cowork")
+            service = AutomaticCaptureService(config, state_dir=root / "state",
+                                               now=lambda: "2026-09-16T12:00:00")
+            service.run_once()                          # first pass: baseline
+            with transcript.open("a", encoding="utf-8") as handle:
+                for kind, text in (("user", "고양이 이름은 나비야"), ("assistant", "기억할게요")):
+                    handle.write(json.dumps({"type": kind, "sessionId": "s1", "uuid": kind,
+                        "cwd": str(workspace), "timestamp": "2026-09-16T12:00:00",
+                        "message": {"role": kind, "content": text}}, ensure_ascii=False) + "\n")
+            captured = service.run_once()
+            self.assertEqual(captured["status"], "CAPTURE_OK", captured["errors"])
+            self.assertEqual(captured["conversation_sources"]["claude-code"]["recorded_turns"], 2)
+
     def test_conversation_cycle_can_skip_expensive_code_scan(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); workspace = root / "workspace"

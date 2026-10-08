@@ -1,6 +1,8 @@
 """Indexed coding activity memory with source-bound diffs and symbols."""
 from __future__ import annotations
 
+from development_paths import use_wal
+
 from datetime import datetime
 from pathlib import Path
 import ast
@@ -116,7 +118,7 @@ class CodingMemoryStore:
         # WAL lets them read while one writes; the timeout makes a writer wait its turn
         # instead of failing with "database is locked".
         self.db = sqlite3.connect(str(self.path), timeout=30)
-        self.db.execute("PRAGMA journal_mode=WAL")
+        use_wal(self.db)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript("""

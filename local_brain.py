@@ -1,6 +1,8 @@
 """User-owned local memory shared across models, sessions and applications."""
 from __future__ import annotations
 
+from development_paths import use_wal
+
 from pathlib import Path
 import hashlib
 import json
@@ -57,7 +59,7 @@ class LocalBrainStore:
         # WAL lets them read while one writes; the timeout makes a writer wait its turn
         # instead of failing with "database is locked".
         self.db = sqlite3.connect(str(self.path), timeout=30)
-        self.db.execute("PRAGMA journal_mode=WAL")
+        use_wal(self.db)
         self.db.row_factory = sqlite3.Row
         self.closed = False
         self.db.execute("PRAGMA foreign_keys=ON")

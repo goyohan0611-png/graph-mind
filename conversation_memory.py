@@ -1,6 +1,8 @@
 """Incremental, redacted conversation capture for the user-owned Local Brain."""
 from __future__ import annotations
 
+from development_paths import use_wal
+
 from datetime import datetime
 from pathlib import Path
 import hashlib
@@ -83,7 +85,7 @@ class ConversationMemoryStore:
         # WAL lets them read while one writes; the timeout makes a writer wait its turn
         # instead of failing with "database is locked".
         self.db = sqlite3.connect(str(self.path), timeout=30)
-        self.db.execute("PRAGMA journal_mode=WAL")
+        use_wal(self.db)
         self.db.row_factory = sqlite3.Row
         self.db.executescript("""
         CREATE TABLE IF NOT EXISTS conversation_turns(

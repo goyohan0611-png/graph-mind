@@ -160,9 +160,19 @@ def capture_service(start: bool) -> str:
 def embedding_model():
     sys.path.insert(0, str(HERE))
     from local_embedder import LOCAL_MODEL
-    from transformers import AutoModel, AutoTokenizer
-    AutoTokenizer.from_pretrained(LOCAL_MODEL)
-    AutoModel.from_pretrained(LOCAL_MODEL)
+    try:
+        from transformers import AutoModel, AutoTokenizer
+        AutoTokenizer.from_pretrained(LOCAL_MODEL)
+        AutoModel.from_pretrained(LOCAL_MODEL)
+    except OSError as error:
+        # WinError 1114 on c10.dll: PyTorch needs the Microsoft Visual C++ runtime, which a fresh
+        # Windows often lacks. Everything else is installed; recall uses word search until then.
+        if platform.system() != "Windows":
+            raise
+        sys.exit(f"\n{error}\n\nPyTorch could not load. Install the Microsoft Visual C++ "
+                 "Redistributable (x64), restart, and run this again:\n"
+                 "    https://aka.ms/vs/17/release/vc_redist.x64.exe\n"
+                 "The apps are already connected; until then recall works by word search only.")
 
 
 def main(argv=None):

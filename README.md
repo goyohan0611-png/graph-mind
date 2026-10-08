@@ -93,6 +93,9 @@ graph-mind-install
 
 If `graph-mind-install` is "not recognized", pip put it in a Scripts folder that is not on your
 PATH (common with the Windows Python install manager). `python -m install` runs the same thing.
+If it stops with `WinError 1114` loading `c10.dll`, Windows is missing the Microsoft Visual C++
+runtime that PyTorch needs: install [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe),
+restart, and run the installer again.
 
 or from source:
 

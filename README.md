@@ -219,7 +219,7 @@ tools get confused with each other. Version 0.1 had thirteen.
 ## See your memory
 
 <div align="center">
-<img src="demo/brain.gif" alt="Three weeks of real coding chats as a 3D graph: coloured regions of related memories, joined by links" width="760">
+<img src="demo/brain.png" alt="Three weeks of real coding chats as a 3D graph: coloured regions of related memories, joined by links" width="900">
 </div>
 
 ```bash

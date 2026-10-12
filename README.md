@@ -22,8 +22,9 @@ Local-first memory for AI coding assistants. Verbatim storage, on your own PC:
 </div>
 
 > [!NOTE]
-> **Alpha.** Used daily on Windows 11, and checked in a fresh-install, two-PC end-to-end run.
-> The test suite also passes on Linux and macOS in CI, but nobody has used it day to day there yet.
+> **Alpha.** Windows: used daily, with full end-to-end checks (fresh install, two PCs, real
+> Claude and Codex). macOS and Linux: tests and a clean install from PyPI pass in CI on every
+> release and every day, but nobody has used them day to day yet; consider them experimental.
 
 ---
 
@@ -99,8 +100,8 @@ graph-mind-install
 
 If `graph-mind-install` is "not recognized", pip put it in a Scripts folder that is not on your
 PATH (common with the Windows Python install manager). `python -m install` runs the same thing.
-If it stops with `WinError 1114` loading `c10.dll`, Windows is missing the Microsoft Visual C++
-runtime that PyTorch needs: install [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe),
+If it stops with a DLL load error, Windows is missing the Microsoft Visual C++ runtime that the
+embedding runtime needs: install [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe),
 restart, and run the installer again.
 
 or from source:
@@ -113,12 +114,12 @@ python install.py
 
 The installer:
 
-- installs the packages (PyTorch CPU is the large one, about 2 GB);
+- installs the packages (no PyTorch: the embedding model runs on ONNX Runtime);
 - registers the MCP server with every app it finds: Claude Code, Claude Desktop (including the
   Microsoft Store build) and Codex;
 - starts the capture service at login (Windows Startup folder, a macOS LaunchAgent, or an XDG
   autostart entry on Linux);
-- downloads the embedding model.
+- downloads the embedding model (about 470 MB, once).
 
 Then restart your AI apps. The server is also listed in the
 [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.goyohan0611-png/graph-mind`. Running the installer again is safe. Run it again if you move the folder.
@@ -232,9 +233,9 @@ python -m unittest discover -p "test_*.py"
 
 ## Known limits
 
-- **For about the first half minute after an AI app starts, answers use word search only** while the
-  embedding model loads in the background (the first answer takes ~2.5 s instead of waiting out a
-  30-50 s load on a slow or synced disk). After that, questions take well under a second.
+- **For the first few seconds after an AI app starts, answers use word search only** while the
+  embedding model loads in the background (6-9 s on a slow, synced disk; it was 50-70 s before
+  0.4). The first answer never waits for it; later answers take well under a second.
 - **Daily use on Windows only so far.** macOS and Linux pass the tests in CI but have not seen real
   use.
 - **Capture follows each app's transcript format,** which is not a public interface. An app update

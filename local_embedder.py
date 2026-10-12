@@ -36,17 +36,34 @@ def use_own_hf_home() -> None:
 use_own_hf_home()
 
 
+MODEL_FILES = ("tokenizer.json", "onnx/model.onnx")
+
+
 def model_on_disk() -> bool:
+    """Both files the embedder reads are already downloaded (an install from before 0.4 has the
+    torch weights in the same folder, but not the ONNX file)."""
     hf_home = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface")
-    return (hf_home / "hub" / ("models--" + LOCAL_MODEL.replace("/", "--"))).is_dir()
+    snapshots = hf_home / "hub" / ("models--" + LOCAL_MODEL.replace("/", "--")) / "snapshots"
+    return any(all((snapshot / name).exists() for name in MODEL_FILES)
+               for snapshot in (snapshots.iterdir() if snapshots.is_dir() else []))
+
+
+def model_paths(model=LOCAL_MODEL) -> tuple:
+    """Local paths of the tokenizer and the ONNX model, downloaded on first use."""
+    from huggingface_hub import hf_hub_download
+    return tuple(hf_hub_download(model, name) for name in MODEL_FILES)
 
 
 class LocalEmbedder:
-    """On-device multilingual embeddings via raw transformers (mean pooling, L2-normalized).
-    No text leaves the machine — required by the user-owned local-brain promise."""
+    """On-device multilingual embeddings: the model's own ONNX export run by ONNX Runtime,
+    mean pooling, L2-normalized. No text leaves the machine.
 
-    _model = None
-    _tok = None
+    Until 0.4 this ran on torch + transformers: same model, same vectors (on 1,000 texts the
+    largest difference was 2.4e-7, cosine 1.000000), but a 2 GB install, the Visual C++ runtime,
+    and 48-71 s to load on a OneDrive-synced Windows PC against 6-9 s now."""
+
+    _model = None            # an onnxruntime.InferenceSession
+    _tok = None              # a tokenizers.Tokenizer
     _lock = threading.RLock()  # model load + cache writes are not thread-safe
 
     FLUSH_EVERY = 5000   # vectors between writes: bounds lost work without rewriting per call
@@ -69,11 +86,17 @@ class LocalEmbedder:
 
     def _load(self):
         if LocalEmbedder._model is None:
-            import torch
-            from transformers import AutoModel, AutoTokenizer
-            LocalEmbedder._tok = AutoTokenizer.from_pretrained(self.model_name)
-            LocalEmbedder._model = AutoModel.from_pretrained(self.model_name).eval()
-            LocalEmbedder._torch = torch
+            import onnxruntime
+            from tokenizers import Tokenizer
+            tokenizer_file, model_file = model_paths(self.model_name)
+            tokenizer = Tokenizer.from_file(tokenizer_file)
+            tokenizer.enable_truncation(256)          # as transformers did: max_length=256
+            tokenizer.enable_padding()
+            options = onnxruntime.SessionOptions()
+            options.log_severity_level = 3            # warnings about unused initializers: noise
+            LocalEmbedder._tok = tokenizer
+            LocalEmbedder._model = onnxruntime.InferenceSession(
+                model_file, options, providers=["CPUExecutionProvider"])
             LocalEmbedder._loaded.set()
 
     def ready(self, timeout) -> bool:
@@ -97,16 +120,18 @@ class LocalEmbedder:
         return hashlib.sha256((self.model_name + "\0" + text).encode("utf-8")).hexdigest()
 
     def _encode(self, texts):
-        import torch
-        torch = LocalEmbedder._torch
-        batch = LocalEmbedder._tok(texts, padding=True, truncation=True,
-                                   max_length=256, return_tensors="pt")
-        with torch.no_grad():
-            out = LocalEmbedder._model(**batch)
-        mask = batch["attention_mask"].unsqueeze(-1).float()
-        emb = (out.last_hidden_state * mask).sum(1) / mask.sum(1).clamp(min=1e-9)
-        emb = torch.nn.functional.normalize(emb, dim=1)
-        return emb.tolist()
+        import numpy as np
+        encoded = LocalEmbedder._tok.encode_batch(texts)
+        ids = np.array([e.ids for e in encoded], dtype=np.int64)
+        mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)
+        feed = {"input_ids": ids, "attention_mask": mask}
+        if "token_type_ids" in {i.name for i in LocalEmbedder._model.get_inputs()}:
+            feed["token_type_ids"] = np.zeros_like(ids)
+        hidden = LocalEmbedder._model.run(None, feed)[0]
+        weights = mask[..., None].astype(np.float32)
+        pooled = (hidden * weights).sum(1) / np.clip(weights.sum(1), 1e-9, None)
+        pooled /= np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-12, None)
+        return pooled.tolist()
 
     def embed(self, texts):
         texts = [t.strip()[:2000] for t in texts]

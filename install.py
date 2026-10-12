@@ -180,35 +180,32 @@ def capture_service(start: bool) -> str:
 
 def embedding_model():
     sys.path.insert(0, str(HERE))
-    from local_embedder import LOCAL_MODEL, own_hf_home
+    from local_embedder import LOCAL_MODEL, MODEL_FILES, model_paths, own_hf_home
     try:
-        from transformers import AutoModel, AutoTokenizer
-    except OSError as error:
-        if "1114" not in str(error):
+        import onnxruntime  # noqa: F401  (a DLL failure here would leave search on words only)
+    except ImportError as error:
+        if platform.system() != "Windows":
             raise
-        # WinError 1114 on c10.dll: PyTorch needs the Microsoft Visual C++ runtime, which a fresh
-        # Windows often lacks. Everything else is installed; recall uses word search until then.
-        sys.exit(f"\n{error}\n\nPyTorch could not load. Install the Microsoft Visual C++ "
-                 "Redistributable (x64), restart, and run this again:\n"
+        sys.exit(f"\n{error}\n\nThe embedding runtime could not load. Install the Microsoft "
+                 "Visual C++ Redistributable (x64), restart, and run this again:\n"
                  "    https://aka.ms/vs/17/release/vc_redist.x64.exe\n"
                  "The apps are already connected; until then recall works by word search only.")
-
     try:
-        AutoTokenizer.from_pretrained(LOCAL_MODEL)
-        AutoModel.from_pretrained(LOCAL_MODEL)
+        model_paths()
     except OSError as error:
         # ~/.cache refused (access denied): move Hugging Face's whole home under ~/.graph-mind,
         # where every Graph-MIND process looks from now on (local_embedder.use_own_hf_home)
-        if "PermissionError" not in str(error) and not isinstance(error.__cause__, PermissionError):
+        if "PermissionError" not in str(error) and not isinstance(error.__cause__, PermissionError) \
+                and not isinstance(error, PermissionError):
             raise
         own = own_hf_home()
         own.mkdir(parents=True, exist_ok=True)
         step(f"the usual model folder is not writable; using {own}")
         # huggingface_hub fixed its folders when it was imported: download in a fresh process
         subprocess.run([sys.executable, "-c",
-                        "from transformers import AutoModel, AutoTokenizer; "
-                        f"AutoTokenizer.from_pretrained({LOCAL_MODEL!r}); "
-                        f"AutoModel.from_pretrained({LOCAL_MODEL!r})"],
+                        "from huggingface_hub import hf_hub_download; "
+                        + "; ".join(f"hf_hub_download({LOCAL_MODEL!r}, {name!r})"
+                                    for name in MODEL_FILES)],
                        env={**os.environ, "HF_HOME": str(own),
                             "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"}, check=True)
 

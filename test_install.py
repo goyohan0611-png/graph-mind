@@ -90,17 +90,13 @@ class InstallTests(unittest.TestCase):
     def test_model_goes_to_own_folder_when_the_usual_cache_is_locked(self):
         """A fresh Windows profile refused ~/.cache (access denied): Hugging Face's whole home
         moves to ~/.graph-mind/huggingface, and every later process is pointed there."""
-        import types
+        import local_embedder
 
-        class Fake:
-            @staticmethod
-            def from_pretrained(name):
-                denied = PermissionError(5, "Access is denied")
-                raise OSError("PermissionError at ~/.cache/huggingface") from denied
-        fake = types.SimpleNamespace(AutoModel=Fake, AutoTokenizer=Fake)
+        def locked(*_):
+            raise PermissionError(5, "Access is denied: ~/.cache/huggingface")
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
-                mock.patch.dict(sys.modules, {"transformers": fake}), \
+                mock.patch.object(local_embedder, "model_paths", locked), \
                 mock.patch("install.subprocess.run") as retry:
             os.environ.pop("HF_HOME", None)
             install.embedding_model()

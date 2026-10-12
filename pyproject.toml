@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.3.4"
+version = "0.4.0"
 description = "Local-first memory for AI coding assistants: verbatim, on your own PC, no LLM calls at write time."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,11 +18,11 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "torch>=2.2,<3",
     "mcp>=2,<3",
     "numpy",
-    "transformers",
-    "tiktoken",
+    "onnxruntime>=1.17",
+    "tokenizers>=0.15",
+    "huggingface_hub>=0.20",
     # hosts the shared brain's Postgres; built for Python 3.9-3.12 only. Joining another PC's
     # brain (psycopg) and everything else work on any supported Python.
     "pgserver; python_version < '3.13'",

@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
+import json
 import os
 import sys
 import threading
@@ -346,6 +347,17 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
     return result
 
 
+def capture_warnings() -> list[str]:
+    """What the capture service last reported as wrong (a source that stopped yielding turns)."""
+    try:
+        from automatic_capture import default_service_state_dir
+        status = json.loads((default_service_state_dir() / "status.json")
+                            .read_text(encoding="utf-8"))
+        return list(status.get("warnings") or [])
+    except Exception:
+        return []
+
+
 def build_server(db_path=None):
     database = Path(db_path).expanduser() if db_path is not None else configured_db_path()
     server = MCPServer(
@@ -368,7 +380,8 @@ def build_server(db_path=None):
             "project, file or symbol, use code_activity. brain_folder shows or changes where the "
             "memory lives and shares it with the user's other PCs. When the user asks to "
             "delete something from memory, use brain_forget: list first, delete only what the "
-            "user picks. Preserve provenance."
+            "user picks. If a result carries capture_warnings, tell the user once, plainly: "
+            "conversations from that app are no longer being saved. Preserve provenance."
         ),
         version=SERVER_VERSION,
     )
@@ -557,6 +570,9 @@ def build_server(db_path=None):
         packet = build_context_pack(recalled, max_chars=max_chars,
                                     order="time" if recent else "relevance")
         packet["route"] = route
+        warnings = capture_warnings()
+        if warnings:
+            packet["capture_warnings"] = warnings
         if route["mode"] == "EXECUTE":
             packet.setdefault("warnings", []).append(
                 "STRUCTURED_EXECUTION_REQUIRED_FOR_COMPLETE_SCOPE_CLAIMS")
@@ -626,6 +642,9 @@ def build_server(db_path=None):
         result = {} if shared_out is None else {
             "connection_code": shared_out["connection_code"],
             "reachable_at": shared_out["addresses"], "firewall": shared_out["firewall"]}
+        warnings = capture_warnings()
+        if warnings:
+            result["capture_warnings"] = warnings
         return {**result, "folder": where, "this_device": device_name(),
                 "devices": devices(shared),
                 "imported_from_other_devices": imported["imported"],

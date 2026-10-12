@@ -234,9 +234,38 @@ class AutomaticCaptureService:
                   "conversation_sources": conversation, "semantic": semantic,
                   "semantic_llm": semantic_llm,
                   "associative": associative,
-                  "errors": errors}
+                  "errors": errors,
+                  "warnings": self._stall_warnings(conversation)}
         self._write_status(result)
         return result
+
+    STALL_ROWS = 2000
+
+    def _stall_warnings(self, conversation):
+        """A source whose transcripts keep growing while no conversation comes out of them: the
+        app most likely changed its transcript format, and capture would otherwise stop without
+        a word. Counted across passes in capture-health.json; reset by the next turn found."""
+        path = self.state_dir / "capture-health.json"
+        try:
+            health = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            health = {}
+        warnings = []
+        for name, outcome in conversation.items():
+            if not isinstance(outcome, dict) or "scanned_rows" not in outcome:
+                continue
+            entry = health.setdefault(name, {"rows_without_turns": 0, "last_turn_at": None})
+            if outcome.get("recorded_turns"):
+                entry.update(rows_without_turns=0, last_turn_at=self.now())
+            else:
+                entry["rows_without_turns"] += outcome["scanned_rows"]
+            if entry["rows_without_turns"] >= self.STALL_ROWS:
+                warnings.append(
+                    f"{name}: {entry['rows_without_turns']} new transcript lines and no "
+                    f"conversation found in them since {entry['last_turn_at'] or 'capture began'}"
+                    " - the app may have changed its format; update Graph-MIND or report it")
+        _atomic_json(path, health)
+        return warnings
 
     def _write_status(self, result):
         _atomic_json(self.status_path, {**result, "pid": os.getpid(),

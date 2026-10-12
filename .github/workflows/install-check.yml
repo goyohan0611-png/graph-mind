@@ -16,6 +16,18 @@ on:
     - cron: "17 21 * * *"          # 06:17 in Korea
 
 jobs:
+  docker:
+    # directories such as Glama start the server from the Dockerfile and list its tools
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: docker build -t graph-mind-check .
+      - run: python -m pip install "mcp>=2,<3" && python .github/docker_check.py
+
   install:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     strategy:

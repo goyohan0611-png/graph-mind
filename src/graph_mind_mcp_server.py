@@ -494,7 +494,8 @@ def build_server(db_path=None):
             "project, file or symbol, use code_activity. brain_folder shows or changes where the "
             "memory lives and shares it with the user's other PCs. When the user asks to "
             "delete something from memory, use brain_forget: list first, delete only what the "
-            "user picks. If a result carries capture_warnings, tell the user once, plainly: "
+            "user picks. For shared project progress ('이거 프로젝트에 올려줘', '어디까지 "
+            "했어?', '제안서 띄워봐') use brain_checkpoint; publish only when asked. If a result carries capture_warnings, tell the user once, plainly: "
             "conversations from that app are no longer being saved. Preserve provenance."
         ),
         version=SERVER_VERSION,
@@ -767,6 +768,78 @@ def build_server(db_path=None):
                 "imported_from_other_devices": imported["imported"],
                 "existing_memories_shared": exported or "not shared; ask the user before "
                                                        "setting share_existing=true"}
+
+    @server.tool(
+        name="brain_checkpoint",
+        structured_output=True,
+        annotations=types.ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=False,
+        ),
+    )
+    def brain_checkpoint(action: Literal["projects", "create_project", "publish", "attach",
+                                         "timeline", "open", "retract"],
+                         project: str | None = None,
+                         type: Literal["decision", "progress", "blocker", "next_action",
+                                       "artifact", "release"] | None = None,
+                         summary: str | None = None, path: str | None = None,
+                         name: str | None = None, version: int | None = None,
+                         checkpoint_id: str | None = None, supersedes: str | None = None,
+                         source_refs: list[str] | None = None) -> dict[str, Any]:
+        """Shared project checkpoints: what a team (or the user's other AIs) sees of the work.
+        Personal memory is never shared through this; only what is published here is.
+
+        Publish only when the user asks ("이거 프로젝트에 올려줘", "체크포인트 남겨", "결정사항
+        공유해"): that request is the approval, so do not ask again, but be exact about what is
+        published and then tell the user what went where.
+        - `projects`: list shared projects. `create_project` + `project`: only when the user names
+          a project to create.
+        - `publish` + `project`, `type`, `summary`: one short checkpoint in the user's language,
+          e.g. type=decision "Postgres 시작 실패 시 최대 10회 재시도". Never paste conversation
+          text. `supersedes`=<id> when it replaces an earlier decision. `source_refs`: local ids
+          (memory or turn ids, commit hashes) it rests on, never text.
+        - `attach` + `project`, `path`, `summary`: upload a file as a new version (never
+          overwrites; refused if it holds an API key or password, or exceeds 50 MB). A git folder
+          is linked by its commit instead of copied. Identify the exact file first; if several
+          could be meant, ask which.
+        - `timeline` + `project`: "어디까지 했어?" — newest first, with who and when.
+        - `open` + `project` (+ `name`, `version`): "제안서 띄워봐" — fetch the latest matching
+          file and open it on this PC.
+        - `retract` + `checkpoint_id`: withdraw a mistaken checkpoint and remove its files.
+        """
+        from project_ledger import actor, open_ledger, open_with_default_app
+        from development_paths import graph_mind_home
+        ledger, where = open_ledger()
+        try:
+            by = actor()
+            if action == "projects":
+                result = {"projects": ledger.projects()}
+            elif action == "create_project":
+                result = ledger.create_project(project, by)
+            elif action == "publish":
+                result = ledger.publish(project, type, summary, by, source_refs=source_refs,
+                                        supersedes=supersedes)
+            elif action == "attach":
+                if not path:
+                    raise ValueError("PATH_REQUIRED: the file (or git folder) to attach")
+                result = ledger.attach(project, path, summary, by, kind=type or "artifact",
+                                       source_refs=source_refs)
+            elif action == "timeline":
+                result = {"project": project, "checkpoints": ledger.timeline(project)}
+            elif action == "open":
+                result = ledger.fetch(project, name=name, version=version,
+                                      into=graph_mind_home() / "artifacts")
+                open_with_default_app(result["path"])
+                result["opened"] = True
+            else:
+                result = ledger.retract(checkpoint_id, by)
+        except ValueError as error:
+            return {"status": "REFUSED", "reason": str(error), "ledger": where}
+        finally:
+            ledger.db.close()
+        return {**result, "ledger": where}
 
     @server.tool(
         name="brain_forget",

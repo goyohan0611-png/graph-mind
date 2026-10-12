@@ -71,7 +71,7 @@ CASES = [
 
 
 def ids(packet):
-    return [item["id"] for item in packet["items"][:3]]
+    return packet["ids"][:3]
 
 
 class RecentRecallTests(unittest.IsolatedAsyncioTestCase):

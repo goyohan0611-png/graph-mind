@@ -244,7 +244,7 @@ python -m unittest discover -s tests -p "test_*.py"
 ## Known limits
 
 - **For the first few seconds after an AI app starts, answers use word search only** while the
-  embedding model loads in the background (6-9 s on a slow, synced disk; it was 50-70 s before
+  embedding model loads in the background (6-30 s on a slow, synced disk, depending on load; it was 50-70 s before
   0.4). The first answer never waits for it; later answers take well under a second.
 - **Daily use on Windows only so far.** macOS and Linux pass the tests in CI but have not seen real
   use.

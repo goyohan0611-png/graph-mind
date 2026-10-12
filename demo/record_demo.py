@@ -70,11 +70,13 @@ def record() -> dict:
                                                 {"query": QUESTION, "policy": "always"})
                 return result.structured_content, time.perf_counter() - started
     packet, seconds = asyncio.run(ask())
-    top = packet["items"][0]
+    # first section of the context: "[kind | class | scope | when] title\nbody\nSource: type / ref"
+    head, *body = packet["context"].split("\n\n")[0].splitlines()
+    labels, title = head[1:].split("] ", 1)
     return {"turns": turns, "seconds": seconds, "tokens": packet["estimated_tokens"],
-            "source": top["provenance"].get("source_type", ""), "title": top["title"],
-            "when": top["effective_at"],
-            "content": top["content"]}
+            "source": body[-1].removeprefix("Source: ").split(" / ")[0], "title": title,
+            "when": labels.split(" | ")[-1],
+            "content": "\n".join(body[:-1])}
 
 
 def draw(rec: dict, out: Path) -> None:

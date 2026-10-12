@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.5.4 — 2026-10-12
+- Faster recall: `brain_context` no longer repeats every item next to the context text it
+  already contains, so the model reads about 60% less (43K → 16K characters on a real memory).
+  The result lists the item `ids` instead.
+- Recall itself takes about half the time (0.9 s → 0.5 s on a real memory): one open connection
+  to the shared hub instead of a new one per question, and memory titles are normalized once.
+
 ## 0.5.3 — 2026-10-12
 Run `graph-mind-install` after upgrading: it rewrites the app registrations.
 - A memory server that fails to start no longer keeps Codex from starting a chat (the Codex entry

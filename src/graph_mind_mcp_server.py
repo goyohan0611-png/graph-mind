@@ -573,12 +573,15 @@ def build_server(db_path=None):
             return {"status": "SKIPPED", "route": route,
                     "scope_completeness": "NOT_APPLICABLE", "char_budget": max_chars,
                     "used_chars": 0, "estimated_tokens": 0, "selected_items": 0,
-                    "omitted_items": 0, "items": [], "context": ""}
+                    "omitted_items": 0, "ids": [], "context": ""}
         recalled = gather(database, query, scopes=scopes, as_of=as_of or _now(),
                           knowledge_cutoff=knowledge_cutoff, limit=limit, recent=recent,
                           since=since, about_assistant=about_assistant, around=around)
         packet = build_context_pack(recalled, max_chars=max_chars,
                                     order="time" if recent else "relevance")
+        # `context` already carries each item's kind, date, title, text and source; the item
+        # list repeated all of it and was 2/3 of what the model had to read (43K -> 16K chars)
+        packet["ids"] = [item["id"] for item in packet.pop("items")]
         packet["route"] = route
         warnings = capture_warnings()
         if warnings:

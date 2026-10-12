@@ -461,6 +461,27 @@ def _pg(url):
     return connection
 
 
+_READERS: dict = {}
+
+
+def _read_rows(url, query, parameters):
+    """A read on one connection kept open per hub: the sync before every answer paid a fresh
+    connection (password handshake included) each time, 0.2 s of a 0.9 s answer. A connection
+    the hub dropped (it restarted) is replaced once."""
+    import psycopg
+    for attempt in (1, 2):
+        connection = _READERS.get(url)
+        if connection is None or connection.closed:
+            connection = _READERS[url] = _pg(url)
+            connection.autocommit = True
+        try:
+            return connection.execute(query, parameters).fetchall()
+        except psycopg.OperationalError:
+            _READERS.pop(url, None)
+            if attempt == 2:
+                raise
+
+
 def _outbox() -> Path:
     from development_paths import graph_mind_home
     return graph_mind_home() / "outbox.jsonl"
@@ -514,9 +535,8 @@ def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
         source = "postgres"
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
                          (source,)).fetchone()
-        with _pg(shared) as connection:
-            rows = connection.execute("SELECT seq, line FROM brain_log WHERE seq > %s ORDER BY seq",
-                                      (row[0] if row else 0,)).fetchall()
+        rows = _read_rows(shared, "SELECT seq, line FROM brain_log WHERE seq > %s ORDER BY seq",
+                          (row[0] if row else 0,))
         if rows:
             with db:
                 db.execute("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)",

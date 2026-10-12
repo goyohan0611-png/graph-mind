@@ -4,6 +4,7 @@ from __future__ import annotations
 from development_paths import use_wal
 
 from pathlib import Path
+import functools
 import hashlib
 import json
 import re
@@ -39,6 +40,7 @@ def _string_list(value, error):
     return list(dict.fromkeys(item.strip() for item in value))
 
 
+@functools.lru_cache(maxsize=65536)     # every memory's title and tags, on every question
 def _normalized(value):
     text = unicodedata.normalize("NFKC", value).casefold()
     return " ".join(re.findall(r"[^\W_]+", text, flags=re.UNICODE))

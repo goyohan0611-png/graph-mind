@@ -96,13 +96,17 @@ def scrub_shared(shared, ids: dict) -> int:
     if not keys:
         return 0
     if is_database(shared):
-        with _pg(shared) as connection:
-            removed = 0
-            for key in keys:
-                removed += connection.execute(
-                    "DELETE FROM brain_log WHERE strpos(line, %s) > 0", (key,)).rowcount
+        from brain_log import _unseal
+        with _pg(shared) as connection:          # lines are sealed: open each to find targets
+            doomed = []
+            for seq, line in connection.execute("SELECT seq, line FROM brain_log").fetchall():
+                text = _unseal(shared, line) or ""
+                if any(key in text for key in keys) and '"kind": "forget"' not in text:
+                    doomed.append(seq)
+            if doomed:
+                connection.execute("DELETE FROM brain_log WHERE seq = ANY(%s)", (doomed,))
             connection.commit()
-        return removed
+        return len(doomed)
     removed = 0
     for log in (Path(shared) / "log").glob("*.jsonl"):
         data = log.read_bytes()

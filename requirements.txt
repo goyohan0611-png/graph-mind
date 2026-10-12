@@ -5,6 +5,7 @@ tokenizers>=0.15
 huggingface_hub>=0.20
 pgserver; python_version < "3.13"
 psycopg[binary]
+cryptography
 psutil
 fasteners
 # research and benchmark scripts only

@@ -164,6 +164,12 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual([m["content"] for m in seen.structured_content["matches"]],
                                      ["사는 곳: 서울"])
                     self.assertEqual(joined.structured_content["devices"], ["desktop"])
+                # what crosses the network and sits in the hub is ciphertext only
+                with psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind") as c:
+                    stored = [row[0] for row in c.execute("SELECT line FROM brain_log")]
+                self.assertTrue(stored)
+                self.assertTrue(all(l.startswith(brain_log.SEALED) for l in stored))
+                self.assertFalse(any("서울" in l for l in stored))
                 with self.assertRaises(ValueError):
                     brain_log.set_folder("gm1.not-a-code")
             finally:
@@ -214,6 +220,21 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SealTests(unittest.TestCase):
+    def test_lines_are_sealed_with_the_code_password(self):
+        import brain_log
+        joined = "postgresql://graphmind:s3cret-pw@192.0.2.1:54329/graphmind"
+        line = json.dumps({"kind": "turn", "record": {"content_redacted": "회의실 와이파이는 7층"}},
+                          ensure_ascii=False)
+        sealed = brain_log._seal(joined, [line])[0]
+        self.assertTrue(sealed.startswith(brain_log.SEALED))
+        self.assertNotIn("와이파이", sealed)
+        self.assertEqual(brain_log._unseal(joined, sealed), line)
+        stranger = "postgresql://graphmind:another@192.0.2.1:54329/graphmind"
+        self.assertIsNone(brain_log._unseal(stranger, sealed), "another key opens nothing")
+        self.assertEqual(brain_log._unseal(stranger, line), line, "old plain lines still read")
 
 
 class OutboxTests(unittest.TestCase):

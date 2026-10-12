@@ -27,6 +27,7 @@ dependencies = [
     # brain (psycopg) and everything else work on any supported Python.
     "pgserver; python_version < '3.13'",
     "psycopg[binary]",
+    "cryptography",          # seals lines on a shared hub
     "psutil",
     "fasteners",
 ]

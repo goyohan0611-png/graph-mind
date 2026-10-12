@@ -145,6 +145,7 @@ def share(open_firewall: bool = True) -> dict:
     local_postgres()                        # first: it explains a missing pgserver
     from pgserver._commands import pg_ctl
     password = _config().get("share_password") or secrets.token_urlsafe(18)
+    _save({"share_password": password})          # before sealing: the line key derives from it
     data = _pg_data()
     with psycopg.connect(_admin_uri(), autocommit=True) as admin:
         # token_urlsafe is [A-Za-z0-9_-]: nothing in it can close the quoted literal
@@ -160,11 +161,11 @@ def share(open_firewall: bool = True) -> dict:
     pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"], pgdata=data, timeout=60,
            **_DETACHED)
     set_folder("local")
-    _save({"share_password": password})
+    sealed = _seal_existing(local_postgres())
     hosts = _addresses()
     code = CODE_PREFIX + base64.urlsafe_b64encode(json.dumps(
         {"h": hosts, "p": PORT, "k": password}).encode()).decode().rstrip("=")
-    return {"connection_code": code, "addresses": hosts, "port": PORT,
+    return {"connection_code": code, "addresses": hosts, "port": PORT, "lines_sealed": sealed,
             "firewall": _firewall() if open_firewall else "not changed"}
 
 
@@ -308,7 +309,8 @@ def _shared_ids(shared) -> set:
     """(kind, id) of every turn and memory the shared log holds, forgotten ones included."""
     if is_database(shared):
         with _pg(shared) as connection:
-            lines = [row[0] for row in connection.execute("SELECT line FROM brain_log")]
+            lines = [line for line in (_unseal(shared, row[0]) for row in
+                     connection.execute("SELECT line FROM brain_log")) if line is not None]
     else:
         lines = [line for log in (Path(shared) / "log").glob("*.jsonl")
                  for line in log.read_text(encoding="utf-8", errors="replace").splitlines()]
@@ -390,6 +392,66 @@ def _cursor_db(index: Path) -> sqlite3.Connection:
     return db
 
 
+SEALED = "gme1:"
+_KEYS = {}
+
+
+def _line_key(url):
+    """The key that seals this hub's lines, or None when it has none.
+
+    The Postgres that pgserver ships is built without SSL, so the connection to a hub is not
+    encrypted: on a shared network anyone could read memory off the wire. Each line is sealed
+    instead (Fernet: AES with an HMAC) under a key derived from the password in the connection
+    code, which every PC that joined holds and nobody else does. The hub stores ciphertext too.
+    A joined PC finds the password in its URL; the hub PC in its own config."""
+    import urllib.parse
+    password = urllib.parse.urlsplit(url).password
+    password = urllib.parse.unquote(password) if password else _config().get("share_password")
+    if not password:
+        return None                               # a hub never shared: nothing leaves this PC
+    if password not in _KEYS:
+        from cryptography.fernet import Fernet
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+        raw = HKDF(algorithm=hashes.SHA256(), length=32, salt=b"graph-mind brain_log",
+                   info=b"line key v1").derive(password.encode())
+        _KEYS[password] = Fernet(base64.urlsafe_b64encode(raw))
+    return _KEYS[password]
+
+
+def _seal(url, lines):
+    key = _line_key(url)
+    return [SEALED + key.encrypt(line.encode()).decode() if key else line for line in lines]
+
+
+def _unseal(url, line):
+    """The plain line, or None when it cannot be opened with this hub's key."""
+    if not line.startswith(SEALED):
+        return line                               # written before sealing began
+    key = _line_key(url)
+    if key is None:
+        return None
+    from cryptography.fernet import InvalidToken
+    try:
+        return key.decrypt(line[len(SEALED):].encode()).decode()
+    except InvalidToken:
+        return None
+
+
+def _seal_existing(url) -> int:
+    """Seal the lines the hub held before it was shared, so none crosses the network in clear."""
+    if _line_key(url) is None:
+        return 0
+    with _pg(url) as connection:
+        rows = connection.execute("SELECT seq, line FROM brain_log WHERE line NOT LIKE %s",
+                                  (SEALED + "%",)).fetchall()
+        with connection.cursor() as cursor:
+            cursor.executemany("UPDATE brain_log SET line = %s WHERE seq = %s",
+                               [(_seal(url, [line])[0], seq) for seq, line in rows])
+        connection.commit()
+    return len(rows)
+
+
 def _pg(url):
     import psycopg
     connection = psycopg.connect(url, autocommit=False)
@@ -432,7 +494,7 @@ def _pg_append(url, lines) -> int:
         connection.execute("SELECT pg_advisory_xact_lock(4242)")
         with connection.cursor() as cursor:
             cursor.executemany("INSERT INTO brain_log(device, line) VALUES (%s, %s)",
-                               [(device_name(), line) for line in lines])
+                               [(device_name(), line) for line in _seal(url, lines)])
         connection.commit()
     return len(lines)
 
@@ -459,7 +521,8 @@ def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
             with db:
                 db.execute("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)",
                            (source, rows[-1][0]))
-        return [line for _, line in rows]
+        opened = [_unseal(shared, line) for _, line in rows]
+        return [line for line in opened if line is not None]
     lines = []
     for log in sorted((Path(shared) / "log").glob("*.jsonl")):
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",

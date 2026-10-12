@@ -1,11 +1,18 @@
 """After `pip install graph-mind-memory` on a fresh machine: the server starts, lists its tools,
-saves a memory and finds it again. Run by .github/workflows/install-check.yml."""
+saves a memory and finds it again. Run by .github/workflows/install-check.yml.
+
+    python smoke_install.py            # save, then recall
+    python smoke_install.py remember   # only save (before an upgrade)
+    python smoke_install.py recall     # only recall (after it: the memory must have survived)
+"""
 import asyncio
 import shutil
 import sys
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+MODE = sys.argv[1] if len(sys.argv) > 1 else "both"
 
 
 async def main():
@@ -15,13 +22,15 @@ async def main():
             await client.initialize()
             tools = {tool.name for tool in (await client.list_tools()).tools}
             assert {"brain_context", "brain_remember", "brain_folder"} <= tools, tools
-            await client.call_tool("brain_remember", {
-                "content": "The release train leaves on Thursdays", "title": "release day",
-                "memory_type": "fact", "source_ref": "install-check"})
-            found = await client.call_tool("brain_recall", {"query": "release train"})
-            text = str(found.structured_content or found.content)
-            assert "Thursdays" in text, text
-            print(f"ok: {len(tools)} tools, remember + recall on Python {sys.version.split()[0]}")
+            if MODE in ("both", "remember"):
+                await client.call_tool("brain_remember", {
+                    "content": "The release train leaves on Thursdays", "title": "release day",
+                    "memory_type": "fact", "source_ref": "install-check"})
+            if MODE in ("both", "recall"):
+                found = await client.call_tool("brain_recall", {"query": "release train"})
+                text = str(found.structured_content or found.content)
+                assert "Thursdays" in text, text
+            print(f"ok ({MODE}): {len(tools)} tools on Python {sys.version.split()[0]}")
 
 
 asyncio.run(main())

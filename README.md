@@ -3,8 +3,9 @@
 
 # Graph-MIND
 
-Local-first memory for AI coding assistants. Verbatim storage, on your own PC:
-**88.8% on LongMemEval with zero model calls at write time.**
+### Your AI forgets everything when the session ends. This one remembers, and it never calls an LLM to do it.
+
+**88.8% on LongMemEval. Zero model tokens spent saving memory. Runs on your own PC.**
 
 [![][license-shield]][license-link]
 [![][python-shield]][python-link]
@@ -13,13 +14,37 @@ Local-first memory for AI coding assistants. Verbatim storage, on your own PC:
 [![][ci-shield]][ci-link]
 [![][pypi-shield]][pypi-link]
 
-*Switch models; keep the memory.*
+*Decide something in Claude Code on Monday. Ask Codex on Wednesday. It knows.*
 
 <img src="demo/demo.gif" alt="A decision made in Claude Code on Monday, recalled from Codex on Wednesday" width="760">
 
 <sub>A real run, not a mock-up: <code>python demo/record_demo.py</code> records it from a fresh store.</sub>
 
 </div>
+
+### The part that sounds wrong
+
+Same 40 questions, same answer model, same prompt, same official judge, pre-registered before
+anyone looked:
+
+| | accuracy | model tokens spent **saving** memory, per question |
+|---|---|---|
+| **Graph-MIND** | **85.0%** | **0** |
+| MemPalace 3.10.0 | 57.5% | 0 |
+| Mem0 2.2.1 (open source) | 52.5% | ~640,000 |
+
+Mem0 runs an LLM over your conversations to decide what to keep. Graph-MIND keeps them word for
+word and finds the right part when you ask. It is cheaper, and in this test it was also more
+accurate.
+
+**Don't believe it? Good.** Every question, answer and judge verdict is in
+[`research/runs/`](research/runs), and [REPORT.md](research/REPORT.md) shows how to rerun it,
+including the runs that went wrong. Or just try it on your own conversations:
+
+```bash
+pip install graph-mind-memory
+graph-mind-install          # connects Claude Code, Codex, Claude Desktop, Cursor, VS Code, ...
+```
 
 > [!NOTE]
 > **Alpha.** Windows: used daily, with full end-to-end checks (fresh install, two PCs, real
@@ -61,16 +86,11 @@ official gpt-4o-2024-08-06.
 | **All 500 questions** | **88.8%** (444/500) | **0** | 3.4k tokens |
 | The 380 never used for tuning | **86.8%** (330/380) | 0 | 3.4k tokens |
 
-**Head to head: same 40 questions, same answer model, prompt and judge.** The run was
-pre-registered with code hashes; nobody had tuned on these questions.
-
-| system | accuracy | model tokens at write time, per question |
-|---|---|---|
-| **Graph-MIND** (shipped path, earlier 20-item packet) | **85.0%** | **0** |
-| MemPalace 3.10.0 | 57.5% | 0 |
-| Mem0 2.2.1 (open source, latest on PyPI) | 52.5% | ~640k |
-
-Graph-MIND's lead over both is significant (exact McNemar p = 0.002 and 0.003).
+**Head to head** ([table above](#the-part-that-sounds-wrong)): the run was pre-registered with
+code hashes, and nobody had tuned on those 40 questions. Graph-MIND ran its shipped path with the
+earlier 20-item packet; Mem0 2.2.1 was the latest open-source release on PyPI. Graph-MIND's lead
+over both is significant (exact McNemar p = 0.002 and 0.003); with 40 questions, each score has an
+interval of about ±14 points.
 
 **Reading other published numbers.** They measure different things, so they do not compare
 directly with the tables above:

@@ -50,7 +50,7 @@ class CheckpointTests(unittest.TestCase):
         book.create_project("p", "a")
         with self.assertRaisesRegex(ValueError, "SOURCE_REFS_ARE_IDS"):
             book.publish("p", "progress", "ok", "a", source_refs=["x" * 300])
-        with self.assertRaisesRegex(ValueError, "SECRET_IN_SUMMARY"):
+        with self.assertRaisesRegex(ValueError, "SECRET_IN_CHECKPOINT"):
             book.publish("p", "progress", f"키는 {KEY}", "a")
 
 

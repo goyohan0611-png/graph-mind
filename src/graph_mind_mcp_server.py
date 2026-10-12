@@ -478,6 +478,10 @@ CAPTURED_NOTE = (
     "to record a decision. ")
 
 
+def type_name(error) -> str:
+    return type(error).__name__
+
+
 def build_server(db_path=None):
     database = Path(db_path).expanduser() if db_path is not None else configured_db_path()
     server = MCPServer(
@@ -780,66 +784,118 @@ def build_server(db_path=None):
         ),
     )
     def brain_checkpoint(action: Literal["projects", "create_project", "publish", "attach",
-                                         "timeline", "open", "retract"],
+                                         "timeline", "open", "retract", "set_instructions",
+                                         "invite", "members", "remove_member", "join_team",
+                                         "leave_team", "audit"],
                          project: str | None = None,
                          type: Literal["decision", "progress", "blocker", "next_action",
                                        "artifact", "release"] | None = None,
-                         summary: str | None = None, path: str | None = None,
+                         summary: str | None = None, details: str | None = None,
+                         path: str | None = None, workspace: str | None = None,
                          name: str | None = None, version: int | None = None,
                          checkpoint_id: str | None = None, supersedes: str | None = None,
-                         source_refs: list[str] | None = None) -> dict[str, Any]:
-        """Shared project checkpoints: what a team (or the user's other AIs) sees of the work.
-        Personal memory is never shared through this; only what is published here is.
+                         source_refs: list[str] | None = None,
+                         instructions: str | None = None, member: str | None = None,
+                         role: Literal["editor", "viewer"] | None = None,
+                         projects: list[str] | None = None,
+                         code: str | None = None) -> dict[str, Any]:
+        """Project brains: each shared project keeps its own checkpoints, decisions, results and
+        members, apart from the user's personal memory and from every other project. Nothing
+        personal is shared through this; only what is published here, when the user asks.
 
-        Publish only when the user asks ("이거 프로젝트에 올려줘", "체크포인트 남겨", "결정사항
-        공유해"): that request is the approval, so do not ask again, but be exact about what is
-        published and then tell the user what went where.
-        - `projects`: list shared projects. `create_project` + `project`: only when the user names
-          a project to create.
-        - `publish` + `project`, `type`, `summary`: one short checkpoint in the user's language,
-          e.g. type=decision "Postgres 시작 실패 시 최대 10회 재시도". Never paste conversation
-          text. `supersedes`=<id> when it replaces an earlier decision. `source_refs`: local ids
-          (memory or turn ids, commit hashes) it rests on, never text.
-        - `attach` + `project`, `path`, `summary`: upload a file as a new version (never
-          overwrites; refused if it holds an API key or password, or exceeds 50 MB). A git folder
-          is linked by its commit instead of copied. Identify the exact file first; if several
-          could be meant, ask which.
-        - `timeline` + `project`: "어디까지 했어?" — newest first, with who and when.
-        - `open` + `project` (+ `name`, `version`): "제안서 띄워봐" — fetch the latest matching
-          file and open it on this PC.
-        - `retract` + `checkpoint_id`: withdraw a mistaken checkpoint and remove its files.
+        Always pass `workspace` = your current working folder: a folder bound to a project makes
+        it the default `project`.
+
+        Publish only when the user asks ("공유해", "프로젝트에 올려줘", "체크포인트 남겨"): that
+        request is the approval, so do not ask again; be exact, then say what went where.
+        - `projects`: the project brains the user takes part in.
+        - `create_project` + `project` (+ `path` = folder to bind): only when the user names one.
+        - `publish` + `type` (decision|progress|blocker|next_action|artifact|release) + `summary`
+          (one line, user's language) + `details` (handover note for a teammate: what changed
+          and why, files and functions, test results, commit, what is left). Never paste
+          conversation text. `supersedes`=<id> to replace an earlier decision. `source_refs`:
+          local ids or commit hashes, never text.
+        - `attach` + `path` + `summary`: a file as a new version (never overwrites; refused if it
+          holds a key or password, or exceeds 50 MB); a git folder is linked by commit. If
+          several files could be meant, ask which.
+        - `timeline`: "어디까지 했어?", "어제 그거 어떻게 됐어?" — newest first, with the project's
+          instructions for you; follow them while working on it.
+        - `open` (+ `name`, `version`): "제안서 띄워봐" — fetch and open the latest matching file.
+        - `retract` + `checkpoint_id`: withdraw a mistaken checkpoint and its files.
+        - `set_instructions` + `instructions`: the project's standing guidance (owner).
+        - Team (on the PC hosting the hub): `invite` + `member` + `role` + `projects` returns a
+          code (gmt1.) for the teammate; `members`; `remove_member` + `member`; `audit`.
+          On a teammate's PC: `join_team` + `code`; `leave_team` + `project`.
         """
-        from project_ledger import actor, open_ledger, open_with_default_app
+        import project_ledger as pl
         from development_paths import graph_mind_home
-        ledger, where = open_ledger()
+        if not project and action not in ("projects", "members", "join_team", "audit"):
+            project = pl.folder_project(workspace)
+        ledger = None
         try:
-            by = actor()
             if action == "projects":
-                result = {"projects": ledger.projects()}
-            elif action == "create_project":
-                result = ledger.create_project(project, by)
-            elif action == "publish":
-                result = ledger.publish(project, type, summary, by, source_refs=source_refs,
-                                        supersedes=supersedes)
+                found = pl.ledgers()
+                result = {"projects": [{**p, "ledger": book.where} for book in found
+                                       for p in book.projects()]}
+                for book in found:
+                    book.db.close()
+                if getattr(pl.ledgers, "unreachable", None):
+                    result["unreachable_team_hubs"] = pl.ledgers.unreachable
+                return result
+            if action == "join_team":
+                return pl.join_team(code or "")
+            if action == "invite":
+                return pl.invite(member, role or "viewer", projects or ([project] if project else []),
+                                 pl.actor())
+            if action == "members":
+                return {"members": pl.members()}
+            if action == "remove_member":
+                return pl.remove_member(member or "", pl.actor())
+            if action == "leave_team":
+                return pl.leave_team(project or "")
+            if action == "audit":
+                ledger = pl.own_ledger()
+                return {"audit": ledger.audit()}
+            if not project:
+                raise ValueError("PROJECT_REQUIRED: name the project (or bind this folder to "
+                                 "one with create_project + path)")
+            if action == "create_project":
+                ledger = pl.own_ledger()
+                result = ledger.create_project(project, ledger.by)
+                if path:
+                    result["bound_folder"] = pl.bind_folder(path, project)["folder"]
+                return {**result, "ledger": ledger.where}
+            ledger = pl.ledger_for(project)
+            by = ledger.by
+            if action == "publish":
+                result = ledger.publish(project, type, summary, by, details=details,
+                                        source_refs=source_refs, supersedes=supersedes)
             elif action == "attach":
                 if not path:
                     raise ValueError("PATH_REQUIRED: the file (or git folder) to attach")
                 result = ledger.attach(project, path, summary, by, kind=type or "artifact",
-                                       source_refs=source_refs)
+                                       source_refs=source_refs, details=details)
             elif action == "timeline":
-                result = {"project": project, "checkpoints": ledger.timeline(project)}
+                result = {"project": project, "instructions": ledger.instructions(project),
+                          "checkpoints": ledger.timeline(project, by=by)}
             elif action == "open":
                 result = ledger.fetch(project, name=name, version=version,
-                                      into=graph_mind_home() / "artifacts")
-                open_with_default_app(result["path"])
+                                      into=graph_mind_home() / "artifacts", by=by)
+                pl.open_with_default_app(result["path"])
                 result["opened"] = True
+            elif action == "set_instructions":
+                result = ledger.set_instructions(project, instructions, by)
             else:
                 result = ledger.retract(checkpoint_id, by)
+            return {**result, "ledger": ledger.where}
         except ValueError as error:
-            return {"status": "REFUSED", "reason": str(error), "ledger": where}
+            return {"status": "REFUSED", "reason": str(error),
+                    **({"ledger": ledger.where} if ledger else {})}
+        except Exception as error:                  # a hub that is down, a network error
+            return {"status": "UNAVAILABLE", "reason": f"{type_name(error)}: {error}"[:300]}
         finally:
-            ledger.db.close()
-        return {**result, "ledger": where}
+            if ledger is not None:
+                ledger.db.close()
 
     @server.tool(
         name="brain_forget",

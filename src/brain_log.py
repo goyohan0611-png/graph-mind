@@ -190,8 +190,8 @@ def share(open_firewall: bool = True) -> dict:
     if rule not in hba.read_text(encoding="utf-8"):
         with hba.open("a", encoding="utf-8") as stream:
             stream.write("\n# Graph-MIND: other PCs, with the password\n" + rule + "\n")
-    pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"], pgdata=data, timeout=60,
-           **_DETACHED)
+    _retry(lambda: pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"],
+                          pgdata=data, timeout=60, **_DETACHED), attempts=10)
     set_folder("local")
     sealed = _seal_existing(local_postgres())
     hosts = _addresses()

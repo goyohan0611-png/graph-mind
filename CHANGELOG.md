@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.5.5 — 2026-10-12
+- Recall stays fast as memory grows. Meaning search keeps its pieces and vectors in memory and
+  adds only the turns captured since the previous question, instead of rebuilding everything per
+  question. Measured on synthetic stores: 100,000 turns 6.3 s → 1.3 s per question, 20,000 turns
+  1.5 s → 0.3 s; on this PC's real memory 165 ms → 37 ms. Same rankings (44 real queries; only
+  the order of identical messages with identical scores can differ).
+
 ## 0.5.4 — 2026-10-12
 - Faster recall: `brain_context` no longer repeats every item next to the context text it
   already contains, so the model reads about 60% less (43K → 16K characters on a real memory).

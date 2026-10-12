@@ -184,6 +184,107 @@ def embedder_for(database):
     return _EMBEDDER[key]
 
 
+class _Piece:
+    __slots__ = ("revision", "turn_id", "start", "user", "scope", "time", "key", "piece")
+
+    def __init__(self, *values):
+        for name, value in zip(self.__slots__, values):
+            setattr(self, name, value)
+
+
+class PieceIndex:
+    """Every turn's 500-character pieces and their vectors, held in memory for one store and
+    topped up with the turns added since the previous question. Rebuilt per question (hashing
+    every piece, gathering every vector) it cost 6.3 s a question at 100,000 turns and grew with
+    the store. Turns are only ever added or forgotten; a forgotten one triggers a rebuild."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.reset()
+
+    def reset(self):
+        import numpy as np
+        self.last = 0                     # highest turn revision read
+        self.turns = 0                    # turns read
+        self.pending = []                 # pieces with no vector yet
+        self.seen_vectors = -1
+        self.turn_ids = []
+        self.revisions = np.zeros(0, dtype=np.int64)
+        self.starts = np.zeros(0, dtype=np.int64)
+        self.user = np.zeros(0, dtype=bool)
+        self.scopes = np.zeros(0, dtype=object)
+        self.times = np.zeros(0, dtype="U32")
+        self.matrix = None
+        self.norms = np.zeros(0, dtype=np.float64)
+
+    def sync(self, database, embedder):
+        from embedding_warmup import turn_pieces
+        with ConversationMemoryStore(database) as store:
+            count = store.db.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()[0]
+            new = store.db.execute(
+                "SELECT revision,turn_id,role,scope,happened_at,content_redacted "
+                "FROM conversation_turns WHERE revision>? ORDER BY revision",
+                (self.last,)).fetchall()
+            if count != self.turns + len(new):          # something was forgotten
+                self.reset()
+                new = store.db.execute(
+                    "SELECT revision,turn_id,role,scope,happened_at,content_redacted "
+                    "FROM conversation_turns ORDER BY revision").fetchall()
+        for revision, turn_id, role, scope, happened_at, content in new:
+            for start, piece in turn_pieces(content):
+                self.pending.append(_Piece(revision, turn_id, start, role == "user", scope,
+                                           happened_at, embedder._key(piece.strip()[:2000]),
+                                           piece))
+        if new:
+            self.last = new[-1][0]
+            self.turns += len(new)
+        self.promote(embedder, force=bool(new))
+
+    def promote(self, embedder, force=False):
+        """Move pending pieces whose vectors now exist into the matrix (only when it can have
+        changed: new pieces, or more vectors than last time)."""
+        import numpy as np
+        if not force and len(embedder.cache) == self.seen_vectors:
+            return
+        self.seen_vectors = len(embedder.cache)
+        ready = [entry for entry in self.pending if entry.key in embedder.cache]
+        if not ready:
+            return
+        self.pending = [entry for entry in self.pending if entry.key not in embedder.cache]
+        vectors = np.asarray([embedder.cache.get(entry.key) for entry in ready], dtype=np.float32)
+        self.matrix = vectors if self.matrix is None else np.concatenate([self.matrix, vectors])
+        self.norms = np.concatenate([self.norms, np.linalg.norm(vectors.astype(np.float64), axis=1)])
+        self.turn_ids.extend(entry.turn_id for entry in ready)
+        self.revisions = np.concatenate([self.revisions, [e.revision for e in ready]])
+        self.starts = np.concatenate([self.starts, [e.start for e in ready]])
+        self.user = np.concatenate([self.user, [e.user for e in ready]])
+        self.scopes = np.concatenate([self.scopes, np.array([e.scope for e in ready], dtype=object)])
+        self.times = np.concatenate([self.times, np.array([e.time for e in ready], dtype="U32")])
+
+    def select(self, *, about_assistant, scopes, since, until):
+        import numpy as np
+        mask = np.ones(len(self.turn_ids), dtype=bool) if about_assistant else self.user.copy()
+        if scopes:
+            mask &= np.isin(self.scopes, list(scopes))
+        if since:
+            mask &= self.times >= since
+        if until:
+            mask &= self.times < until
+        return mask
+
+    @staticmethod
+    def wanted(entry, about_assistant, scopes, since, until):
+        return ((about_assistant or entry.user) and (not scopes or entry.scope in scopes)
+                and (not since or entry.time >= since) and (not until or entry.time < until))
+
+
+_PIECES = {}
+
+
+def pieces_for(database):
+    return _PIECES.setdefault(str(database), PieceIndex())
+
+
 def semantic_turns(database, query, *, scopes=None, since=None, until=None, limit=20, embedder,
                    about_assistant=False):
     """Turns ranked by meaning; each carries the 500-character piece that matched.
@@ -191,66 +292,69 @@ def semantic_turns(database, query, *, scopes=None, since=None, until=None, limi
     Only the user's turns by default: indexing the assistant's long prose too buried the user's
     facts (benchmark: answer sessions in the top 8 went 105 -> 115 of 120 when it was left out).
     When the question is about what the assistant itself said, its turns join the index."""
-    with ConversationMemoryStore(database) as store:
-        where, parameters = ["role IN ('user','assistant')" if about_assistant
-                             else "role='user'"], []
-        if scopes:
-            where.append("scope IN (" + ",".join("?" for _ in scopes) + ")")
-            parameters.extend(scopes)
-        if since:
-            where.append("happened_at>=?")
-            parameters.append(since)
-        if until:
-            where.append("happened_at<?")
-            parameters.append(until)
-        turns = [store._turn(row) for row in store.db.execute(
-            "SELECT * FROM conversation_turns WHERE " + " AND ".join(where), parameters)]
-    from embedding_warmup import turn_pieces
-    owners, pieces = [], []
-    for turn in turns:
-        for start, piece in turn_pieces(turn["content"]):
-            owners.append((turn, start))
-            pieces.append(piece)
-    if not pieces:
-        return []
-    if hasattr(embedder.cache, "refresh"):
-        embedder.cache.refresh()        # vectors the capture service embedded since we loaded
-    # Never make a question wait for the store to be embedded: a store that has never been
-    # searched by meaning holds ~1,500 pieces per thousand turns, minutes on a busy laptop. A few
-    # new pieces are embedded inline; a backlog is filled in the background while this question
-    # is answered from what is already embedded (word search covers the rest meanwhile).
-    missing = [p for p in pieces if embedder._key(p.strip()[:2000]) not in embedder.cache]
-    # Nor wait for the model itself: an app's first question used to sit through the torch import
-    # (38.8 s measured). If it is not loaded within WAIT_FOR_MODEL seconds, this question is
-    # answered from word search plus what is embedded already, and loading carries on.
-    asked = embedder._key(query.strip()[:2000]) in embedder.cache
-    wait = getattr(embedder, "WAIT_FOR_MODEL", None)
-    loading = (wait is not None and (missing or not asked) and not embedder.ready(wait))
-    if loading and not asked:
-        return []
-    if len(missing) > INLINE_EMBED_LIMIT or (loading and missing):
-        embed_in_background(embedder, missing)
-        keep = [i for i, p in enumerate(pieces)
-                if embedder._key(p.strip()[:2000]) in embedder.cache]
-        owners, pieces = [owners[i] for i in keep], [pieces[i] for i in keep]
-        if not pieces:
-            return []
     import numpy as np
-    question = np.asarray(embedder.embed([query])[0], dtype=np.float64)
-    # One matrix product instead of a Python loop per piece: 5 s -> 0.05 s at 40,000 pieces, which
-    # a few months of captured chat reaches. Same cosine, in float64 as before.
-    matrix = np.stack([np.asarray(v, dtype=np.float64) for v in embedder.embed(pieces)])
-    norms = np.linalg.norm(matrix, axis=1) * np.linalg.norm(question)
-    scores = np.divide(matrix @ question, norms, out=np.zeros(len(pieces)), where=norms > 0)
-    best = {}
-    # ponytail: a full scan of every piece per query; fine for one person's years of chat, an
-    # approximate-nearest-neighbour index is the upgrade if a store reaches millions of pieces.
-    for (turn, start), piece, score in zip(owners, pieces, scores.tolist()):
-        if score > best.get(turn["turn_id"], (-2.0,))[0]:
-            best[turn["turn_id"]] = (score, turn, start, piece)
-    ranked = sorted(best.values(), key=lambda hit: hit[0], reverse=True)[:limit]
-    return [{**turn, "content": piece, "span": [start, start + len(piece)], "full": turn["content"],
-             "similarity": round(score, 4)} for score, turn, start, piece in ranked]
+    index = pieces_for(database)
+    with index.lock:
+        if hasattr(embedder.cache, "refresh"):
+            embedder.cache.refresh()    # vectors the capture service embedded since we loaded
+        index.sync(database, embedder)
+        mask = index.select(about_assistant=about_assistant, scopes=scopes, since=since,
+                            until=until)
+        waiting = [entry for entry in index.pending
+                   if index.wanted(entry, about_assistant, scopes, since, until)]
+        if not mask.any() and not waiting:
+            return []
+        # Never make a question wait for the store to be embedded: a store that has never been
+        # searched by meaning holds ~1,500 pieces per thousand turns, minutes on a busy laptop. A
+        # few new pieces are embedded inline; a backlog is filled in the background while this
+        # question is answered from what is already embedded (word search covers the rest).
+        missing = [entry.piece for entry in waiting]
+        # Nor wait for the model itself: an app's first question used to sit through the torch
+        # import (38.8 s measured). If it is not loaded within WAIT_FOR_MODEL seconds, this
+        # question is answered from word search plus what is embedded already.
+        asked = embedder._key(query.strip()[:2000]) in embedder.cache
+        wait = getattr(embedder, "WAIT_FOR_MODEL", None)
+        loading = (wait is not None and (missing or not asked) and not embedder.ready(wait))
+        if loading and not asked:
+            return []
+        if len(missing) > INLINE_EMBED_LIMIT or (loading and missing):
+            embed_in_background(embedder, missing)
+        elif missing:
+            embedder.embed(missing)
+            index.promote(embedder, force=True)
+            mask = index.select(about_assistant=about_assistant, scopes=scopes, since=since,
+                                until=until)
+        rows = np.flatnonzero(mask)
+        if not len(rows):
+            return []
+        question = np.asarray(embedder.embed([query])[0], dtype=np.float32)
+        # ponytail: a full scan of every piece per query (one matrix product: ~0.1 s at 100,000
+        # turns); an approximate-nearest-neighbour index is the upgrade at millions of pieces.
+        norms = index.norms[rows] * float(np.linalg.norm(question.astype(np.float64)))
+        dots = (index.matrix[rows] @ question).astype(np.float64)
+        scores = np.divide(dots, norms, out=np.zeros(len(rows)), where=norms > 0)
+        # best piece per turn; ties go to the earlier turn, then the earlier piece, as before
+        order = np.lexsort((index.starts[rows], index.revisions[rows], -scores))
+        best = {}
+        for i in order:
+            turn_id = index.turn_ids[rows[i]]
+            if turn_id not in best:
+                best[turn_id] = (float(scores[i]), int(index.starts[rows[i]]))
+                if len(best) == limit:
+                    break
+    with ConversationMemoryStore(database) as store:
+        found = {row["turn_id"]: store._turn(row) for row in store.db.execute(
+            "SELECT * FROM conversation_turns WHERE turn_id IN (" + ",".join("?" * len(best)) + ")",
+            list(best))}
+    hits = []
+    for turn_id, (score, start) in best.items():
+        turn = found.get(turn_id)
+        if turn is None:                  # forgotten between the scan and this read
+            continue
+        piece = turn["content"][start:start + PIECE]
+        hits.append({**turn, "content": piece, "span": [start, start + len(piece)],
+                     "full": turn["content"], "similarity": round(score, 4)})
+    return hits
 
 
 def fuse(*rankings, limit):

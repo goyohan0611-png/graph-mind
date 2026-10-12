@@ -34,6 +34,9 @@ Only the latest release is supported.
 - When the AI recalls a memory, that text goes to the model provider with your question, as
   anything in the chat does.
 - Sharing across PCs uses a Postgres server on one PC, reachable only from the local network and
-  Tailscale, with a generated password and a role limited to the memory database. On a local
-  network the connection is not encrypted (Tailscale encrypts its own traffic).
+  Tailscale, with a generated password (SCRAM, never sent in clear) and a role limited to the
+  memory database. The Postgres connection itself is not TLS (the bundled server is built without
+  SSL), so every memory line is sealed with Fernet (AES-128-CBC + HMAC-SHA256) under a key derived
+  from the connection code's password before it is sent: the wire and the hub's tables hold
+  ciphertext only. Who holds the code can read the memory.
 - There is no telemetry and no Graph-MIND server.

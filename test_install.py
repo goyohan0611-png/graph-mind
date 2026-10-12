@@ -82,6 +82,50 @@ class InstallTests(unittest.TestCase):
                 install.uninstall(["--purge", "--yes"])
                 self.assertFalse((home / ".graph-mind").exists())
 
+    def test_every_installed_mcp_client_is_connected_and_disconnected(self):
+        """Cursor, Windsurf, Gemini CLI, LM Studio, VS Code and Cline: each gets the server in
+        its own format when its folder exists, keeps its other settings, and loses only our
+        entry on uninstall. A VS Code file with comments (not JSON) is left alone."""
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            environment = {"USERPROFILE": str(home), "HOME": str(home), "XDG_CONFIG_HOME": "",
+                           "APPDATA": str(home / "AppData" / "Roaming"),
+                           "GRAPH_MIND_HOME": str(home / ".graph-mind"),
+                           "GRAPH_MIND_CONFIG": str(home / ".graph-mind" / "config.json")}
+            with mock.patch.dict(os.environ, environment):
+                vscode = install._vscode_user_dir(home)
+            (home / ".cursor").mkdir()
+            (home / ".cursor" / "mcp.json").write_text(json.dumps(
+                {"mcpServers": {"other": {"command": "x"}}}), encoding="utf-8")
+            (home / ".codeium" / "windsurf").mkdir(parents=True)
+            (home / ".gemini").mkdir()
+            (home / ".gemini" / "settings.json").write_text(json.dumps({"theme": "Dracula"}),
+                                                            encoding="utf-8")
+            (home / ".lmstudio").mkdir()
+            (vscode / "globalStorage" / "saoudrizwan.claude-dev").mkdir(parents=True)
+            (vscode / "mcp.json").write_text(json.dumps({"servers": {"other": {"command": "y"}}}),
+                                             encoding="utf-8")
+            with mock.patch.dict(os.environ, environment), \
+                    mock.patch("install.shutil.which", return_value=None):
+                connected = install.other_apps(home)
+                self.assertEqual(sorted(connected), sorted(
+                    ["Cursor", "Windsurf", "Gemini CLI", "LM Studio", "VS Code", "Cline"]))
+                read = lambda p: json.loads(p.read_text(encoding="utf-8"))
+                self.assertIn("other", read(home / ".cursor" / "mcp.json")["mcpServers"])
+                self.assertIn("graph-mind-memory", read(home / ".cursor" / "mcp.json")["mcpServers"])
+                self.assertEqual(read(home / ".gemini" / "settings.json")["theme"], "Dracula")
+                vs = read(vscode / "mcp.json")["servers"]
+                self.assertEqual(vs["graph-mind-memory"]["type"], "stdio")
+                self.assertIn("other", vs)
+                install.uninstall([])
+                self.assertNotIn("graph-mind-memory", read(home / ".cursor" / "mcp.json")["mcpServers"])
+                self.assertNotIn("graph-mind-memory", read(vscode / "mcp.json")["servers"])
+                self.assertEqual(read(home / ".gemini" / "settings.json")["theme"], "Dracula")
+                (vscode / "mcp.json").write_text('{\n  // my servers\n  "servers": {}\n}',
+                                                 encoding="utf-8")
+                self.assertNotIn("VS Code", install.other_apps(home))
+                self.assertIn("// my servers", (vscode / "mcp.json").read_text(encoding="utf-8"))
+
     def test_mangled_code_stops_before_anything_changes(self):
         with self.assertRaises(ValueError):
             install.main(["--skip-packages", "--join", "gm1.%%%"])

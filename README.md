@@ -116,7 +116,8 @@ The installer:
 
 - installs the packages (no PyTorch: the embedding model runs on ONNX Runtime);
 - registers the MCP server with every app it finds: Claude Code, Claude Desktop (including the
-  Microsoft Store build) and Codex;
+  Microsoft Store build), Codex, Cursor, Windsurf, Gemini CLI, VS Code (Copilot), Cline and
+  LM Studio;
 - starts the capture service at login (Windows Startup folder, a macOS LaunchAgent, or an XDG
   autostart entry on Linux);
 - downloads the embedding model (about 470 MB, once).
@@ -143,6 +144,7 @@ stops the capture service. Your memory stays in `~/.graph-mind` unless you add `
 | Claude Code: terminal, VS Code, Claude desktop's Code tab | every turn |
 | Claude desktop: Cowork | every turn |
 | Claude desktop: chat | what the model saves with `brain_remember` |
+| Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio | what the model saves with `brain_remember` (memory tools connected; their transcripts are not read yet) |
 
 Before anything is stored, these are masked: API keys, tokens from GitHub, AWS, Google and Slack,
 private keys, passwords inside URLs, values written after `password:` / `api_key=` / `token:`,
@@ -206,8 +208,10 @@ PCs reach it over the local network in the office, or over [Tailscale](https://t
 anywhere. Each connection tries the addresses in turn and uses the first that answers.
 
 Other PCs log in with a generated password, as a role that can reach only the memory database. The
-Windows firewall rule admits only the local network and Tailscale. The code contains the password:
-do not post it publicly.
+Windows firewall rule admits only the local network and Tailscale. Every line of memory is
+encrypted (AES with an HMAC) under a key derived from that password before it leaves a PC, so the
+network and the hub's own database carry only ciphertext. The code contains the password: do not
+post it publicly.
 
 A synced folder also works. Tell the AI *"use my Google Drive's Graph-MIND folder as my memory"* on
 each PC.

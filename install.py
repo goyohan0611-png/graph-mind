@@ -3,8 +3,8 @@
     python install.py                      # this PC keeps its own brain
     python install.py --join gm1.XXXX      # ...and joins the brain another PC shared
 
-It installs the Python packages, registers the memory server with Claude Code, Claude Desktop and
-Codex (whichever are installed), starts the capture service at login, and downloads the local
+It installs the Python packages, registers the memory server with every MCP client it finds
+(Claude Code, Claude Desktop, Codex, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio), starts the capture service at login, and downloads the local
 embedding model so the first question is not the one that waits for it. Running it again is
 safe, and after moving this folder it re-points everything at the new place.
 """
@@ -42,9 +42,9 @@ def packages():
                  "  or install Python or this folder under a shorter path, e.g. C:\\graph-mind")
 
 
-def _json_entry(path: Path, **extra) -> None:
+def _json_entry(path: Path, key: str = "mcpServers", **extra) -> None:
     settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    servers = settings.setdefault("mcpServers", {})
+    servers = settings.setdefault(key, {})
     environment = {**servers.get(NAME, {}).get("env", {}), **ENV}   # keep the user's own settings
     servers[NAME] = {**extra, "command": sys.executable, "args": [str(SERVER)], "env": environment}
     temporary = path.with_suffix(".graph-mind.tmp")
@@ -83,6 +83,46 @@ def claude_desktop(home: Path) -> list[str]:
             _json_entry(root / "claude_desktop_config.json")
             done.append("Claude Desktop")
     return done[:1]
+
+
+def _vscode_user_dir(home: Path) -> Path:
+    if platform.system() == "Windows":
+        return Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / "Code" / "User"
+    if platform.system() == "Darwin":
+        return home / "Library" / "Application Support" / "Code" / "User"
+    return Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config") / "Code" / "User"
+
+
+def _other_apps(home: Path) -> list:
+    """(name, config file, servers key, extra fields) for MCP clients beyond Claude and Codex.
+    An app counts as installed when its own folder exists; its config file is created if not."""
+    vscode = _vscode_user_dir(home)
+    return [
+        ("Cursor", home / ".cursor", home / ".cursor" / "mcp.json", "mcpServers", {}),
+        ("Windsurf", home / ".codeium" / "windsurf",
+         home / ".codeium" / "windsurf" / "mcp_config.json", "mcpServers", {}),
+        ("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", "mcpServers", {}),
+        ("LM Studio", home / ".lmstudio", home / ".lmstudio" / "mcp.json", "mcpServers", {}),
+        ("VS Code", vscode, vscode / "mcp.json", "servers", {"type": "stdio"}),
+        ("Cline", vscode / "globalStorage" / "saoudrizwan.claude-dev",
+         vscode / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json",
+         "mcpServers", {}),
+    ]
+
+
+def other_apps(home: Path) -> list[str]:
+    done = []
+    for name, folder, config, key, extra in _other_apps(home):
+        if not folder.is_dir():
+            continue
+        try:
+            config.parent.mkdir(parents=True, exist_ok=True)
+            _json_entry(config, key, **extra)
+            done.append(name)
+        except ValueError:
+            # a settings file with comments (VS Code allows them) is not JSON: leave it alone
+            step(f"{name}: could not edit {config}; add the server there by hand")
+    return done
 
 
 def _without_codex_block(text: str) -> str:
@@ -227,7 +267,8 @@ def main(argv=None):
         step("installing packages (the first time takes a few minutes)")
         packages()
     home = Path.home()
-    apps = [name for name in [claude_code(home), *claude_desktop(home), codex(home)] if name]
+    apps = [name for name in [claude_code(home), *claude_desktop(home), codex(home),
+                              *other_apps(home)] if name]
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
     step(capture_service(start=not args.no_start))
@@ -255,17 +296,23 @@ def uninstall(argv=None):
     claude = shutil.which("claude")
     if claude:
         subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
-    for config in [home / ".claude.json"] + [r / "claude_desktop_config.json"
-                                              for r in _desktop_roots(home)]:
+    targets = ([("Claude Code", home / ".claude.json", "mcpServers")]
+               + [("Claude Desktop", r / "claude_desktop_config.json", "mcpServers")
+                  for r in _desktop_roots(home)]
+               + [(name, config, key) for name, _, config, key, _ in _other_apps(home)])
+    for label, config, key in targets:
         if not config.exists():
             continue
-        settings = json.loads(config.read_text(encoding="utf-8"))
-        if settings.get("mcpServers", {}).pop(NAME, None) is not None:
+        try:
+            settings = json.loads(config.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        if settings.get(key, {}).pop(NAME, None) is not None:
             temporary = config.with_suffix(".graph-mind.tmp")
             temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2),
                                  encoding="utf-8")
             os.replace(temporary, config)
-            removed.append("Claude Code" if config.name == ".claude.json" else "Claude Desktop")
+            removed.append(label)
     codex_config = home / ".codex" / "config.toml"
     if codex_config.exists():
         text = codex_config.read_text(encoding="utf-8")

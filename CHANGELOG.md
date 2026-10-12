@@ -3,6 +3,11 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.6.4 — 2026-10-12
+- Hosting a shared hub works on Windows PCs where Postgres's tools fail at random (seen with
+  AhnLab V3: initdb succeeded in 3-6 of 10 runs). Creating and starting the hub now retry up to ten
+  times; three fresh hubs out of three came up on that PC.
+
 ## 0.6.3 — 2026-10-12
 - `graph-mind-view`: regions show from the first frame (nodes start near their region), instead of
   depending on how long the browser runs the layout.

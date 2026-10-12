@@ -35,6 +35,7 @@ import os
 import platform
 import re
 import sqlite3
+import subprocess
 
 KINDS = ("memory", "turn", "forget")   # forget: ids another PC erased (forget.py)
 
@@ -105,12 +106,14 @@ def local_postgres() -> str:
         with fasteners.InterProcessLock(str(data.parent / "postgres.lock")):
             fresh = not (data / "PG_VERSION").exists()
             if fresh:
-                initdb(["--auth=trust", "--encoding=utf8", "-U", "postgres"], pgdata=data,
-                       **_DETACHED)
-            running = PostmasterInfo.read_from_pgdata(data)
-            if running is None or not running.is_running():
-                pg_ctl(["-w", "-o", f"-p {PORT}", "-l", str(data / "log"), "start"],
-                       pgdata=data, timeout=60, **_DETACHED)
+                _initdb_with_retries(initdb, data)
+
+            def start():
+                running = PostmasterInfo.read_from_pgdata(data)
+                if running is None or not running.is_running():    # a failed try may have
+                    pg_ctl(["-w", "-o", f"-p {PORT}", "-l", str(data / "log"), "start"],
+                           pgdata=data, timeout=60, **_DETACHED)   # started it anyway
+            _retry(start, attempts=10)
             if fresh:
                 import psycopg
                 with psycopg.connect(_admin_uri(), autocommit=True) as admin:
@@ -120,11 +123,40 @@ def local_postgres() -> str:
     return _LOCAL_URI["uri"]
 
 
+def _retry(step, attempts, undo=None):
+    """Postgres's own tools fail at random on some Windows PCs: on one with AhnLab V3 running,
+    initdb succeeded in 3-6 of 10 identical runs ("popen failure: Bad file descriptor" when
+    its pipes to postgres broke), whichever way it was launched, and pg_ctl start failed too.
+    Every attempt is independent, so trying again is the fix: ten attempts at even odds fail
+    together 0.1% of the time."""
+    import time
+    for attempt in range(attempts):
+        try:
+            return step()
+        except subprocess.CalledProcessError:
+            if undo:
+                undo()
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.5)
+
+
+def _initdb_with_retries(initdb, data):
+    """Create the cluster, once per PC. A failed run leaves the folder half made; clear it."""
+    import shutil
+    _retry(lambda: initdb(["--auth=trust", "--encoding=utf8", "-U", "postgres"], pgdata=data,
+                          **_DETACHED),
+           attempts=10, undo=lambda: shutil.rmtree(data, ignore_errors=True))
+
+
 # Started from Claude's or Codex's process, the server shared that program's console, and closing
 # it sent Ctrl+C to Postgres too (0xC000013A in its log): the hub went down with an app window.
-# Its own process group, with no console, it outlives whoever happened to start it.
-_DETACHED = ({"creationflags": 0x00000008 | 0x00000200}     # DETACHED_PROCESS | NEW_PROCESS_GROUP
-             if os.name == "nt" else {"start_new_session": True})
+# Its own process group, with no console, it outlives whoever happened to start it. Its stdin is
+# the null device: Postgres must not hold on to the caller's (an MCP server's is the pipe its app
+# talks through), and a caller may have none at all (pythonw).
+_DETACHED = ({"creationflags": 0x00000008 | 0x00000200,     # DETACHED_PROCESS | NEW_PROCESS_GROUP
+              "stdin": subprocess.DEVNULL}
+             if os.name == "nt" else {"start_new_session": True, "stdin": subprocess.DEVNULL})
 
 
 def _admin_uri() -> str:

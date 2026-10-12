@@ -52,5 +52,26 @@ class ColdStartTests(unittest.TestCase):
             self.assertIn("t150", [hit["turn_id"] for hit in warm])
 
 
+class ModelStillLoadingTests(unittest.TestCase):
+    def test_a_question_does_not_wait_for_the_model(self):
+        """The app's first question: the model is still loading, so meaning search is skipped
+        (word search answers) instead of waiting out the torch import."""
+        class Loading:
+            WAIT_FOR_MODEL = 0.5
+            cache = {}
+            def _key(self, text):
+                return text
+            def ready(self, timeout):
+                return False
+            def embed(self, texts):
+                raise AssertionError("must not wait for the model")
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(db) as store:
+                store.record(turn(0, TARGET))
+            with mock.patch.object(server, "embed_in_background"):
+                self.assertEqual(server.semantic_turns(db, "반려견", embedder=Loading()), [])
+
+
 if __name__ == "__main__":
     unittest.main()

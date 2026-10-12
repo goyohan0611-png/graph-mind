@@ -232,8 +232,9 @@ python -m unittest discover -p "test_*.py"
 
 ## Known limits
 
-- **The first question after an AI app starts waits for the embedding model to load** (a few
-  seconds; 30-50 s on a slow or synced disk). Later questions take well under a second.
+- **For about the first half minute after an AI app starts, answers use word search only** while the
+  embedding model loads in the background (the first answer takes ~2.5 s instead of waiting out a
+  30-50 s load on a slow or synced disk). After that, questions take well under a second.
 - **Daily use on Windows only so far.** macOS and Linux pass the tests in CI but have not seen real
   use.
 - **Capture follows each app's transcript format,** which is not a public interface. An app update

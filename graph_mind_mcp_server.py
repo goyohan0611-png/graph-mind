@@ -218,7 +218,15 @@ def semantic_turns(database, query, *, scopes=None, since=None, until=None, limi
     # new pieces are embedded inline; a backlog is filled in the background while this question
     # is answered from what is already embedded (word search covers the rest meanwhile).
     missing = [p for p in pieces if embedder._key(p.strip()[:2000]) not in embedder.cache]
-    if len(missing) > INLINE_EMBED_LIMIT:
+    # Nor wait for the model itself: an app's first question used to sit through the torch import
+    # (38.8 s measured). If it is not loaded within WAIT_FOR_MODEL seconds, this question is
+    # answered from word search plus what is embedded already, and loading carries on.
+    asked = embedder._key(query.strip()[:2000]) in embedder.cache
+    wait = getattr(embedder, "WAIT_FOR_MODEL", None)
+    loading = (wait is not None and (missing or not asked) and not embedder.ready(wait))
+    if loading and not asked:
+        return []
+    if len(missing) > INLINE_EMBED_LIMIT or (loading and missing):
         embed_in_background(embedder, missing)
         keep = [i for i, p in enumerate(pieces)
                 if embedder._key(p.strip()[:2000]) in embedder.cache]
@@ -741,6 +749,8 @@ def preload(database):
 
 
 def main():
+    from local_embedder import LocalEmbedder
+    LocalEmbedder.WAIT_FOR_MODEL = 0.5      # an app's question never waits out a model load
     preload(configured_db_path())
     server.run(transport="stdio")
 

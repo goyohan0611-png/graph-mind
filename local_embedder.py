@@ -50,6 +50,12 @@ class LocalEmbedder:
     _lock = threading.RLock()  # model load + cache writes are not thread-safe
 
     FLUSH_EVERY = 5000   # vectors between writes: bounds lost work without rewriting per call
+    # Seconds a question may wait for the model to load before it is answered by word search
+    # alone. None waits (benchmarks, tests, the capture service); the MCP server sets 0.5: loading
+    # torch took 38.8 s for an app's first question on a OneDrive-synced Windows PC; now 2.4 s.
+    WAIT_FOR_MODEL = None
+    _loaded = threading.Event()
+    _loading = threading.Lock()
 
     def __init__(self, cache_path, model=LOCAL_MODEL):
         # float32 rows in a sibling directory: the old JSON cache turned 1.1GB on disk into 3-4GB
@@ -68,6 +74,24 @@ class LocalEmbedder:
             LocalEmbedder._tok = AutoTokenizer.from_pretrained(self.model_name)
             LocalEmbedder._model = AutoModel.from_pretrained(self.model_name).eval()
             LocalEmbedder._torch = torch
+            LocalEmbedder._loaded.set()
+
+    def ready(self, timeout) -> bool:
+        """Whether the model is loaded, waiting at most `timeout` seconds. The first call starts
+        loading it in the background, so a later question finds it ready."""
+        if LocalEmbedder._model is not None:
+            return True
+        if LocalEmbedder._loading.acquire(blocking=False):
+            def load():
+                try:
+                    with LocalEmbedder._lock:
+                        self._load()
+                except Exception:
+                    pass                     # no model on disk: word search keeps answering
+                finally:
+                    LocalEmbedder._loading.release()
+            threading.Thread(target=load, name="graph-mind-model", daemon=True).start()
+        return LocalEmbedder._loaded.wait(timeout)
 
     def _key(self, text):
         return hashlib.sha256((self.model_name + "\0" + text).encode("utf-8")).hexdigest()

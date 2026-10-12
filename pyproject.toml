@@ -26,6 +26,7 @@ dependencies = [
     # hosts the shared brain's Postgres; built for Python 3.9-3.12 only. Joining another PC's
     # brain (psycopg) and everything else work on any supported Python.
     "pgserver; python_version < '3.13'",
+    "cryptography; python_version < '3.13'",   # the hub's certificate (hosting only)
     "psycopg[binary]",
     "psutil",
     "fasteners",

@@ -145,9 +145,35 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 value = brain_log._decode(code)
                 self.assertNotIn("127.0.0.1", value["h"])
                 lan = value["h"][0]
-                with psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind") as c:
+                self.assertTrue(value["c"], "the code carries the hub's certificate")
+                joined_url = brain_log._joined(code)
+                self.assertIn("sslmode=verify-ca", joined_url)
+                with psycopg.connect(joined_url) as c:
                     self.assertFalse(c.execute("SELECT rolsuper FROM pg_roles "
                                                "WHERE rolname = current_user").fetchone()[0])
+                    self.assertTrue(c.execute("SELECT ssl FROM pg_stat_ssl "
+                                              "WHERE pid = pg_backend_pid()").fetchone()[0],
+                                    "another PC's connection is encrypted")
+                with self.assertRaises(psycopg.OperationalError):    # no TLS, no entry
+                    psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind"
+                                    "?sslmode=disable")
+                # a server without this hub's key fails verify-ca: trust some other certificate
+                stranger = root / "stranger.crt"
+                from cryptography import x509
+                from cryptography.hazmat.primitives import hashes, serialization
+                from cryptography.hazmat.primitives.asymmetric import ec
+                import datetime
+                other_key = ec.generate_private_key(ec.SECP256R1())
+                other_name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, "x")])
+                now = datetime.datetime.now(datetime.timezone.utc)
+                stranger.write_bytes(x509.CertificateBuilder().subject_name(other_name)
+                    .issuer_name(other_name).public_key(other_key.public_key())
+                    .serial_number(1).not_valid_before(now).not_valid_after(now + datetime.timedelta(days=1))
+                    .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                    .sign(other_key, hashes.SHA256()).public_bytes(serialization.Encoding.PEM))
+                with self.assertRaises(psycopg.OperationalError):
+                    psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind"
+                                    f"?sslmode=verify-ca&sslrootcert={stranger}")
                 with self.assertRaises(psycopg.OperationalError):
                     psycopg.connect(f"postgresql://graphmind:wrong@{lan}:54391/graphmind")
                 with self.assertRaises(psycopg.OperationalError):    # the admin stays local

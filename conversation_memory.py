@@ -79,8 +79,17 @@ AGENT_INSTRUCTIONS = re.compile(
     r"(?:#\s*AGENTS\.md instructions[^\n]*\s*)?<INSTRUCTIONS>.*?</INSTRUCTIONS>", flags=re.DOTALL)
 
 
+def masking_on():
+    """On unless ~/.graph-mind/config.json says "mask_secrets": false: someone running a model on
+    their own machines may want keys kept in memory verbatim."""
+    from brain_log import _config
+    return _config().get("mask_secrets", True) is not False
+
+
 def _redact(value):
     cleaned = AGENT_INSTRUCTIONS.sub("", AUTOMATIC_BLOCKS.sub("", value))
+    if not masking_on():
+        return cleaned.strip(), 0
     count = 0
     for pattern, replacement in SECRET_PATTERNS:
         cleaned, replacements = pattern.subn(replacement, cleaned)

@@ -19,6 +19,15 @@ KEYS = {
 
 
 class SecretMaskingTests(unittest.IsolatedAsyncioTestCase):
+    def test_masking_can_be_turned_off(self):
+        from unittest import mock
+        config = Path(tempfile.mkdtemp()) / "config.json"
+        config.write_text('{"mask_secrets": false}', encoding="utf-8")
+        secret = "sk-proj-" + "a" * 40
+        with mock.patch.dict("os.environ", {"GRAPH_MIND_CONFIG": str(config)}):
+            self.assertEqual(_redact(f"my key {secret}"), (f"my key {secret}", 0))
+        self.assertEqual(_redact(f"my key {secret}")[0], "my key [REDACTED_OPENAI_KEY]")
+
     def test_patterns(self):
         for secret, mask in KEYS.items():
             self.assertEqual(_redact(f"my key {secret} ok")[0], f"my key {mask} ok")

@@ -93,6 +93,8 @@ Requires Python 3.10+ (64-bit). Windows, macOS or Linux. Hosting a brain that ot
 needs Python 3.12 or older on that one PC (its Postgres helper, pgserver, has no newer build yet);
 everything else, joining included, works on 3.13 and 3.14 too.
 
+What changed in each release: [CHANGELOG.md](CHANGELOG.md).
+
 ```bash
 pip install graph-mind-memory
 graph-mind-install
@@ -153,9 +155,12 @@ random 20-64 character tokens caught; in 246,750 ordinary chat turns it fired 92
 all on real ids and tokens). Commit ids, hashes and UUIDs are kept, since you recall those on
 purpose.
 
-There is no switch to keep keys: a recalled memory goes to your model's provider with the question,
-so a stored key would leave your PC the first time it is useful. To have Graph-MIND remember a key,
-tell it **where the key is**, not the key: *"my OpenAI key is in 1Password, under Dev"*.
+Keep masking on if you use a cloud model: a recalled memory goes to your model's provider with the
+question, so a stored key would leave your PC the first time it is useful. To have Graph-MIND
+remember a key, tell it **where the key is**, not the key: *"my OpenAI key is in 1Password, under
+Dev"*. If your model runs on your own machines and you want keys remembered as typed, add
+`"mask_secrets": false` to `~/.graph-mind/config.json` (applies from the next message; already
+masked text stays masked).
 
 Only what you actually send is captured: the service reads each app's transcript, which is written
 after you press Enter, so a paste you delete before sending never reaches it. A plain password

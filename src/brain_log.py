@@ -120,6 +120,13 @@ def local_postgres() -> str:
                     admin.execute("CREATE ROLE graphmind LOGIN")
                     admin.execute("CREATE DATABASE graphmind OWNER graphmind")
     _LOCAL_URI["uri"] = f"postgresql://graphmind@127.0.0.1:{PORT}/graphmind"
+    # project brains' tables and file functions, once per process: a teammate or the owner's
+    # other PC may use them without this PC ever opening a project itself
+    try:
+        from project_ledger import prepare_hub
+        prepare_hub(_LOCAL_URI["uri"])
+    except Exception:
+        pass                                  # the personal memory works without them
     return _LOCAL_URI["uri"]
 
 
@@ -172,6 +179,18 @@ def share(open_firewall: bool = True) -> dict:
     addresses, the port and the password, so the other PC's user pastes one line and types none
     of it. The same code comes back every time; it is as good as the password, so it is shown
     to the user and never posted anywhere."""
+    opened = open_to_network(open_firewall)
+    set_folder("local")
+    sealed = _seal_existing(local_postgres())
+    code = CODE_PREFIX + base64.urlsafe_b64encode(json.dumps(
+        {"h": opened["addresses"], "p": PORT, "k": opened["password"]}).encode()).decode().rstrip("=")
+    return {"connection_code": code, "addresses": opened["addresses"], "port": PORT,
+            "lines_sealed": sealed, "firewall": opened["firewall"]}
+
+
+def open_to_network(open_firewall: bool = True) -> dict:
+    """Make this PC's Postgres reachable from the network with a password, without moving this
+    PC's personal memory there: a team hub on a NAS or a server needs only this."""
     import psycopg
     import secrets
     local_postgres()                        # first: it explains a missing pgserver
@@ -192,12 +211,7 @@ def share(open_firewall: bool = True) -> dict:
             stream.write("\n# Graph-MIND: other PCs, with the password\n" + rule + "\n")
     _retry(lambda: pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"],
                           pgdata=data, timeout=60, **_DETACHED), attempts=10)
-    set_folder("local")
-    sealed = _seal_existing(local_postgres())
-    hosts = _addresses()
-    code = CODE_PREFIX + base64.urlsafe_b64encode(json.dumps(
-        {"h": hosts, "p": PORT, "k": password}).encode()).decode().rstrip("=")
-    return {"connection_code": code, "addresses": hosts, "port": PORT, "lines_sealed": sealed,
+    return {"password": password, "addresses": _addresses(),
             "firewall": _firewall() if open_firewall else "not changed"}
 
 

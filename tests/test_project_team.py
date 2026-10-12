@@ -25,8 +25,8 @@ class FolderTests(unittest.TestCase):
     def test_without_team_hubs_only_the_own_ledger_is_used(self):
         root = Path(tempfile.mkdtemp())
         with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
-            found = pl.ledgers()
-            self.assertEqual(len(found), 1)
+            found, unreachable = pl.ledgers()
+            self.assertEqual((len(found), unreachable), (1, []))
             found[0].create_project("solo", "me")
             found[0].db.close()
             with self.assertRaisesRegex(ValueError, "PROJECT_NOT_FOUND"):
@@ -158,12 +158,15 @@ class TeamHubTests(unittest.TestCase):
             path.parent.mkdir()
             path.write_text(f"# 계획 {n}", encoding="utf-8")
             files.append(path)
-        results = []
+        results, errors = [], []
 
         def upload(path):
             book = pl.own_ledger()
             try:
                 results.append(book.attach("alpha", path, "계획", "yohan")["artifacts"][0]["version"])
+            except Exception as error:
+                cause = error.__cause__ or error.__context__
+                errors.append(f"{type(error).__name__}: {error} <- {cause!r}"[:600])
             finally:
                 book.db.close()
         threads = [threading.Thread(target=upload, args=(path,)) for path in files]
@@ -171,7 +174,7 @@ class TeamHubTests(unittest.TestCase):
             thread.start()
         for thread in threads:
             thread.join()
-        self.assertEqual(sorted(results), [1, 2])
+        self.assertEqual(sorted(results), [1, 2], errors)
 
 
 if __name__ == "__main__":

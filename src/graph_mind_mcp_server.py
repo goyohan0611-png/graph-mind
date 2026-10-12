@@ -785,8 +785,8 @@ def build_server(db_path=None):
     )
     def brain_checkpoint(action: Literal["projects", "create_project", "publish", "attach",
                                          "timeline", "open", "retract", "set_instructions",
-                                         "invite", "members", "remove_member", "join_team",
-                                         "leave_team", "audit"],
+                                         "host", "invite", "members", "remove_member",
+                                         "join_team", "leave_team", "audit"],
                          project: str | None = None,
                          type: Literal["decision", "progress", "blocker", "next_action",
                                        "artifact", "release"] | None = None,
@@ -807,46 +807,53 @@ def build_server(db_path=None):
         it the default `project`.
 
         Publish only when the user asks ("공유해", "프로젝트에 올려줘", "체크포인트 남겨"): that
-        request is the approval, so do not ask again; be exact, then say what went where.
-        - `projects`: the project brains the user takes part in.
+        request is the approval, so do not ask again; ask only if the file or project is
+        ambiguous. Afterwards say exactly what went where (name, version, project).
+        - `projects`: the project brains the user takes part in, with when each was last shared.
         - `create_project` + `project` (+ `path` = folder to bind): only when the user names one.
-        - `publish` + `type` (decision|progress|blocker|next_action|artifact|release) + `summary`
-          (one line, user's language) + `details` (handover note for a teammate: what changed
-          and why, files and functions, test results, commit, what is left). Never paste
-          conversation text. `supersedes`=<id> to replace an earlier decision. `source_refs`:
-          local ids or commit hashes, never text.
-        - `attach` + `path` + `summary`: a file as a new version (never overwrites; refused if it
-          holds a key or password, or exceeds 50 MB); a git folder is linked by commit. If
-          several files could be meant, ask which.
-        - `timeline`: "어디까지 했어?", "어제 그거 어떻게 됐어?" — newest first, with the project's
-          instructions for you; follow them while working on it.
-        - `open` (+ `name`, `version`): "제안서 띄워봐" — fetch and open the latest matching file.
-        - `retract` + `checkpoint_id`: withdraw a mistaken checkpoint and its files.
-        - `set_instructions` + `instructions`: the project's standing guidance (owner).
-        - Team (on the PC hosting the hub): `invite` + `member` + `role` + `projects` returns a
-          code (gmt1.) for the teammate; `members`; `remove_member` + `member`; `audit`.
-          On a teammate's PC: `join_team` + `code`; `leave_team` + `project`.
+        - `publish` + `type` + `summary` (one line, user's language) + `details` (a handover
+          note: what changed and why, files and functions, test results, PR/commit links, what
+          is left). Never paste conversation text. For code, GitHub keeps the code: attach the
+          repository folder (`attach` + its `path`) so the commit is linked with its real stage
+          (committed / pushed / pr_open / merged / released); never call work done when the
+          stage says otherwise. `supersedes`=<id> replaces an earlier decision.
+        - `attach` + `path` + `summary`: a document, image or PDF as a new version (a copy of the
+          file as it is now; never overwrites; refused if it holds a key or password, or exceeds
+          50 MB); a folder with index.html as a demo bundle; a git folder as a commit link.
+        - `timeline`: "누가 어디까지 했어?" — answer from it only: who, what, what is left, and
+          when it was last shared. Do not guess at anything newer. Follow its `instructions`.
+        - `open` (+ `name`, `version`): "제안서 띄워봐" — download that version and open it.
+        - `retract` + `checkpoint_id`; `set_instructions` + `instructions` (owner).
+        - Team, on the PC hosting the hub: `host` (make this PC the home of the user's project
+          brains), `invite` + `member` + `role` + `projects` (returns a gmt1. code for the
+          teammate), `members`, `remove_member` + `member`, `audit`. On a teammate's PC:
+          `join_team` + `code`, `leave_team` + `project`.
+        If the result says UNAVAILABLE, the hub cannot be reached: tell the user the latest
+        shared state is unknown right now; never fill in from memory.
         """
         import project_ledger as pl
-        from development_paths import graph_mind_home
-        if not project and action not in ("projects", "members", "join_team", "audit"):
+        if not project and action not in ("projects", "members", "join_team", "audit", "host"):
             project = pl.folder_project(workspace)
         ledger = None
         try:
             if action == "projects":
-                found = pl.ledgers()
+                found, unreachable = pl.ledgers()
                 result = {"projects": [{**p, "ledger": book.where} for book in found
                                        for p in book.projects()]}
                 for book in found:
                     book.db.close()
-                if getattr(pl.ledgers, "unreachable", None):
-                    result["unreachable_team_hubs"] = pl.ledgers.unreachable
+                if unreachable:
+                    result["unreachable"] = unreachable
+                    result["note"] = ("Some project hubs cannot be reached right now; their "
+                                      "projects are missing from this list, not gone.")
                 return result
+            if action == "host":
+                return pl.host_projects()
             if action == "join_team":
                 return pl.join_team(code or "")
             if action == "invite":
-                return pl.invite(member, role or "viewer", projects or ([project] if project else []),
-                                 pl.actor())
+                return pl.invite(member, role or "viewer",
+                                 projects or ([project] if project else []), pl.actor())
             if action == "members":
                 return {"members": pl.members()}
             if action == "remove_member":
@@ -872,7 +879,7 @@ def build_server(db_path=None):
                                         source_refs=source_refs, supersedes=supersedes)
             elif action == "attach":
                 if not path:
-                    raise ValueError("PATH_REQUIRED: the file (or git folder) to attach")
+                    raise ValueError("PATH_REQUIRED: the file or folder to attach")
                 result = ledger.attach(project, path, summary, by, kind=type or "artifact",
                                        source_refs=source_refs, details=details)
             elif action == "timeline":
@@ -880,7 +887,7 @@ def build_server(db_path=None):
                           "checkpoints": ledger.timeline(project, by=by)}
             elif action == "open":
                 result = ledger.fetch(project, name=name, version=version,
-                                      into=graph_mind_home() / "artifacts", by=by)
+                                      into=pl.downloads(), by=by)
                 pl.open_with_default_app(result["path"])
                 result["opened"] = True
             elif action == "set_instructions":
@@ -888,11 +895,18 @@ def build_server(db_path=None):
             else:
                 result = ledger.retract(checkpoint_id, by)
             return {**result, "ledger": ledger.where}
+        except pl.HubUnavailable as error:
+            return {"status": "UNAVAILABLE", "unreachable": str(error),
+                    "note": "The project hub cannot be reached right now, so its latest shared "
+                            "state is unknown. Tell the user that; do not answer from memory "
+                            "or guess."}
         except ValueError as error:
             return {"status": "REFUSED", "reason": str(error),
                     **({"ledger": ledger.where} if ledger else {})}
-        except Exception as error:                  # a hub that is down, a network error
-            return {"status": "UNAVAILABLE", "reason": f"{type_name(error)}: {error}"[:300]}
+        except Exception as error:                  # a hub that went away mid-call
+            return {"status": "UNAVAILABLE", "reason": f"{type_name(error)}: {error}"[:300],
+                    "note": "The project hub failed during the request; the latest shared "
+                            "state is unknown. Do not guess."}
         finally:
             if ledger is not None:
                 ledger.db.close()

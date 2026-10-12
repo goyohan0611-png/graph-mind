@@ -218,6 +218,10 @@ tools get confused with each other. Version 0.1 had thirteen.
 
 ## See your memory
 
+<div align="center">
+<img src="demo/brain.gif" alt="Three weeks of real coding chats as a 3D graph: coloured regions of related memories, joined by links" width="760">
+</div>
+
 ```bash
 graph-mind-view              # opens your memory as a 3D graph in the browser
 graph-mind-view --no-text    # the same picture with no conversation text in the file

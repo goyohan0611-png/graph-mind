@@ -197,6 +197,13 @@ const centers = regions.map((_, i) => {
   const y = 1 - 2 * (i + 0.5) / regions.length, r = Math.sqrt(1 - y * y), t = i * 2.39996;
   return {x: 380 * r * Math.cos(t), y: 380 * y, z: 380 * r * Math.sin(t)};
 });
+// start every node near its region's point, so the lobes show from the first frame instead of
+// depending on how long the browser lets the layout run (a background tab barely runs it)
+DATA.nodes.forEach(n => {
+  const c = n.region >= 0 ? centers[n.region] : {x: 0, y: 0, z: 0}, s = 70;
+  n.x = c.x + (Math.random() - 0.5) * s; n.y = c.y + (Math.random() - 0.5) * s;
+  n.z = c.z + (Math.random() - 0.5) * s;
+});
 const lobes = alpha => graph.graphData().nodes.forEach(n => {
   const c = n.region >= 0 ? centers[n.region] : {x: 0, y: 0, z: 0}, k = n.region >= 0 ? 0.35 : 0.05;
   n.vx += (c.x - n.x) * k * alpha; n.vy += (c.y - n.y) * k * alpha; n.vz += (c.z - n.z) * k * alpha;

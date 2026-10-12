@@ -3,6 +3,10 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.6.3 — 2026-10-12
+- `graph-mind-view`: regions show from the first frame (nodes start near their region), instead of
+  depending on how long the browser runs the layout.
+
 ## 0.6.2 — 2026-10-12
 - `graph-mind-view`: fixed a black page when opened from disk ("reading 'tick'" on every frame:
   the layout was restarted before it existed). Forces are set first, the data last.

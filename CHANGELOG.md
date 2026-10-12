@@ -3,6 +3,11 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.6.1 — 2026-10-12
+- `graph-mind-view` keeps the 3D library inside the page (fetched once by Python), so the page
+  opens from disk even where the browser would not load it from the CDN; it stayed black there.
+- Region names leave out ids and hashes (words with digits).
+
 ## 0.6.0 — 2026-10-12
 - `graph-mind-view`: your memory as an interactive 3D graph in the browser. Turns and memories
   are points, joined by the associations recall already keeps; related ones gather into coloured

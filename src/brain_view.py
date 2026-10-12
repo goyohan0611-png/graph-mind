@@ -118,8 +118,10 @@ def regions(nodes, links, terms):
     for region in top:
         members = [node["id"] for node in nodes if label[node["id"]] == region]
         local = collections.Counter(term for m in members for term in set(terms[m]))
+        # words only: ids, hashes and session numbers ("676b428b") are frequent cues, not topics
         score = {term: n * math.log(len(nodes) / everywhere[term])
-                 for term, n in local.items() if len(term) > 1 and n > 1}
+                 for term, n in local.items()
+                 if len(term) > 1 and n > 1 and not any(c.isdigit() for c in term)}
         names[region] = [term for term, _ in sorted(score.items(), key=lambda i: -i[1])[:3]]
     for node in nodes:
         region = label[node["id"]]
@@ -154,8 +156,13 @@ button { position:fixed; bottom:16px; right:16px; background:var(--panel); color
 <div class="panel" id="legend"></div>
 <div class="panel" id="info"></div>
 <button id="spin">Pause rotation</button>
-<script src="https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"></script>
+__LIBRARY__
 <script>
+if (typeof ForceGraph3D === "undefined") {
+  document.getElementById("graph").innerHTML = '<p style="padding:120px 24px;text-align:center;color:#8a93a6">' +
+    "The 3D library did not load. Run <code>graph-mind-view</code> again while online: it is then kept inside this page.</p>";
+  throw new Error("3d-force-graph not loaded");
+}
 const DATA = __DATA__;
 const regions = DATA.regions, grey = "#4a5266";
 const color = n => n.region >= 0 ? regions[n.region].color : grey;
@@ -210,7 +217,32 @@ document.getElementById("spin").onclick = e => {
 """
 
 
-def build(db_path, out, *, limit=4000, with_text=True) -> dict:
+LIBRARY = "https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"
+
+
+def _library_tag(inline: bool) -> str:
+    """The 3D library inside the page, fetched once by Python and kept in ~/.graph-mind/vendor.
+    Loaded from the CDN by the browser instead, a page opened from disk stayed black on a PC
+    whose browser would not fetch it."""
+    fallback = f'<script src="{LIBRARY}"></script>'
+    if not inline:
+        return fallback
+    from development_paths import graph_mind_home
+    cached = graph_mind_home() / "vendor" / LIBRARY.rsplit("/", 1)[-1].replace(
+        ".min.js", "-1.73.3.min.js")
+    if not cached.exists():
+        import urllib.request
+        try:
+            code = urllib.request.urlopen(LIBRARY, timeout=60).read()
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            cached.write_bytes(code)
+        except OSError:
+            return fallback                  # offline now: the browser may still fetch it
+    code = cached.read_text(encoding="utf-8")
+    return "<script>" + code.replace("</script", "<\\/script") + "</script>"
+
+
+def build(db_path, out, *, limit=4000, with_text=True, inline_library=True) -> dict:
     nodes, links, terms = read_graph(db_path, limit, with_text)
     legend = regions(nodes, links, terms)
     if not with_text:
@@ -220,8 +252,8 @@ def build(db_path, out, *, limit=4000, with_text=True) -> dict:
     data = {"nodes": nodes, "links": links, "regions": legend, "since": since}
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(PAGE.replace("__DATA__", json.dumps(data, ensure_ascii=False)
-                                .replace("</", "<\\/")), encoding="utf-8")
+    page = PAGE.replace("__DATA__", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
+    out.write_text(page.replace("__LIBRARY__", _library_tag(inline_library)), encoding="utf-8")
     return {"file": str(out), "nodes": len(nodes), "links": len(links), "regions": len(legend)}
 
 

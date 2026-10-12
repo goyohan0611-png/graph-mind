@@ -26,14 +26,15 @@ class BrainViewTests(unittest.TestCase):
             with AssociativeMemoryIndex(db) as index:
                 index.sync_sources(limit=1000)
             page = Path(directory) / "brain.html"
-            shown = brain_view.build(db, page)
+            shown = brain_view.build(db, page, inline_library=False)
             self.assertEqual(shown["nodes"], len(TEXTS))
             self.assertGreater(shown["links"], 0)
             self.assertIn("김치찌개", page.read_text(encoding="utf-8"))
-            brain_view.build(db, page, with_text=False)
+            brain_view.build(db, page, with_text=False, inline_library=False)
             html = page.read_text(encoding="utf-8")
             self.assertFalse(any(text in html for text in TEXTS))
             self.assertNotIn("콩이", html)              # nor the topic words of a region
+            self.assertNotIn("54329", html)
 
 
 if __name__ == "__main__":

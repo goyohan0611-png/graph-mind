@@ -146,68 +146,26 @@ def share(open_firewall: bool = True) -> dict:
     from pgserver._commands import pg_ctl
     password = _config().get("share_password") or secrets.token_urlsafe(18)
     data = _pg_data()
-    certificate = _tls_certificate(data)
     with psycopg.connect(_admin_uri(), autocommit=True) as admin:
         # token_urlsafe is [A-Za-z0-9_-]: nothing in it can close the quoted literal
         admin.execute(f"ALTER ROLE graphmind PASSWORD '{password}'")
         restart = admin.execute("SHOW listen_addresses").fetchone()[0] != "*"
         if restart:
             admin.execute("ALTER SYSTEM SET listen_addresses = '*'")
-        restart |= admin.execute("SHOW ssl").fetchone()[0] != "on"
-        admin.execute("ALTER SYSTEM SET ssl = 'on'")
-        admin.execute("ALTER SYSTEM SET ssl_cert_file = 'server.crt'")
-        admin.execute("ALTER SYSTEM SET ssl_key_file = 'server.key'")
-    # Other PCs: encrypted connections only, with the password. A hub shared before 0.5 had a
-    # plain "host" rule, which let a PC on the same network read memory off the wire.
     hba = data / "pg_hba.conf"
-    rule = "hostssl graphmind graphmind all scram-sha-256"
-    lines = [l for l in hba.read_text(encoding="utf-8").splitlines()
-             if l.strip() != "host graphmind graphmind all scram-sha-256"]
-    if rule not in lines:
-        lines += ["# Graph-MIND: other PCs, encrypted, with the password", rule]
-    hba.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rule = "host graphmind graphmind all scram-sha-256"
+    if rule not in hba.read_text(encoding="utf-8"):
+        with hba.open("a", encoding="utf-8") as stream:
+            stream.write("\n# Graph-MIND: other PCs, with the password\n" + rule + "\n")
     pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"], pgdata=data, timeout=60,
            **_DETACHED)
     set_folder("local")
     _save({"share_password": password})
     hosts = _addresses()
     code = CODE_PREFIX + base64.urlsafe_b64encode(json.dumps(
-        {"h": hosts, "p": PORT, "k": password,
-         "c": base64.b64encode(certificate).decode()}).encode()).decode().rstrip("=")
+        {"h": hosts, "p": PORT, "k": password}).encode()).decode().rstrip("=")
     return {"connection_code": code, "addresses": hosts, "port": PORT,
             "firewall": _firewall() if open_firewall else "not changed"}
-
-
-def _tls_certificate(data: Path) -> bytes:
-    """This hub's own certificate (DER), made once: self-signed, since no public authority
-    vouches for a PC on a home or office network. It travels inside the connection code, and
-    joining PCs accept only a server holding its key, so nobody can stand in for the hub."""
-    certificate, key = data / "server.crt", data / "server.key"
-    if not certificate.exists() or not key.exists():
-        import datetime
-        from cryptography import x509
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import ec
-        from cryptography.x509.oid import NameOID
-        private = ec.generate_private_key(ec.SECP256R1())
-        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, f"graph-mind hub {device_name()}")])
-        now = datetime.datetime.now(datetime.timezone.utc)
-        issued = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
-                  .public_key(private.public_key()).serial_number(x509.random_serial_number())
-                  .not_valid_before(now - datetime.timedelta(days=1))
-                  .not_valid_after(now + datetime.timedelta(days=3650))
-                  .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-                  .sign(private, hashes.SHA256()))
-        key.write_bytes(private.private_bytes(serialization.Encoding.PEM,
-                                              serialization.PrivateFormat.PKCS8,
-                                              serialization.NoEncryption()))
-        if os.name != "nt":
-            key.chmod(0o600)                      # Postgres refuses a key others can read
-        certificate.write_bytes(issued.public_bytes(serialization.Encoding.PEM))
-    from cryptography import x509
-    from cryptography.hazmat.primitives import serialization
-    return x509.load_pem_x509_certificate(certificate.read_bytes()).public_bytes(
-        serialization.Encoding.DER)
 
 
 def _addresses() -> list[str]:
@@ -250,8 +208,7 @@ def _decode(code: str) -> dict:
     body = code.strip()[len(CODE_PREFIX):]
     try:
         value = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
-        return {"h": [str(h) for h in value["h"]], "p": int(value["p"]), "k": str(value["k"]),
-                "c": base64.b64decode(value["c"]) if value.get("c") else None}
+        return {"h": [str(h) for h in value["h"]], "p": int(value["p"]), "k": str(value["k"])}
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError("INVALID_CONNECTION_CODE") from error
 
@@ -276,21 +233,6 @@ def _joined(code: str) -> str:
             continue
     url = (f"postgresql://graphmind:{urllib.parse.quote(value['k'], safe='')}"
            f"@{host}:{value['p']}/graphmind")
-    if value["c"]:
-        # verify-ca: the server must hold this hub's key. Not the host name: the same hub is
-        # reached by its LAN and its Tailscale address. A code from before 0.5 carries no
-        # certificate; libpq still prefers TLS, encrypted but without that check.
-        import hashlib
-        from development_paths import graph_mind_home
-        pem = ("-----BEGIN CERTIFICATE-----\n"
-               + base64.encodebytes(value["c"]).decode()
-               + "-----END CERTIFICATE-----\n")
-        trusted = graph_mind_home() / f"hub-{hashlib.sha256(value['c']).hexdigest()[:16]}.crt"
-        trusted.parent.mkdir(parents=True, exist_ok=True)
-        if not trusted.exists():
-            trusted.write_text(pem, encoding="ascii")
-        url += ("?sslmode=verify-ca&sslrootcert="
-                + urllib.parse.quote(str(trusted), safe=""))
     _JOINED[code] = (time.monotonic(), url)
     return url
 

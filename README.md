@@ -258,6 +258,35 @@ post it publicly.
 A synced folder also works. Tell the AI *"use my Google Drive's Graph-MIND folder as my memory"* on
 each PC.
 
+The `gm1.` code is for **your own** PCs: it shares your whole personal memory. Never give it to a
+teammate; invite them to a project brain instead.
+
+## Project brains (teams)
+
+Everyone has a private brain; every project has a shared one. A person can be in several (a side
+project alone, Graph-MIND with four developers, a company product with six), and each keeps its
+own members, decisions, results and instructions. Nothing personal moves into a project by itself:
+only what someone publishes.
+
+> A: *"Postgres 문제 수정 끝냈어. 공유해."* → a checkpoint in the Graph-MIND project: what changed
+> and why, files, tests, commit, what is left.
+> A: *"제안서 다 만들었어. 프로젝트에 올려줘."* → `제안서.pptx` v1 in the project.
+> B, next day, in another app: *"어제 Postgres 문제 어떻게 됐고 남은 게 뭐야?"*, *"제안서 띄워봐."*
+
+- **Checkpoints**: decision, progress, blocker, next action, artifact, release; who, when, the
+  local ids they rest on (never text), what they supersede. A mistaken one can be retracted.
+- **Results**: files are stored on the hub as versions (v1, v2, … never overwritten), checked by
+  SHA-256 when opened, refused if they contain an API key or password (Office files are checked
+  inside), up to 50 MB. Code is linked by repository, branch and commit, not copied.
+- **Members**: on the PC hosting the hub, *"민지를 graph-mind 프로젝트 편집자로 초대해"* returns a
+  `gmt1.` code for her. Her AI joins with it. She gets her own login, which Postgres itself limits:
+  no access at all to your personal memory, only the projects she was given, editor (publish,
+  attach, retract her own) or viewer (read). Her key opens project data only. Every action,
+  reads included, is in an audit log you can read; removing her ends access at once.
+- **Instructions**: each project can carry standing guidance for every AI that works on it.
+
+Without a hub, project brains live in `~/.graph-mind/ledger.sqlite` on your PC alone.
+
 ---
 
 ## Reproducing the benchmarks

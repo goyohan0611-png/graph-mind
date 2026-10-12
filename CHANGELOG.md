@@ -3,6 +3,17 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased (branch `checkpoints`)
+- **Project brains.** `brain_checkpoint`: shared projects apart from personal memory, with
+  checkpoints (decision, progress, blocker, next action, artifact, release), handover details,
+  supersession and retraction; files as versions (SHA-256, secret scan, 50 MB, sealed chunks);
+  git commits linked, not copied; per-project AI instructions; a folder bound to a project.
+- **Teams.** Invite codes (`gmt1.`) give each teammate their own Postgres login with no right on
+  the owner's personal memory, row-level security per project, editor or viewer roles, a
+  ledger-only key, an audit log and immediate removal. One person can join several team hubs.
+- Uploads and retractions are all-or-nothing; two uploads of the same file at once get two
+  versions.
+
 ## 0.6.4 — 2026-10-12
 - Mitigates intermittent Postgres initialization and start failures on Windows with a bounded
   retry (up to ten tries each). On the PC where it was seen, initdb succeeded in 3-6 of 10

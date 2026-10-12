@@ -23,6 +23,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import base64
+import contextlib
 import hashlib
 import json
 import os
@@ -275,16 +276,27 @@ class Ledger:
                       "summary": summary, "details": details, "actor": by,
                       "created_at": _now(), "artifacts": artifacts or [], "source_refs": refs,
                       "supersedes": supersedes}
-        for artifact_id, part, piece in chunks:     # the files first, in the same transaction
-            self._sql("INSERT INTO ledger_chunks(artifact_id, part, project, data) "
-                      "VALUES(?,?,?,?)", (artifact_id, part, project, self._seal(piece)))
-        self._sql("INSERT INTO ledger_checkpoints(id, project, stamp, created_at, status, payload)"
-                  " VALUES(?,?,?,?,?,?)", (checkpoint["id"], project, _stamp(),
-                                           checkpoint["created_at"], "published",
-                                           self._store(checkpoint)))
-        self._audit(by, "publish", f"{project}/{checkpoint['id']}")
-        self._commit()
+        # all or nothing: a connection lost halfway through a 50 MB upload leaves no orphan chunks
+        # and no checkpoint pointing at a half-stored file
+        with self._atomic():
+            for artifact_id, part, piece in chunks:
+                self._sql("INSERT INTO ledger_chunks(artifact_id, part, project, data) "
+                          "VALUES(?,?,?,?)", (artifact_id, part, project, self._seal(piece)))
+            self._sql("INSERT INTO ledger_checkpoints(id, project, stamp, created_at, status, "
+                      "payload) VALUES(?,?,?,?,?,?)",
+                      (checkpoint["id"], project, _stamp(), checkpoint["created_at"],
+                       "published", self._store(checkpoint)))
+            self._audit(by, "publish", f"{project}/{checkpoint['id']}")
         return {**checkpoint, "status": "published"}
+
+    @contextlib.contextmanager
+    def _atomic(self):
+        if self.postgres:
+            with self.db.transaction():              # nested: a savepoint
+                yield
+        else:
+            with self.db:                            # sqlite: commit, or roll back on error
+                yield
 
     def _checkpoint(self, checkpoint_id, project=None) -> tuple[dict, str]:
         rows = self._sql("SELECT project, status, payload FROM ledger_checkpoints WHERE id=?",
@@ -317,17 +329,18 @@ class Ledger:
 
     def retract(self, checkpoint_id, by) -> dict:
         checkpoint, status = self._checkpoint(checkpoint_id)
-        for artifact in checkpoint.get("artifacts", []):
-            if artifact.get("artifact_id"):
-                self._sql("DELETE FROM ledger_chunks WHERE artifact_id=?", (artifact["artifact_id"],))
         checkpoint.update(retracted_by=by, retracted_at=_now())
-        updated = self._sql("UPDATE ledger_checkpoints SET status='retracted', payload=? "
-                            "WHERE id=?", (self._store(checkpoint), checkpoint_id))
-        if getattr(updated, "rowcount", 1) == 0:     # a member's policy hid someone else's row
-            raise ValueError("NOT_ALLOWED: only the person who published it, or the owner, "
-                             "can retract it")
-        self._audit(by, "retract", checkpoint_id)
-        self._commit()
+        with self._atomic():                         # the files go only if the record does
+            updated = self._sql("UPDATE ledger_checkpoints SET status='retracted', payload=? "
+                                "WHERE id=?", (self._store(checkpoint), checkpoint_id))
+            if getattr(updated, "rowcount", 1) == 0:     # a member's policy hid another's row
+                raise ValueError("NOT_ALLOWED: only the person who published it, or the "
+                                 "owner, can retract it")
+            for artifact in checkpoint.get("artifacts", []):
+                if artifact.get("artifact_id"):
+                    self._sql("DELETE FROM ledger_chunks WHERE artifact_id=?",
+                              (artifact["artifact_id"],))
+            self._audit(by, "retract", checkpoint_id)
         return {"id": checkpoint_id, "status": "retracted", "was": status,
                 "files_removed": sum(bool(a.get("artifact_id"))
                                      for a in checkpoint.get("artifacts", [])),
@@ -359,6 +372,15 @@ class Ledger:
             raise ValueError("SECRET_IN_FILE: not uploaded. Found " + ", ".join(found)
                              + ". Remove it and try again.")
         data = path.read_bytes()
+        if not self.postgres:
+            return self._new_version(project, path, data, summary, by, kind, source_refs, details)
+        with self._atomic():
+            # two teammates uploading the same file at once: one waits, then numbers after it
+            self._sql("SELECT pg_advisory_xact_lock(hashtext(?))", (f"{project}/{path.name}",))
+            return self._new_version(project, path, data, summary, by, kind, source_refs, details)
+
+    def _new_version(self, project, path, data, summary, by, kind, source_refs, details):
+        size = len(data)
         digest = hashlib.sha256(data).hexdigest()
         versions = [a for c in self.timeline(project, limit=10**6, include_withdrawn=True)
                     for a in c.get("artifacts", []) if a.get("name") == path.name

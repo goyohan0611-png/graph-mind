@@ -109,5 +109,70 @@ class TeamHubTests(unittest.TestCase):
             self.assertIn(action, actions)
 
 
+    def test_a_teammate_picks_up_the_work_through_their_own_assistant(self):
+        """A publishes and attaches from their assistant; B, on their own config, joins with the
+        code, asks where things stand and opens the file. Everything through brain_checkpoint."""
+        import asyncio
+        from mcp import Client
+        from graph_mind_mcp_server import build_server
+        deck = self.root / "제안서.md"
+        deck.write_text("# Graph-MIND 제안서\n- 공동 뇌", encoding="utf-8")
+
+        async def run():
+            async with Client(build_server(self.root / "a.sqlite")) as a:
+                call = lambda **k: a.call_tool("brain_checkpoint", k)  # noqa: E731
+                await call(action="create_project", project="graph-mind")
+                await call(action="publish", project="graph-mind", type="decision",
+                           summary="Postgres 시작 실패 시 최대 10회 재시도",
+                           details="brain_log._retry; initdb·pg_ctl start. 남은 일: 원인 확정")
+                await call(action="attach", project="graph-mind", path=str(deck),
+                           summary="제안서 v1 완료")
+                with mock.patch.object(brain_log, "_firewall", return_value="open"):
+                    code = (await call(action="invite", member="minji", role="editor",
+                                       projects=["graph-mind"])).structured_content["team_code"]
+            os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "minji-config.json")
+            with mock.patch("project_ledger.open_with_default_app") as opened:
+                async with Client(build_server(self.root / "b.sqlite")) as b:
+                    call = lambda **k: b.call_tool("brain_checkpoint", k)  # noqa: E731
+                    joined = (await call(action="join_team", code=code)).structured_content
+                    where = (await call(action="timeline", project="graph-mind")).structured_content
+                    shown = (await call(action="open", project="graph-mind",
+                                        name="제안서")).structured_content
+            return joined, where, shown, opened
+        joined, where, shown, opened = asyncio.run(run())
+        self.assertEqual(joined["projects"], ["graph-mind"])
+        summaries = [c["summary"] for c in where["checkpoints"]]
+        self.assertEqual(summaries, ["제안서 v1 완료", "Postgres 시작 실패 시 최대 10회 재시도"])
+        self.assertIn("남은 일", where["checkpoints"][1]["details"])
+        self.assertEqual(Path(shown["path"]).read_text(encoding="utf-8"), deck.read_text(encoding="utf-8"))
+        opened.assert_called_once()
+
+    def test_two_uploads_of_the_same_file_at_once_get_two_versions(self):
+        import threading
+        owner = pl.own_ledger()
+        owner.create_project("alpha", "yohan")
+        owner.db.close()
+        files = []
+        for n in range(2):
+            path = self.root / f"copy{n}" / "plan.md"
+            path.parent.mkdir()
+            path.write_text(f"# 계획 {n}", encoding="utf-8")
+            files.append(path)
+        results = []
+
+        def upload(path):
+            book = pl.own_ledger()
+            try:
+                results.append(book.attach("alpha", path, "계획", "yohan")["artifacts"][0]["version"])
+            finally:
+                book.db.close()
+        threads = [threading.Thread(target=upload, args=(path,)) for path in files]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(sorted(results), [1, 2])
+
+
 if __name__ == "__main__":
     unittest.main()

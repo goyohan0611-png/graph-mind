@@ -99,6 +99,22 @@ class ArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ARTIFACT_NOT_FOUND"):
             self.book.fetch("proposal", name="notes", into=self.dir / "out")
 
+    def test_an_upload_cut_off_halfway_leaves_nothing_behind(self):
+        big = self.dir / "cut.bin"
+        big.write_bytes(os.urandom(project_ledger.CHUNK * 2 + 10))
+        real, calls = self.book._seal, []
+
+        def dies_on_the_second_piece(data):
+            calls.append(1)
+            if len(calls) == 2:
+                raise ConnectionError("network gone")
+            return real(data)
+        with mock.patch.object(self.book, "_seal", dies_on_the_second_piece), \
+                self.assertRaises(ConnectionError):
+            self.book.attach("proposal", big, "cut", "yohan")
+        self.assertEqual(self.book.db.execute("SELECT COUNT(*) FROM ledger_chunks").fetchone()[0], 0)
+        self.assertEqual(self.book.timeline("proposal"), [])
+
     def test_large_files_go_in_pieces(self):
         big = self.dir / "data.bin"
         big.write_bytes(os.urandom(project_ledger.CHUNK * 2 + 10))

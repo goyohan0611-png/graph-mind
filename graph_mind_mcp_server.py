@@ -582,7 +582,8 @@ def build_server(db_path=None):
         the AI on the other PC; it contains the password, so say not to post it anywhere public.
         On the other PC, when the user pastes a "gm1." code, call this with `path=<the code>`.
 
-        `share_existing=true` copies what this PC already remembered into the folder, which uploads
+        `share_existing=true` sends what this PC remembers and the shared memory lacks (only that:
+        it also repairs turns that missed a hub that was down). It uploads
         it to wherever the folder syncs. Set it only when the user has explicitly agreed to that.
 
         `reindex=true` brings the search index up to date (links new memories, embeds unembedded

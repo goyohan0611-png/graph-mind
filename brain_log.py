@@ -304,6 +304,31 @@ def append_many(shared: Path, items) -> int:
     return len(lines)
 
 
+def _shared_ids(shared) -> set:
+    """(kind, id) of every turn and memory the shared log holds, forgotten ones included."""
+    if is_database(shared):
+        with _pg(shared) as connection:
+            lines = [row[0] for row in connection.execute("SELECT line FROM brain_log")]
+    else:
+        lines = [line for log in (Path(shared) / "log").glob("*.jsonl")
+                 for line in log.read_text(encoding="utf-8", errors="replace").splitlines()]
+    ids = set()
+    for line in lines:
+        try:
+            item = json.loads(line)
+        except ValueError:
+            continue
+        record = item.get("record", {})
+        if item.get("kind") == "turn":
+            ids.add(("turn", record.get("turn_id")))
+        elif item.get("kind") == "memory":
+            ids.add(("memory", record.get("memory_id")))
+        elif item.get("kind") == "forget":           # never resend what was deleted
+            ids |= {("turn", t) for t in record.get("turn_ids", [])}
+            ids |= {("memory", m) for m in record.get("memory_ids", [])}
+    return ids
+
+
 def export_history(shared: Path, index: Path) -> dict:
     """Put what this machine remembered before the folder existed into its log, once.
 
@@ -318,6 +343,10 @@ def export_history(shared: Path, index: Path) -> dict:
                    "kind TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY(kind, id))")
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
         done = {(row[0], row[1]) for row in db.execute("SELECT kind, id FROM brain_log_exported")}
+        # what the shared log already holds, whoever wrote it: a turn published as it was
+        # captured is never marked exported, so without this a re-share sent everything again,
+        # and a PC whose turns missed a downed hub had no way to send just those
+        done |= _shared_ids(shared)
         items = []
         if "local_brain_memories" in tables:
             for row in db.execute("SELECT * FROM local_brain_memories ORDER BY revision"):

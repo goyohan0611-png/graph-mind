@@ -8,6 +8,7 @@ import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from contextlib import contextmanager
 import importlib.util
+import json
 import os
 import shutil
 import tempfile
@@ -213,6 +214,28 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OutboxTests(unittest.TestCase):
+    def test_lines_wait_while_the_hub_is_down_and_go_with_the_next_append(self):
+        import brain_log
+        sent, hub_up = [], [False]
+
+        def fake_append(url, lines):
+            if not hub_up[0]:
+                raise OSError("connection refused")
+            sent.extend(lines)
+            return len(lines)
+        with unittest.mock.patch.object(brain_log, "_pg_append", fake_append):
+            url = "postgresql://graphmind@127.0.0.1:1/graphmind"
+            brain_log.append(url, "turn", {"turn_id": "t1"})      # hub down: queued, no error
+            brain_log.append(url, "turn", {"turn_id": "t2"})
+            self.assertEqual(sent, [])
+            self.assertTrue(brain_log._outbox().exists())
+            hub_up[0] = True
+            brain_log.append(url, "turn", {"turn_id": "t3"})
+        self.assertEqual([json.loads(l)["record"]["turn_id"] for l in sent], ["t1", "t2", "t3"])
+        self.assertFalse(brain_log._outbox().exists())
 
 
 class NoPgserverTests(unittest.TestCase):

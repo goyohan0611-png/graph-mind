@@ -63,6 +63,25 @@ class InstallTests(unittest.TestCase):
             chosen = json.loads((home / ".graph-mind" / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(chosen["memory_folder"], code)
 
+            # and back out: every app unregistered, the user's other settings untouched,
+            # the memory kept unless asked to purge it
+            with mock.patch.dict(os.environ, environment), \
+                    mock.patch("install.shutil.which", return_value=None):
+                install.uninstall([])
+                toml = (home / ".codex" / "config.toml").read_text(encoding="utf-8")
+                self.assertNotIn("graph-mind-memory", toml)
+                self.assertIn("[mcp_servers.other]", toml)
+                self.assertIn("model = 'x'", toml)
+                code_cli = json.loads((home / ".claude.json").read_text(encoding="utf-8"))
+                self.assertNotIn("graph-mind-memory", code_cli["mcpServers"])
+                self.assertEqual(code_cli["keep"], 1)
+                app = json.loads((desktop / "claude_desktop_config.json").read_text(encoding="utf-8"))
+                self.assertNotIn("graph-mind-memory", app["mcpServers"])
+                self.assertFalse(login_item.exists())
+                self.assertTrue((home / ".graph-mind").exists(), "memory kept by default")
+                install.uninstall(["--purge", "--yes"])
+                self.assertFalse((home / ".graph-mind").exists())
+
     def test_mangled_code_stops_before_anything_changes(self):
         with self.assertRaises(ValueError):
             install.main(["--skip-packages", "--join", "gm1.%%%"])

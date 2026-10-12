@@ -24,7 +24,23 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
 
 
-SERVER_VERSION = "0.5.0"
+def _version() -> str:
+    """The package version: pyproject.toml beside this file in a source checkout, else the
+    installed distribution's. A hand-kept constant here had drifted to 0.5.0 at release 0.3.1."""
+    import re
+    project = Path(__file__).with_name("pyproject.toml")
+    if project.exists():
+        found = re.search(r'^version = "([^"]+)"', project.read_text(encoding="utf-8"), re.M)
+        if found:
+            return found.group(1)
+    try:
+        from importlib.metadata import version
+        return version("graph-mind-memory")
+    except Exception:
+        return "0+unknown"
+
+
+SERVER_VERSION = _version()
 # The embedding model is loaded from the local Hugging Face cache, but the library still asks the
 # hub over the network whether a newer revision exists, every time it loads. That made the first
 # save of a session take ~95 s and sent requests off the machine for no reason. Once the model is

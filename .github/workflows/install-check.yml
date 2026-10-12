@@ -65,3 +65,5 @@ jobs:
         run: python .github/smoke_install.py
       - name: Forget command runs
         run: graph-mind-forget "no-such-phrase-anywhere" --yes
+      - name: Uninstall leaves no app registration behind
+        run: graph-mind-uninstall --purge --yes

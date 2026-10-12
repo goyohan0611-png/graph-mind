@@ -128,6 +128,10 @@ Then restart your AI apps. The server is also listed in the
 > cause. Clone to a short path such as `C:\graph-mind`, or enable long paths. The installer prints
 > the command for that.
 
+To remove it: `graph-mind-uninstall` unregisters it from every app, removes the login item and
+stops the capture service. Your memory stays in `~/.graph-mind` unless you add `--purge`. Then
+`pip uninstall graph-mind-memory` removes the program.
+
 ---
 
 ## What it captures
@@ -250,6 +254,11 @@ The full list is in [REPORT.md §9](REPORT.md#9-known-limits).
 | **Benchmarks** | `product_answer_eval.py`, `official_judge_v073.py`, `rival_mem0.py`, `rival_mempalace.py`, `rival_clean_prereg.py`, and the result files under `runs/` |
 | **Research phase** | the other modules: earlier extraction pipelines and analyses that REPORT.md cites |
 | **Tests** | `test_*.py` |
+
+## Security
+
+Graph-MIND holds your conversations. Report vulnerabilities privately (GitHub **Security → Report
+a vulnerability**); [SECURITY.md](SECURITY.md) lists what is in scope and how the data is handled.
 
 ## Contributing
 

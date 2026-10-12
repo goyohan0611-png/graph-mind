@@ -86,33 +86,45 @@ def local_postgres() -> str:
     its brain needs a port that stays put and a password for anyone not on this PC. The memory
     lives in database "graphmind" under role "graphmind", which is not a superuser: that is the
     role other PCs log in as."""
-    if "uri" not in _LOCAL_URI:
+    try:
+        from pgserver._commands import initdb, pg_ctl
+    except ImportError:
+        raise RuntimeError(
+            "Hosting the shared brain on this PC needs pgserver, which is built for Python "
+            "3.9-3.12 only. Run Graph-MIND on this PC with Python 3.12, or use a synced "
+            "folder instead. Joining a brain another PC hosts works on any Python.") from None
+    from pgserver.utils import PostmasterInfo
+    data = _pg_data()
+    running = PostmasterInfo.read_from_pgdata(data) if (data / "PG_VERSION").exists() else None
+    # Checked on every call, not once per process: a server that stopped (reboot, a crash, a
+    # console closing on it) is started again by whoever needs it next, instead of every
+    # client failing until someone notices.
+    if running is None or not running.is_running():
         import fasteners
-        try:
-            from pgserver._commands import initdb, pg_ctl
-        except ImportError:
-            raise RuntimeError(
-                "Hosting the shared brain on this PC needs pgserver, which is built for Python "
-                "3.9-3.12 only. Run Graph-MIND on this PC with Python 3.12, or use a synced "
-                "folder instead. Joining a brain another PC hosts works on any Python.") from None
-        from pgserver.utils import PostmasterInfo
-        data = _pg_data()
         data.parent.mkdir(parents=True, exist_ok=True)
         with fasteners.InterProcessLock(str(data.parent / "postgres.lock")):
             fresh = not (data / "PG_VERSION").exists()
             if fresh:
-                initdb(["--auth=trust", "--encoding=utf8", "-U", "postgres"], pgdata=data)
+                initdb(["--auth=trust", "--encoding=utf8", "-U", "postgres"], pgdata=data,
+                       **_DETACHED)
             running = PostmasterInfo.read_from_pgdata(data)
             if running is None or not running.is_running():
                 pg_ctl(["-w", "-o", f"-p {PORT}", "-l", str(data / "log"), "start"],
-                       pgdata=data, timeout=60)
+                       pgdata=data, timeout=60, **_DETACHED)
             if fresh:
                 import psycopg
                 with psycopg.connect(_admin_uri(), autocommit=True) as admin:
                     admin.execute("CREATE ROLE graphmind LOGIN")
                     admin.execute("CREATE DATABASE graphmind OWNER graphmind")
-        _LOCAL_URI["uri"] = f"postgresql://graphmind@127.0.0.1:{PORT}/graphmind"
+    _LOCAL_URI["uri"] = f"postgresql://graphmind@127.0.0.1:{PORT}/graphmind"
     return _LOCAL_URI["uri"]
+
+
+# Started from Claude's or Codex's process, the server shared that program's console, and closing
+# it sent Ctrl+C to Postgres too (0xC000013A in its log): the hub went down with an app window.
+# Its own process group, with no console, it outlives whoever happened to start it.
+_DETACHED = ({"creationflags": 0x00000008 | 0x00000200}     # DETACHED_PROCESS | NEW_PROCESS_GROUP
+             if os.name == "nt" else {"start_new_session": True})
 
 
 def _admin_uri() -> str:
@@ -145,7 +157,8 @@ def share(open_firewall: bool = True) -> dict:
     if rule not in hba.read_text(encoding="utf-8"):
         with hba.open("a", encoding="utf-8") as stream:
             stream.write("\n# Graph-MIND: other PCs, with the password\n" + rule + "\n")
-    pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"], pgdata=data, timeout=60)
+    pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"], pgdata=data, timeout=60,
+           **_DETACHED)
     set_folder("local")
     _save({"share_password": password})
     hosts = _addresses()
@@ -281,7 +294,7 @@ def append_many(shared: Path, items) -> int:
     if not lines:
         return 0
     if is_database(shared):
-        return _pg_append(shared, lines)
+        return _pg_append_or_queue(shared, lines)
     log = Path(shared).expanduser() / "log" / f"{device_name()}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8") as stream:
@@ -355,6 +368,32 @@ def _pg(url):
         seq BIGSERIAL PRIMARY KEY, device TEXT NOT NULL, line TEXT NOT NULL)""")
     connection.commit()
     return connection
+
+
+def _outbox() -> Path:
+    from development_paths import graph_mind_home
+    return graph_mind_home() / "outbox.jsonl"
+
+
+def _pg_append_or_queue(url, lines) -> int:
+    """Append to the hub; when it cannot be reached, keep the lines in a local outbox and send
+    them with the next append that gets through. The hub was down for four days once and every
+    turn of those days stayed on the PC that captured it until it was sent by hand."""
+    import fasteners
+    outbox = _outbox()
+    outbox.parent.mkdir(parents=True, exist_ok=True)
+    with fasteners.InterProcessLock(str(outbox.with_suffix(".lock"))):
+        waiting = ([l for l in outbox.read_text(encoding="utf-8").splitlines() if l.strip()]
+                   if outbox.exists() else [])
+        try:
+            _pg_append(url, waiting + lines)
+        except Exception:
+            with outbox.open("a", encoding="utf-8") as stream:
+                stream.write("\n".join(lines) + "\n")
+            return len(lines)                     # queued, not lost
+        if waiting:
+            outbox.unlink()
+    return len(lines)
 
 
 def _pg_append(url, lines) -> int:

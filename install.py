@@ -67,18 +67,48 @@ def claude_code(home: Path) -> str:
     return ""
 
 
-def claude_desktop(home: Path) -> list[str]:
+def _desktop_roots(home: Path) -> list[Path]:
     roots = [Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / "Claude",
              home / "Library" / "Application Support" / "Claude"]
     packages_dir = home / "AppData" / "Local" / "Packages"
     if packages_dir.is_dir():               # the Microsoft Store build keeps its own copy
         roots += [p / "LocalCache" / "Roaming" / "Claude" for p in packages_dir.glob("Claude_*")]
+    return roots
+
+
+def claude_desktop(home: Path) -> list[str]:
     done = []
-    for root in roots:
+    for root in _desktop_roots(home):
         if root.is_dir():
             _json_entry(root / "claude_desktop_config.json")
             done.append("Claude Desktop")
     return done[:1]
+
+
+def _without_codex_block(text: str) -> str:
+    """The Codex config without Graph-MIND's server table (and its env table); the rest kept."""
+    header = f"[mcp_servers.{NAME}]"
+    if header not in text:
+        return text
+    kept, skipping = [], False
+    for line in text.splitlines():
+        if line.strip().startswith("["):
+            skipping = line.strip() in (header, f"[mcp_servers.{NAME}.env]")
+        if not skipping:
+            kept.append(line)
+    return "\n".join(kept).rstrip() + "\n"
+
+
+def _login_item() -> Path:
+    """Where the capture service is registered to start at login, on this OS."""
+    system = platform.system()
+    if system == "Windows":
+        return (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+                / "Startup" / "Graph-MIND Automatic Capture.lnk")
+    if system == "Darwin":
+        return Path.home() / "Library" / "LaunchAgents" / "com.graph-mind.capture.plist"
+    config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return config / "autostart" / "graph-mind-capture.desktop"
 
 
 def codex(home: Path) -> str:
@@ -87,14 +117,7 @@ def codex(home: Path) -> str:
         return ""
     text = config.read_text(encoding="utf-8") if config.exists() else ""
     header = f"[mcp_servers.{NAME}]"
-    if header in text:                       # drop the old block (and its env table), keep the rest
-        kept, skipping = [], False
-        for line in text.splitlines():
-            if line.strip().startswith("["):
-                skipping = line.strip() in (header, f"[mcp_servers.{NAME}.env]")
-            if not skipping:
-                kept.append(line)
-        text = "\n".join(kept).rstrip() + "\n"
+    text = _without_codex_block(text)
     environment = "\n".join(f"{key} = '{value}'" for key, value in ENV.items())
     # required: otherwise Codex leaves out a server still starting when the first question comes
     text += (f"\n{header}\nrequired = true\nstartup_timeout_sec = 60\n"
@@ -119,8 +142,7 @@ def capture_service(start: bool) -> str:
     system = platform.system()
     if system == "Windows":
         python = Path(sys.executable).with_name("pythonw.exe")        # no console window
-        startup = (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu"
-                   / "Programs" / "Startup" / "Graph-MIND Automatic Capture.lnk")
+        startup = _login_item()
         startup.parent.mkdir(parents=True, exist_ok=True)
         shortcut = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{startup}');"
                     f"$s.TargetPath='{python}';$s.Arguments='\"{script}\" run';"
@@ -130,15 +152,14 @@ def capture_service(start: bool) -> str:
     elif system == "Darwin":
         import plistlib
         python = Path(sys.executable)
-        agent = Path.home() / "Library" / "LaunchAgents" / "com.graph-mind.capture.plist"
+        agent = _login_item()
         agent.parent.mkdir(parents=True, exist_ok=True)
         agent.write_bytes(plistlib.dumps({
             "Label": "com.graph-mind.capture", "RunAtLoad": True, "WorkingDirectory": str(HERE),
             "ProgramArguments": [str(python), str(script), "run"]}))
     else:                                       # Linux desktops: XDG autostart
         python = Path(sys.executable)
-        config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-        entry = config / "autostart" / "graph-mind-capture.desktop"
+        entry = _login_item()
         entry.parent.mkdir(parents=True, exist_ok=True)
         entry.write_text("[Desktop Entry]\nType=Application\nName=Graph-MIND capture\n"
                          f"Exec=\"{python}\" \"{script}\" run\nPath={HERE}\n"
@@ -222,6 +243,74 @@ def main(argv=None):
         where = folder().rsplit("@", 1)[1].split("/")[0]
         step(f"joined the shared brain at {where}")
     print("\nDone. Restart your AI apps so they load the memory.")
+
+
+def uninstall(argv=None):
+    """Undo install: unregister from every AI app, remove the login item, stop the capture
+    service. The memory itself stays unless --purge, so reinstalling picks up where it was."""
+    parser = argparse.ArgumentParser(description="Remove Graph-MIND from this PC's AI apps.")
+    parser.add_argument("--purge", action="store_true",
+                        help="also delete this PC's memory (~/.graph-mind); cannot be undone")
+    parser.add_argument("--yes", action="store_true", help="do not ask before --purge")
+    args = parser.parse_args(argv)
+    sys.path.insert(0, str(HERE))
+    home, removed = Path.home(), []
+    claude = shutil.which("claude")
+    if claude:
+        subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
+    for config in [home / ".claude.json"] + [r / "claude_desktop_config.json"
+                                              for r in _desktop_roots(home)]:
+        if not config.exists():
+            continue
+        settings = json.loads(config.read_text(encoding="utf-8"))
+        if settings.get("mcpServers", {}).pop(NAME, None) is not None:
+            temporary = config.with_suffix(".graph-mind.tmp")
+            temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2),
+                                 encoding="utf-8")
+            os.replace(temporary, config)
+            removed.append("Claude Code" if config.name == ".claude.json" else "Claude Desktop")
+    codex_config = home / ".codex" / "config.toml"
+    if codex_config.exists():
+        text = codex_config.read_text(encoding="utf-8")
+        if text != _without_codex_block(text):
+            codex_config.write_text(_without_codex_block(text), encoding="utf-8")
+            removed.append("Codex")
+    step("memory removed from: " + (", ".join(dict.fromkeys(removed)) or "no app had it"))
+    item = _login_item()
+    if item.exists():
+        if platform.system() == "Darwin":
+            subprocess.run(["launchctl", "unload", str(item)], capture_output=True)
+        item.unlink()
+        step("capture service no longer starts at login")
+    from automatic_capture import default_service_state_dir
+    try:
+        import psutil
+        service = psutil.Process(int((default_service_state_dir() / "service.pid")
+                                     .read_text(encoding="ascii")))
+        if "automatic_capture_cli" in " ".join(service.cmdline()):
+            service.terminate()
+            step("capture service stopped")
+    except Exception:                            # no pid file, not running, or already gone
+        pass
+    from development_paths import graph_mind_home
+    data = graph_mind_home()
+    if args.purge and data.exists():
+        if not args.yes and input(f"Delete {data} and everything this PC remembers? "
+                                  "This cannot be undone. [y/N] ").lower() != "y":
+            print("Memory kept.")
+        else:
+            if (data / "postgres" / "postmaster.pid").exists():     # this PC hosts the hub
+                try:
+                    from pgserver._commands import pg_ctl
+                    pg_ctl(["-w", "-m", "fast", "stop"], pgdata=data / "postgres")
+                except Exception:
+                    pass
+            shutil.rmtree(data, ignore_errors=True)
+            step(f"deleted {data}")
+    elif data.exists():
+        step(f"your memory is kept in {data} (graph-mind-uninstall --purge deletes it)")
+    print("\nDone. Restart your AI apps. To remove the program too: "
+          "pip uninstall graph-mind-memory")
 
 
 if __name__ == "__main__":

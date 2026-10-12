@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.5.2"
+version = "0.5.3"
 description = "Local-first memory for AI coding assistants: verbatim, on your own PC, no LLM calls at write time."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -45,7 +45,8 @@ graph-mind-capture = "automatic_capture_cli:main"
 graph-mind-forget = "forget:main"
 
 [tool.setuptools]
-# ponytail: flat modules, as in the repository; a graph_mind/ package is the upgrade path.
+# ponytail: flat modules under src/; a graph_mind/ package is the upgrade path.
+package-dir = { "" = "src" }
 py-modules = [
     "associative_memory",
     "automatic_capture",

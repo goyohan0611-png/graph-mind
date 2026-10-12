@@ -50,8 +50,8 @@ calls Graph-MIND over MCP and gets back a few thousand tokens of the conversatio
 ## Benchmarks
 
 All numbers below come from files in this repository: the pre-registrations, each question's
-answer, and the judge's verdict on it, under [`runs/`](runs). The method is in
-[REPORT.md](REPORT.md), including the failures and the corrections.
+answer, and the judge's verdict on it, under [`research/runs/`](research/runs). The method is in
+[REPORT.md](research/REPORT.md), including the failures and the corrections.
 
 **LongMemEval_S: answer accuracy, 500 questions.** The answer model is gpt-5-mini; the judge is the
 official gpt-4o-2024-08-06.
@@ -111,7 +111,7 @@ or from source:
 ```bash
 git clone https://github.com/goyohan0611-png/graph-mind.git
 cd graph-mind
-python install.py
+python src/install.py
 ```
 
 The installer:
@@ -205,7 +205,7 @@ On the PC that holds the memory, tell its AI:
 It replies with a connection code (`gm1.…`). On each other PC:
 
 ```bash
-graph-mind-install --join gm1.…     # or: python install.py --join gm1.…
+graph-mind-install --join gm1.…     # or: python src/install.py --join gm1.…
 ```
 
 The memory then lives in a Postgres server on the first PC, which Graph-MIND sets up itself. Other
@@ -226,16 +226,17 @@ each PC.
 ## Reproducing the benchmarks
 
 1. Download `longmemeval_s_cleaned.json` from [LongMemEval](https://github.com/xiaowu0162/LongMemEval)
-   into `external/longmemeval/`.
+   into `research/external/longmemeval/`.
 2. Set `OPENAI_API_KEY` for the answer model and the judge.
-3. Run the commands in [REPORT.md §10](REPORT.md#10-reproducing).
+3. `pip install -e .`, then from `research/` run the commands in
+   [REPORT.md §10](research/REPORT.md#10-reproducing).
 
 A full 500-question run costs about US$3.
 
 ## Tests
 
 ```bash
-python -m unittest discover -p "test_*.py"
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
 ---
@@ -251,20 +252,17 @@ python -m unittest discover -p "test_*.py"
   can stop capture until Graph-MIND is updated.
 - **Multi-session questions are the weakest type at 80%.** These are questions that count or
   combine facts across many conversations.
-- **The repository still holds the research-phase experiments** next to the product (see
-  [Repository layout](#repository-layout)); the installed package carries only the 22 product
-  modules.
 
-The full list is in [REPORT.md §9](REPORT.md#9-known-limits).
+The full list is in [REPORT.md §9](research/REPORT.md#9-known-limits).
 
 ## Repository layout
 
-| | files |
+| folder | what is in it |
 |---|---|
-| **Product** (what `pip install graph-mind-memory` installs) | `graph_mind_mcp_server.py` (MCP server), `automatic_capture*.py` (capture service), `install.py`, `brain_log.py` (sharing across PCs), `forget.py` (deleting), `local_brain.py` / `conversation_memory.py` / `coding_memory.py` / `development_memory.py` (stores), `semantic_recall.py` / `local_embedder.py` / `vector_cache.py` / `embedding_warmup.py` (search), and their helpers |
-| **Benchmarks** | `product_answer_eval.py`, `official_judge_v073.py`, `rival_mem0.py`, `rival_mempalace.py`, `rival_clean_prereg.py`, and the result files under `runs/` |
-| **Research phase** | the other modules: earlier extraction pipelines and analyses that REPORT.md cites |
-| **Tests** | `test_*.py` |
+| [`src/`](src) | the product, exactly what `pip install graph-mind-memory` installs: `graph_mind_mcp_server.py` (MCP server), `automatic_capture*.py` (capture service), `install.py`, `brain_log.py` (sharing across PCs), `forget.py` (deleting), the stores, and search (`semantic_recall.py`, `local_embedder.py`) |
+| [`tests/`](tests) | unit tests, run in CI on Windows, Linux and macOS |
+| [`research/`](research) | the benchmark and research-phase scripts, [REPORT.md](research/REPORT.md), and every run's results under `runs/` |
+| [`demo/`](demo) | the README's GIF and the script that records it |
 
 ## Security
 

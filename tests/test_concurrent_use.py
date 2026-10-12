@@ -25,7 +25,7 @@ class ConcurrentUseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "brain.sqlite")
             writers = [subprocess.Popen([sys.executable, "-c", WRITER, path, name],
-                                        cwd=Path(__file__).parent, stderr=subprocess.PIPE,
+                                        cwd=Path(__file__).parent.parent / "src", stderr=subprocess.PIPE,
                                         text=True)
                        for name in ("claude", "codex", "capture")]
             errors = [w.communicate(timeout=240)[1] for w in writers]

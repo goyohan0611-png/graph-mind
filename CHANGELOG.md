@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.5.3 — 2026-10-12
+Run `graph-mind-install` after upgrading: it rewrites the app registrations.
+- A memory server that fails to start no longer keeps Codex from starting a chat (the Codex entry
+  is no longer `required`).
+- Faster replies in Claude Code and Codex: their conversations are already saved by the capture
+  service, so the model is told not to call `brain_remember` for ordinary chat (only when asked
+  to remember something). Apps without capture keep saving proactively.
+- The installer no longer stops when Windows refuses to launch the `claude` CLI; it writes
+  Claude Code's settings file instead.
+- Repository layout: the product is in `src/`, tests in `tests/`, benchmarks and REPORT.md in
+  `research/`. The installed package is unchanged.
+
 ## 0.5.2 — 2026-10-12
 - Secret masking can be turned off with `"mask_secrets": false` in `~/.graph-mind/config.json`,
   for people running their own models who want keys remembered verbatim. On by default.

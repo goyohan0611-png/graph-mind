@@ -23,6 +23,9 @@ HERE = Path(__file__).resolve().parent
 SERVER = HERE / "graph_mind_mcp_server.py"
 NAME = "graph-mind-memory"
 ENV = {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+# apps whose transcripts the capture service reads: every turn is saved without the model,
+# so the model need not spend a tool call on brain_remember for ordinary chat
+CAPTURED = {**ENV, "GRAPH_MIND_CAPTURED": "1"}
 
 
 def step(message):
@@ -31,7 +34,7 @@ def step(message):
 
 def packages():
     done = subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
-                           "-q", "-r", str(HERE / "requirements.txt")])
+                           "-q", "-r", str(HERE.parent / "requirements.txt")])
     if done.returncode:
         # PyTorch ships files nested deep enough to pass Windows' 260-character path limit when
         # Python lives under a long folder: pip then fails halfway with "No such file".
@@ -42,10 +45,10 @@ def packages():
                  "  or install Python or this folder under a shorter path, e.g. C:\\graph-mind")
 
 
-def _json_entry(path: Path, key: str = "mcpServers", **extra) -> None:
+def _json_entry(path: Path, key: str = "mcpServers", env=ENV, **extra) -> None:
     settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     servers = settings.setdefault(key, {})
-    environment = {**servers.get(NAME, {}).get("env", {}), **ENV}   # keep the user's own settings
+    environment = {**servers.get(NAME, {}).get("env", {}), **env}   # keep the user's own settings
     servers[NAME] = {**extra, "command": sys.executable, "args": [str(SERVER)], "env": environment}
     temporary = path.with_suffix(".graph-mind.tmp")
     temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -55,14 +58,17 @@ def _json_entry(path: Path, key: str = "mcpServers", **extra) -> None:
 def claude_code(home: Path) -> str:
     claude = shutil.which("claude")      # full path: an npm install is claude.CMD, which
     if claude:                           # Windows will not launch by its bare name
-        subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
-        environment = [flag for key, value in ENV.items() for flag in ("-e", f"{key}={value}")]
-        # the name before -e: the CLI's -e takes every value that follows, the name included
-        subprocess.run([claude, "mcp", "add", "-s", "user", NAME, *environment, "--",
-                        sys.executable, str(SERVER)], check=True, capture_output=True)
-        return "Claude Code"
+        environment = [flag for key, value in CAPTURED.items() for flag in ("-e", f"{key}={value}")]
+        try:
+            subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
+            # the name before -e: the CLI's -e takes every value that follows, the name included
+            subprocess.run([claude, "mcp", "add", "-s", "user", NAME, *environment, "--",
+                            sys.executable, str(SERVER)], check=True, capture_output=True)
+            return "Claude Code"
+        except (OSError, subprocess.CalledProcessError):
+            pass      # Windows refused to launch it (access denied, seen live): write the file
     if (home / ".claude.json").exists():
-        _json_entry(home / ".claude.json", type="stdio")
+        _json_entry(home / ".claude.json", env=CAPTURED, type="stdio")
         return "Claude Code"
     return ""
 
@@ -158,9 +164,9 @@ def codex(home: Path) -> str:
     text = config.read_text(encoding="utf-8") if config.exists() else ""
     header = f"[mcp_servers.{NAME}]"
     text = _without_codex_block(text)
-    environment = "\n".join(f"{key} = '{value}'" for key, value in ENV.items())
-    # required: otherwise Codex leaves out a server still starting when the first question comes
-    text += (f"\n{header}\nrequired = true\nstartup_timeout_sec = 60\n"
+    environment = "\n".join(f"{key} = '{value}'" for key, value in CAPTURED.items())
+    # not required: a memory server that fails to start must never keep a chat from starting
+    text += (f"\n{header}\nstartup_timeout_sec = 60\n"
              f"command = '{sys.executable}'\nargs = ['{SERVER}']\n\n"
              f"[mcp_servers.{NAME}.env]\n{environment}\n")
     config.write_text(text, encoding="utf-8")
@@ -171,7 +177,7 @@ def capture_service(start: bool) -> str:
     sys.path.insert(0, str(HERE))
     from automatic_capture import _atomic_json, default_config_path, default_service_state_dir, make_config
     if not default_config_path().exists():
-        config = make_config(workspace=str(HERE), project_id="project:graph-mind",
+        config = make_config(workspace=str(HERE.parent), project_id="project:graph-mind",
                              session_id="service:automatic-capture-v0.2",
                              sessions_root=str(Path.home() / ".codex" / "sessions"))
         # Conversations only. Watching a code folder is opt-in: this folder is Graph-MIND itself,
@@ -263,7 +269,7 @@ def main(argv=None):
         sys.path.insert(0, str(HERE))
         from brain_log import _decode
         _decode(args.join)
-    if not args.skip_packages and (HERE / "requirements.txt").exists():   # pip: already done
+    if not args.skip_packages and (HERE.parent / "requirements.txt").exists():   # pip: already done
         step("installing packages (the first time takes a few minutes)")
         packages()
     home = Path.home()

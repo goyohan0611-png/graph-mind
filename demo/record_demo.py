@@ -17,7 +17,7 @@ import sys
 import tempfile
 import time
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent / "src"
 QUESTION = "what did we decide about the auth rollout?"
 SAID = ("Let's ship the auth refactor behind the NEW_AUTH flag and roll it out Thursday. "
         "Staging key is sk-proj-" + "x" * 40)

@@ -43,6 +43,8 @@ class InstallTests(unittest.TestCase):
             self.assertIn(str(install.SERVER), toml)
             self.assertIn("[mcp_servers.other]", toml)
             self.assertNotIn("'old'", toml)
+            self.assertNotIn("required", toml)       # a failing server must not block a chat
+            self.assertIn("GRAPH_MIND_CAPTURED", toml)
             code_cli = json.loads((home / ".claude.json").read_text(encoding="utf-8"))
             self.assertEqual(code_cli["keep"], 1)
             self.assertEqual(code_cli["mcpServers"]["graph-mind-memory"]["command"], sys.executable)
@@ -51,6 +53,9 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(entry["args"], [str(install.SERVER)])
             self.assertEqual(entry["env"]["MINE"], "1")
             self.assertNotIn("type", entry)
+            self.assertNotIn("GRAPH_MIND_CAPTURED", entry["env"])     # desktop chat: not captured
+            self.assertEqual(code_cli["mcpServers"]["graph-mind-memory"]["env"]
+                             ["GRAPH_MIND_CAPTURED"], "1")
             login_item = {
                 "win32": home / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu"
                          / "Programs" / "Startup" / "Graph-MIND Automatic Capture.lnk",

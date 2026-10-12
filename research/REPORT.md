@@ -471,6 +471,9 @@ is rather than as a score.
 
 ## 10. Reproducing
 
+Once, from the repository root: `pip install -e .` (the scripts import the product from `src/`).
+Then run everything from this `research/` folder:
+
 ```bash
 python untouched_eval_final.py     # the 83.3% run (pre-registration is written before any call)
 python reader_swap.py gpt-4o gpt-5 # the reader ladder
@@ -485,8 +488,8 @@ python schema_trim_equivalence.py  # the deleted schema fields change nothing, o
 python reasoning_effort_probe.py   # extraction cost per reasoning effort
 python effort_coverage_check.py    # and what the cheap effort costs in coverage
 python strict_mode_probe.py        # strict vs optional schema fields
-.venv-rivals/Scripts/python.exe rival_mempalace.py mine --limit 20      # MemPalace, its defaults
-.venv-rivals/Scripts/python.exe rival_mempalace.py retrieve --limit 20
+../.venv-rivals/Scripts/python.exe rival_mempalace.py mine --limit 20      # MemPalace, its defaults
+../.venv-rivals/Scripts/python.exe rival_mempalace.py retrieve --limit 20
 python rival_mempalace.py answer --limit 20                            # our reader + official judge
 python rival_mem0.py add|retrieve|answer   # Mem0, its own venv; see the file for sharding
 python rival_clean_prereg.py --show        # the frozen 40-question clean comparison
@@ -526,7 +529,7 @@ Joining takes two sentences and no typing of addresses:
   local subnet and Tailscale (100.64.0.0/10); adding it needs one administrator approval. The reply
   is a `gm1.` code carrying this PC's network and Tailscale addresses, the port and a generated
   password.
-- on the other PC, `python install.py --join gm1.…` (or paste the code to its AI). Each time it
+- on the other PC, `python src/install.py --join gm1.…` (or paste the code to its AI). Each time it
   connects it uses the first address that answers. A laptop therefore reaches the same brain over
   the office network and over Tailscale from home.
 

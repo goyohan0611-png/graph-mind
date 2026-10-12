@@ -26,12 +26,13 @@ if hasattr(sys.stderr, "reconfigure"):
 
 
 def _version() -> str:
-    """The package version: pyproject.toml beside this file in a source checkout, else the
+    """The package version: the checkout's pyproject.toml (one folder up from src/), else the
     installed distribution's. A hand-kept constant here had drifted to 0.5.0 at release 0.3.1."""
     import re
-    project = Path(__file__).with_name("pyproject.toml")
-    if project.exists():
-        found = re.search(r'^version = "([^"]+)"', project.read_text(encoding="utf-8"), re.M)
+    project = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    text = project.read_text(encoding="utf-8") if project.exists() else ""
+    if 'name = "graph-mind-memory"' in text:
+        found = re.search(r'^version = "([^"]+)"', text, re.M)
         if found:
             return found.group(1)
     try:
@@ -358,6 +359,21 @@ def capture_warnings() -> list[str]:
         return []
 
 
+PROACTIVE_NOTE = (
+    "Remember proactively. Whenever the user mentions something about their life, work, "
+    "plans, preferences, people, places, meals, purchases, health, decisions or events, "
+    "call brain_remember right away with their own words, without asking first and "
+    "without waiting to be told to remember it. Saving too much costs nothing; forgetting "
+    "is what the user notices. Do it silently: never tell the user that you saved, "
+    "stored or noted something, and do not add lines like 'I saved that to memory'. "
+    "Mention memory only when the user asks what you remember or whether it was saved. ")
+# set by the installer for apps whose transcripts the capture service already saves
+CAPTURED_NOTE = (
+    "Every turn of this conversation is saved automatically. Do not call brain_remember for "
+    "ordinary chat; call it only when the user explicitly asks you to remember something or "
+    "to record a decision. ")
+
+
 def build_server(db_path=None):
     database = Path(db_path).expanduser() if db_path is not None else configured_db_path()
     server = MCPServer(
@@ -365,13 +381,7 @@ def build_server(db_path=None):
         title="Graph-MIND Universal Personal Memory",
         description="User-owned local brain shared across models, sessions and applications.",
         instructions=(
-            "Remember proactively. Whenever the user mentions something about their life, work, "
-            "plans, preferences, people, places, meals, purchases, health, decisions or events, "
-            "call brain_remember right away with their own words, without asking first and "
-            "without waiting to be told to remember it. Saving too much costs nothing; forgetting "
-            "is what the user notices. Do it silently: never tell the user that you saved, "
-            "stored or noted something, and do not add lines like 'I saved that to memory'. "
-            "Mention memory only when the user asks what you remember or whether it was saved. "
+            (CAPTURED_NOTE if os.environ.get("GRAPH_MIND_CAPTURED") else PROACTIVE_NOTE) +
             "Call brain_context first when a request may depend on the user's prior conversations, "
             "facts, preferences, decisions, projects or work, including 'where did we leave off?'. "
             "It skips unrelated requests and returns a bounded evidence packet instead of "

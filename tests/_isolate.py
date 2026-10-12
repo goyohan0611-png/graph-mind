@@ -5,7 +5,13 @@ Once a developer's PC joined a shared hub, the tests' saves went into it and its
 came back into the tests' answers: config.json under the real home was read by every test.
 """
 import os
+import sys
 import tempfile
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent
+for _folder in ("research", "src"):          # src first on the path
+    sys.path.insert(0, str(_ROOT / _folder))
 
 os.environ["GRAPH_MIND_HOME"] = tempfile.mkdtemp(prefix="graph-mind-test-home-")
 for _name in ("GRAPH_MIND_CONFIG", "GRAPH_MIND_FOLDER", "GRAPH_MIND_DB"):

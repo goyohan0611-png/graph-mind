@@ -174,7 +174,6 @@ const info = document.getElementById("info");
 const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const graph = ForceGraph3D()(document.getElementById("graph"))
   .backgroundColor("#05060a")
-  .graphData({nodes: DATA.nodes, links: DATA.links})
   .nodeColor(color)
   .nodeRelSize(2.2)
   .nodeVal(n => 0.6 + Math.sqrt(n.degree) / 2)
@@ -198,16 +197,16 @@ const centers = regions.map((_, i) => {
   const y = 1 - 2 * (i + 0.5) / regions.length, r = Math.sqrt(1 - y * y), t = i * 2.39996;
   return {x: 380 * r * Math.cos(t), y: 380 * y, z: 380 * r * Math.sin(t)};
 });
-let simNodes = [];
-const lobes = alpha => simNodes.forEach(n => {
+const lobes = alpha => graph.graphData().nodes.forEach(n => {
   const c = n.region >= 0 ? centers[n.region] : {x: 0, y: 0, z: 0}, k = n.region >= 0 ? 0.35 : 0.05;
   n.vx += (c.x - n.x) * k * alpha; n.vy += (c.y - n.y) * k * alpha; n.vz += (c.z - n.z) * k * alpha;
 });
-lobes.initialize = ns => { simNodes = ns; };
 graph.d3Force("lobes", lobes);
 graph.d3Force("charge").strength(-12);
 graph.d3Force("link").strength(l => l.kind === "SHARED_CUE" ? 0.05 : 0.01);
-graph.d3ReheatSimulation();
+// data last, once every force is in place: reheating a layout that did not exist yet threw
+// "reading 'tick'" on every frame and left the page black
+graph.graphData({nodes: DATA.nodes, links: DATA.links});
 let angle = 0, spinning = true;
 setInterval(() => { if (!spinning) return; angle += 0.0025;
   const r = 900; graph.cameraPosition({x: r * Math.sin(angle), z: r * Math.cos(angle)}); }, 30);

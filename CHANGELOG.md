@@ -3,6 +3,10 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.6.2 — 2026-10-12
+- `graph-mind-view`: fixed a black page when opened from disk ("reading 'tick'" on every frame:
+  the layout was restarted before it existed). Forces are set first, the data last.
+
 ## 0.6.1 — 2026-10-12
 - `graph-mind-view` keeps the 3D library inside the page (fetched once by Python), so the page
   opens from disk even where the browser would not load it from the CDN; it stayed black there.

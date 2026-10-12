@@ -13,6 +13,14 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   ledger-only key, an audit log and immediate removal. One person can join several team hubs.
 - Uploads and retractions are all-or-nothing; two uploads of the same file at once get two
   versions.
+- **Storage split**: the ledger in the database, results as versioned copies in a file store
+  (`hub/artifacts/`), reached on a hub only through membership-checking functions; demo folders
+  travel as bundles; a dedicated hub (`host`) holds project brains without personal memory.
+- **Reviews**: work context on checkpoints (publisher's account vs. linked record, "not
+  recorded" when absent), review requests per exact version with dedupe, opening shows changes
+  measured from the files plus history, decisions only on the person's word and for that
+  version, PC notifications delivered once, `compare` between versions, git stages.
+- An unreachable hub is reported as "latest state unknown", never as an empty project.
 
 ## 0.6.4 — 2026-10-12
 - Mitigates intermittent Postgres initialization and start failures on Windows with a bounded

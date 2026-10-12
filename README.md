@@ -284,6 +284,22 @@ only what someone publishes.
   attach, retract her own) or viewer (read). Her key opens project data only. Every action,
   reads included, is in an audit log you can read; removing her ends access at once.
 - **Instructions**: each project can carry standing guidance for every AI that works on it.
+- **Reviews**: *"설치파일 완성했어. 프로젝트에 올리고 민지에게 확인받아줘."* publishes the
+  version with its context (what changed, where, why, what it answers, how it was verified,
+  what to check) and asks Minji. Her PC shows a notification; in her own assistant, *"요한이
+  만든 설치파일 띄워봐. 이전 버전과 뭐가 달라?"* opens that exact version with the changes
+  measured from the files (slide by slide, paragraph by paragraph, cell by cell, line by line),
+  the publisher's account kept apart from the record ("not recorded" where nothing was written)
+  and the decisions and earlier reviews it builds on. *"승인해"* or *"이 부분 수정 요청해"* is
+  recorded on that version only, and the requester is notified. Opening is never approving.
+- **Code stays on GitHub**: a repository is linked by commit with the stage it really reached
+  (committed, pushed, PR open, merged, released), so a commit on one PC is never reported as
+  done.
+- **Storage**: the database holds the ledger; files are stored as versioned copies in
+  `hub/artifacts/` on the hub's PC (encrypted), read and written only through functions that
+  check membership. A hub can be a PC, an always-on server or a NAS, and need not hold anyone's
+  personal memory. When a hub cannot be reached, the assistant says the latest state is
+  unknown instead of guessing.
 
 Without a hub, project brains live in `~/.graph-mind/ledger.sqlite` on your PC alone.
 

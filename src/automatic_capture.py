@@ -289,9 +289,20 @@ class AutomaticCaptureService:
         iteration = 0
         last_code_scan = None
         last_llm_scan = None
+        last_inbox = None
         try:
             while max_iterations is None or iteration < max_iterations:
                 monotonic_now = time.monotonic()
+                # project reviews waiting for this person, answers to theirs: a PC notification
+                # each, once; a hub that is offline is asked again next round
+                if last_inbox is None or monotonic_now - last_inbox >= self.config.get(
+                        "inbox_poll_seconds", 120):
+                    last_inbox = monotonic_now
+                    try:
+                        from project_ledger import notify_new
+                        notify_new()
+                    except Exception:
+                        pass
                 code_due = (last_code_scan is None or monotonic_now - last_code_scan
                             >= self.config.get("code_poll_seconds", 120))
                 llm_config = self.config.get("semantic_llm", {})

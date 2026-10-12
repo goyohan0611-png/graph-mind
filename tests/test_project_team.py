@@ -147,6 +147,114 @@ class TeamHubTests(unittest.TestCase):
         self.assertEqual(Path(shown["path"]).read_text(encoding="utf-8"), deck.read_text(encoding="utf-8"))
         opened.assert_called_once()
 
+    def test_review_round_trip_between_two_people_and_two_assistants(self):
+        """The first demo, end to end: A publishes v1 with its context and asks Minji; she is
+        notified, opens it in her own assistant, asks for a change; A is notified, publishes v2
+        answering it; she sees what changed since v1 and approves v2; A is notified. Jun, in
+        another project, sees none of it; a wrong-version approval and a second identical
+        request are refused; with the hub down her assistant says the state is unknown."""
+        import asyncio
+        from mcp import Client
+        from graph_mind_mcp_server import build_server
+        owner_config = os.environ["GRAPH_MIND_CONFIG"]
+        installer = self.root / "Graph-MIND-Setup.txt"
+        installer.write_text("installer 0.6.4\nstep: copy files\n", encoding="utf-8")
+
+        async def as_user(config, db, steps):
+            os.environ["GRAPH_MIND_CONFIG"] = config
+            async with Client(build_server(self.root / db)) as client:
+                call = lambda **k: client.call_tool("brain_checkpoint", k)  # noqa: E731
+                return [((await call(**step)).structured_content) for step in steps]
+
+        def run(config, db, *steps):
+            return asyncio.run(as_user(config, db, list(steps)))
+
+        with mock.patch.object(brain_log, "_firewall", return_value="open"), \
+                mock.patch.object(pl, "toast") as toast, \
+                mock.patch("project_ledger.open_with_default_app"):
+            run(owner_config, "a.sqlite",
+                {"action": "create_project", "project": "graph-mind"},
+                {"action": "create_project", "project": "beta"})
+            minji_code = run(owner_config, "a.sqlite", {"action": "invite", "member": "minji",
+                             "role": "editor", "projects": ["graph-mind"]})[0]["team_code"]
+            jun_code = run(owner_config, "a.sqlite", {"action": "invite", "member": "jun",
+                           "role": "editor", "projects": ["beta"]})[0]["team_code"]
+            up, request, again = run(
+                owner_config, "a.sqlite",
+                {"action": "attach", "project": "graph-mind", "path": str(installer),
+                 "summary": "설치파일 v1", "context": {
+                     "what": "설치 단계 정리", "where": "1-2단계", "why": "첫 배포",
+                     "verification": "Windows에서 설치 확인", "review_focus": "단계 순서"}},
+                {"action": "request_review", "project": "graph-mind", "reviewer": "minji",
+                 "name": "Setup"},
+                {"action": "request_review", "project": "graph-mind", "reviewer": "minji",
+                 "name": "Setup"})
+            self.assertEqual(up["artifacts"][0]["version"], 1)
+            self.assertTrue(again["duplicate"])
+
+            minji = str(self.root / "minji.json")
+            run(minji, "b.sqlite", {"action": "join_team", "code": minji_code})
+            os.environ["GRAPH_MIND_CONFIG"] = minji
+            self.assertEqual([e["key"] for e in pl.notify_new()], [f"{request['id']}:requested"])
+            self.assertEqual(pl.notify_new(), [])                     # once only
+            opened, refused, asked = run(
+                minji, "b.sqlite",
+                {"action": "open_review", "review_id": request["id"]},
+                {"action": "respond_review", "review_id": request["id"],
+                 "decision": "approved", "version": 2},
+                {"action": "respond_review", "review_id": request["id"],
+                 "decision": "changes_requested", "note": "3단계(바로가기 생성)가 빠졌어요"})
+            self.assertEqual(opened["review"]["status"], "in_review")
+            self.assertEqual(Path(opened["file"]["path"]).read_text(encoding="utf-8"),
+                             installer.read_text(encoding="utf-8"))
+            self.assertEqual(opened["context"]["publishers_account"]["review_focus"], "단계 순서")
+            self.assertIn("WRONG_VERSION", refused["reason"])
+            self.assertEqual(asked["status"], "changes_requested")
+
+            os.environ["GRAPH_MIND_CONFIG"] = owner_config
+            self.assertEqual([e["key"] for e in pl.notify_new()],
+                             [f"{request['id']}:changes_requested"])
+            installer.write_text("installer 0.6.5\nstep: copy files\nstep: create shortcut\n",
+                                 encoding="utf-8")
+            v2, second = run(
+                owner_config, "a.sqlite",
+                {"action": "attach", "project": "graph-mind", "path": str(installer),
+                 "summary": "설치파일 v2: 바로가기 단계 추가", "context": {
+                     "what": "바로가기 생성 단계 추가", "where": "3단계",
+                     "addresses": [request["id"]], "verification": "새 PC에서 설치 확인"}},
+                {"action": "request_review", "project": "graph-mind", "reviewer": "minji",
+                 "name": "Setup", "version": 2})
+            self.assertEqual(v2["artifacts"][0]["version"], 2)
+
+            os.environ["GRAPH_MIND_CONFIG"] = minji
+            self.assertEqual([e["key"] for e in pl.notify_new()], [f"{second['id']}:requested"])
+            opened, approved = run(
+                minji, "b.sqlite",
+                {"action": "open_review", "review_id": second["id"]},
+                {"action": "respond_review", "review_id": second["id"], "decision": "approved",
+                 "version": 2, "note": "확인했습니다"})
+            self.assertIn("+step: create shortcut", opened["changes"]["changes"]["diff"])
+            self.assertEqual(opened["history"]["addresses"][0]["id"], request["id"])
+            self.assertEqual(approved["status"], "approved")
+
+            os.environ["GRAPH_MIND_CONFIG"] = owner_config
+            self.assertEqual([e["key"] for e in pl.notify_new()], [f"{second['id']}:approved"])
+
+            jun = str(self.root / "jun.json")
+            joined, seen, peek = run(jun, "c.sqlite", {"action": "join_team", "code": jun_code},
+                                     {"action": "reviews"},
+                                     {"action": "open_review", "review_id": second["id"]})
+            self.assertEqual(joined["projects"], ["beta"])
+            self.assertEqual(seen["reviews"], [])
+            self.assertEqual(peek["status"], "REFUSED")
+            self.assertGreaterEqual(toast.call_count, 4)
+
+            from pgserver._commands import pg_ctl
+            pg_ctl(["stop", "-m", "fast"], pgdata=brain_log._pg_data(), timeout=60)
+            down = run(minji, "b.sqlite", {"action": "timeline", "project": "graph-mind"})[0]
+            self.assertEqual(down["status"], "UNAVAILABLE")
+            self.assertIn("unknown", down["note"])
+
     def test_two_uploads_of_the_same_file_at_once_get_two_versions(self):
         import threading
         owner = pl.own_ledger()

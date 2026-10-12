@@ -786,7 +786,9 @@ def build_server(db_path=None):
     def brain_checkpoint(action: Literal["projects", "create_project", "publish", "attach",
                                          "timeline", "open", "retract", "set_instructions",
                                          "host", "invite", "members", "remove_member",
-                                         "join_team", "leave_team", "audit"],
+                                         "join_team", "leave_team", "audit", "compare",
+                                         "request_review", "reviews", "open_review",
+                                         "respond_review", "cancel_review"],
                          project: str | None = None,
                          type: Literal["decision", "progress", "blocker", "next_action",
                                        "artifact", "release"] | None = None,
@@ -798,7 +800,12 @@ def build_server(db_path=None):
                          instructions: str | None = None, member: str | None = None,
                          role: Literal["editor", "viewer"] | None = None,
                          projects: list[str] | None = None,
-                         code: str | None = None) -> dict[str, Any]:
+                         code: str | None = None,
+                         context: dict[str, Any] | None = None,
+                         reviewer: str | None = None, review_id: str | None = None,
+                         decision: Literal["approved", "changes_requested"] | None = None,
+                         focus: str | None = None, note: str | None = None,
+                         against: int | None = None) -> dict[str, Any]:
         """Project brains: each shared project keeps its own checkpoints, decisions, results and
         members, apart from the user's personal memory and from every other project. Nothing
         personal is shared through this; only what is published here, when the user asks.
@@ -823,6 +830,22 @@ def build_server(db_path=None):
         - `timeline`: "누가 어디까지 했어?" — answer from it only: who, what, what is left, and
           when it was last shared. Do not guess at anything newer. Follow its `instructions`.
         - `open` (+ `name`, `version`): "제안서 띄워봐" — download that version and open it.
+        - `context` (with publish or attach): what changed, where (pages, sections, files,
+          functions), why, verification (test or check results), remaining, review_focus, and
+          the ids it answers (`addresses`: earlier decisions, feedback, reviews) and its
+          `evidence` (commit, PR, test log, document ids or links). Write only what you know;
+          leave out what you do not, and it will read "not recorded".
+        - `compare` + `name` (+ `version`, `against`): what changed between two versions,
+          measured from the files (slides, paragraphs, cells, lines).
+        - Reviews. "민지에게 확인받아줘": `request_review` + `reviewer` (+ `name`/`version` or
+          `checkpoint_id`, `focus`, `note`); asking is the approval to notify her. "검토 요청
+          온 거 있어?": `reviews`. "그거 띄워봐, 뭐가 달라?": `open_review` + `review_id` —
+          opens that exact version with the changes, the publisher's account, history and what
+          to check; review it against the actual file and say where the account and the file
+          disagree. Record a decision only on the person's explicit word ("승인해", "수정
+          요청해"): `respond_review` + `review_id` + `decision` + `note` (+ `version` to make
+          sure it is the one reviewed). Opening is never approving, and approving v3 approves
+          v3 only. `cancel_review` + `review_id` (requester).
         - `retract` + `checkpoint_id`; `set_instructions` + `instructions` (owner).
         - Team, on the PC hosting the hub: `host` (make this PC the home of the user's project
           brains), `invite` + `member` + `role` + `projects` (returns a gmt1. code for the
@@ -832,7 +855,9 @@ def build_server(db_path=None):
         shared state is unknown right now; never fill in from memory.
         """
         import project_ledger as pl
-        if not project and action not in ("projects", "members", "join_team", "audit", "host"):
+        if not project and action not in ("projects", "members", "join_team", "audit", "host",
+                                          "reviews", "open_review", "respond_review",
+                                          "cancel_review"):
             project = pl.folder_project(workspace)
         ledger = None
         try:
@@ -863,6 +888,29 @@ def build_server(db_path=None):
             if action == "audit":
                 ledger = pl.own_ledger()
                 return {"audit": ledger.audit()}
+            if action == "reviews":
+                found, unreachable = pl.ledgers()
+                result = {"reviews": [r for book in found for r in book.reviews(project, mine=True)
+                                      if not project or r["project"] == project]}
+                for book in found:
+                    book.db.close()
+                if unreachable:
+                    result["unreachable"] = unreachable
+                return result
+            if action in ("open_review", "respond_review", "cancel_review"):
+                ledger = pl.ledger_with_review(review_id or "")
+                by = ledger.by
+                if action == "open_review":
+                    result = ledger.open_review(review_id, into=pl.downloads(), by=by)
+                    path = (result.get("file") or {}).get("path")
+                    if path:
+                        pl.open_with_default_app(path)
+                elif action == "respond_review":
+                    result = ledger.respond_review(review_id, decision, by, note=note,
+                                                   version=version)
+                else:
+                    result = ledger.cancel_review(review_id, by)
+                return {**result, "ledger": ledger.where}
             if not project:
                 raise ValueError("PROJECT_REQUIRED: name the project (or bind this folder to "
                                  "one with create_project + path)")
@@ -876,12 +924,14 @@ def build_server(db_path=None):
             by = ledger.by
             if action == "publish":
                 result = ledger.publish(project, type, summary, by, details=details,
-                                        source_refs=source_refs, supersedes=supersedes)
+                                        source_refs=source_refs, supersedes=supersedes,
+                                        context=context)
             elif action == "attach":
                 if not path:
                     raise ValueError("PATH_REQUIRED: the file or folder to attach")
                 result = ledger.attach(project, path, summary, by, kind=type or "artifact",
-                                       source_refs=source_refs, details=details)
+                                       source_refs=source_refs, details=details,
+                                       context=context)
             elif action == "timeline":
                 result = {"project": project, "instructions": ledger.instructions(project),
                           "checkpoints": ledger.timeline(project, by=by)}
@@ -892,6 +942,12 @@ def build_server(db_path=None):
                 result["opened"] = True
             elif action == "set_instructions":
                 result = ledger.set_instructions(project, instructions, by)
+            elif action == "compare":
+                result = ledger.compare(project, name or "", version=version, against=against)
+            elif action == "request_review":
+                result = ledger.request_review(project, reviewer, by,
+                                               checkpoint_id=checkpoint_id, name=name,
+                                               version=version, focus=focus, note=note)
             else:
                 result = ledger.retract(checkpoint_id, by)
             return {**result, "ledger": ledger.where}

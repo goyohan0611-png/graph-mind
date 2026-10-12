@@ -71,6 +71,10 @@ CREATE TABLE IF NOT EXISTS ledger_artifacts(
 CREATE TABLE IF NOT EXISTS ledger_access(
     member_role TEXT NOT NULL, project TEXT NOT NULL, role TEXT NOT NULL,
     member TEXT NOT NULL, PRIMARY KEY(member_role, project));
+CREATE TABLE IF NOT EXISTS ledger_reviews(
+    id TEXT PRIMARY KEY, project TEXT NOT NULL, stamp TEXT NOT NULL, status TEXT NOT NULL,
+    requester_role TEXT NOT NULL DEFAULT {who}, reviewer_role TEXT NOT NULL,
+    reviewer TEXT NOT NULL, target TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS ledger_audit(
     stamp TEXT NOT NULL, at TEXT NOT NULL, actor_role TEXT NOT NULL DEFAULT {who},
     actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL)
@@ -85,6 +89,16 @@ ALTER TABLE ledger_checkpoints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_artifacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_access ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ledger_reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS member_read ON ledger_reviews;
+CREATE POLICY member_read ON ledger_reviews FOR SELECT USING (project IN ({_MEMBER}));
+DROP POLICY IF EXISTS member_request ON ledger_reviews;
+CREATE POLICY member_request ON ledger_reviews FOR INSERT WITH CHECK (
+    requester_role = current_user AND project IN ({_MEMBER})
+    AND ledger_is_member(reviewer_role, project));
+DROP POLICY IF EXISTS member_respond ON ledger_reviews;
+CREATE POLICY member_respond ON ledger_reviews FOR UPDATE
+    USING (reviewer_role = current_user OR requester_role = current_user);
 DROP POLICY IF EXISTS member_read ON ledger_projects;
 CREATE POLICY member_read ON ledger_projects FOR SELECT USING (name IN ({_MEMBER}));
 DROP POLICY IF EXISTS member_read ON ledger_checkpoints;
@@ -114,6 +128,11 @@ CREATE OR REPLACE FUNCTION ledger_can(p text, writing boolean) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
   SELECT session_user = '{owner}' OR EXISTS (SELECT 1 FROM ledger_access
     WHERE member_role = session_user AND project = p AND (NOT writing OR role = 'editor'))
+$f$;
+CREATE OR REPLACE FUNCTION ledger_is_member(r text, p text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+  SELECT r = '{owner}' OR EXISTS (SELECT 1 FROM ledger_access
+    WHERE member_role = r AND project = p)
 $f$;
 CREATE OR REPLACE FUNCTION ledger_store_part(aid text, ver int, part int, p text, data bytea)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
@@ -160,7 +179,7 @@ BEGIN
   RETURN a.parts;
 END $f$
 """
-HUB_FUNCTION_NAMES = ("ledger_can(text, boolean)",
+HUB_FUNCTION_NAMES = ("ledger_can(text, boolean)", "ledger_is_member(text, text)",
                       "ledger_store_part(text, int, int, text, bytea)",
                       "ledger_read_part(text, int)", "ledger_wipe_artifact(text)")
 
@@ -263,9 +282,9 @@ class Ledger:
     summaries and file parts are sealed at rest; a PC's own ledger needs none."""
 
     def __init__(self, connection, *, postgres=False, key=None, create=True, where="", by="",
-                 files: Path | None = None):
+                 files: Path | None = None, role=""):
         self.db, self.postgres, self.key = connection, postgres, key
-        self.where, self.by = where, by
+        self.where, self.by, self.role = where, by, role
         if create:
             for statement in SCHEMA.format(who="current_user" if postgres else "''").split(";"):
                 if statement.strip():
@@ -395,18 +414,18 @@ class Ledger:
 
     # -- checkpoints ------------------------------------------------------------------------
     def publish(self, project, kind, summary, by, *, artifacts=None, source_refs=None,
-                supersedes=None, details=None) -> dict:
+                supersedes=None, details=None, context=None) -> dict:
         """`summary`: one line. `details`: what changed and why, files and functions, test
         results, links, what is left; a handover note for a teammate, never pasted chat."""
         project = self._require(project)
         checkpoint = self._checkpoint_record(project, kind, summary, by, artifacts, source_refs,
-                                             supersedes, details)
+                                             supersedes, details, context)
         with self._atomic():
             self._insert_checkpoint(checkpoint)
         return {**checkpoint, "status": "published"}
 
     def _checkpoint_record(self, project, kind, summary, by, artifacts, source_refs, supersedes,
-                           details) -> dict:
+                           details, context=None) -> dict:
         if kind not in TYPES:
             raise ValueError(f"CHECKPOINT_TYPE must be one of {', '.join(TYPES)}")
         summary = str(summary or "").strip()
@@ -426,7 +445,8 @@ class Ledger:
             self._checkpoint(supersedes, project)
         return {"id": "cp-" + uuid.uuid4().hex[:12], "project": project, "type": kind,
                 "summary": summary, "details": details, "actor": by, "created_at": _now(),
-                "artifacts": artifacts or [], "source_refs": refs, "supersedes": supersedes}
+                "artifacts": artifacts or [], "source_refs": refs, "supersedes": supersedes,
+                "context": _clean_context(context)}
 
     def _insert_checkpoint(self, checkpoint):
         self._sql("INSERT INTO ledger_checkpoints(id, project, stamp, created_at, status, payload)"
@@ -491,7 +511,7 @@ class Ledger:
 
     # -- results ----------------------------------------------------------------------------
     def attach(self, project, path, summary, by, *, kind="artifact", source_refs=None,
-               details=None) -> dict:
+               details=None, context=None) -> dict:
         """Publish what the user made: a file (a new version, never an overwrite), a demo
         folder (index.html and what it loads, as one bundle), or for code a link to the git
         commit at the stage it reached."""
@@ -500,7 +520,8 @@ class Ledger:
         if path.is_dir():
             if (path / "index.html").is_file():
                 return self._publish_file(project, path.name + ".zip", _bundle(path), summary,
-                                          by, kind, source_refs, details, bundle=True)
+                                          by, kind, source_refs, details, bundle=True,
+                                          context=context)
             link = git_link(path)
             if link is None:
                 raise ValueError("FOLDER_NOT_UPLOADED: a folder is shared as a demo bundle "
@@ -508,7 +529,7 @@ class Ledger:
                                  "otherwise attach its files")
             summary = summary or f"{link['repo']} {link['stage']} @ {link['commit'][:8]}"
             return self.publish(project, kind, summary, by, artifacts=[link],
-                                source_refs=source_refs, details=details)
+                                source_refs=source_refs, details=details, context=context)
         if not path.is_file():
             raise ValueError(f"FILE_NOT_FOUND: {path}")
         if path.stat().st_size > MAX_FILE:
@@ -524,10 +545,10 @@ class Ledger:
         if commit and path.suffix.lower() in CODE_SUFFIXES:
             extra["git"] = commit
         return self._publish_file(project, path.name, data, summary, by, kind, source_refs,
-                                  details, extra=extra)
+                                  details, extra=extra, context=context)
 
     def _publish_file(self, project, name, data, summary, by, kind, source_refs, details, *,
-                      bundle=False, extra=None) -> dict:
+                      bundle=False, extra=None, context=None) -> dict:
         if len(data) > MAX_FILE:
             raise ValueError(f"FILE_TOO_LARGE: {len(data) // 2**20} MB; the limit is "
                              f"{MAX_FILE // 2**20} MB")
@@ -555,7 +576,8 @@ class Ledger:
                         "name": name, "version": version, "sha256": digest, "size": len(data),
                         "parts": parts, "location": location, "created_by": by, **(extra or {})}
             checkpoint = self._checkpoint_record(project, kind, summary or f"{name} v{version}",
-                                                 by, [artifact], source_refs, None, details)
+                                                 by, [artifact], source_refs, None, details,
+                                                 context)
             self._sql("INSERT INTO ledger_artifacts(artifact_id, project, version, parts, size, "
                       "location, status, created_at) VALUES(?,?,?,?,?,?,?,?)",
                       (artifact_id, project, version, parts, len(data), location, "published",
@@ -563,7 +585,8 @@ class Ledger:
             self._insert_checkpoint(checkpoint)
         return {**checkpoint, "status": "published"}
 
-    def fetch(self, project, *, name=None, version=None, into: Path, by=None) -> dict:
+    def fetch(self, project, *, name=None, version=None, into: Path, by=None,
+              artifact_id=None) -> dict:
         """The latest (or given) version of a result, written under `into` and hash-checked; a
         demo bundle is unpacked and its index.html returned."""
         project = self._require(project)
@@ -572,13 +595,13 @@ class Ledger:
             for artifact in checkpoint.get("artifacts", []):
                 if not artifact.get("artifact_id"):
                     continue
+                if artifact_id and artifact["artifact_id"] != artifact_id:
+                    continue
                 if wanted and wanted not in artifact["name"].casefold():
                     continue
                 if version and artifact["version"] != int(version):
                     continue
-                data = b"".join(self.store.get(artifact["location"], artifact["parts"]))
-                if hashlib.sha256(data).hexdigest() != artifact["sha256"]:
-                    raise ValueError("ARTIFACT_DAMAGED: the stored file does not match its hash")
+                data = self._bytes(artifact)
                 stem, suffix = os.path.splitext(artifact["name"])
                 target = Path(into) / _project_name(project) / f"{stem}.v{artifact['version']}{suffix}"
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -598,6 +621,230 @@ class Ledger:
                         "at": checkpoint["created_at"]}
         raise ValueError("ARTIFACT_NOT_FOUND" + (f": nothing named like '{name}'" if name else "")
                          + (f" at version {version}" if version else ""))
+
+    def _bytes(self, artifact) -> bytes:
+        data = b"".join(self.store.get(artifact["location"], artifact["parts"]))
+        if hashlib.sha256(data).hexdigest() != artifact["sha256"]:
+            raise ValueError("ARTIFACT_DAMAGED: the stored file does not match its hash")
+        return data
+
+    def _target(self, project, *, checkpoint_id=None, name=None, version=None):
+        """(checkpoint, result) a review or comparison is about: newest match first."""
+        wanted = (name or "").casefold()
+        for checkpoint in self.timeline(project, limit=10**6):
+            if checkpoint_id and checkpoint["id"] != checkpoint_id:
+                continue
+            for artifact in checkpoint.get("artifacts", []):
+                label = artifact.get("name") or artifact.get("repo") or ""
+                if wanted and wanted not in label.casefold():
+                    continue
+                if version and artifact.get("version") != int(version):
+                    continue
+                return checkpoint, artifact
+        raise ValueError("RESULT_NOT_FOUND: no published result matches"
+                         + (f" '{name}'" if name else "") + (f" v{version}" if version else ""))
+
+    # -- reviews ----------------------------------------------------------------------------
+    def _reviewer_role(self, project, reviewer) -> str:
+        if not self.postgres:
+            return ""
+        owner = self._sql("SELECT created_by FROM ledger_projects WHERE name=?",
+                          (project,)).fetchall()
+        return OWNER_ROLE if owner and owner[0][0] == reviewer else _member_role(reviewer)
+
+    def request_review(self, project, reviewer, by, *, checkpoint_id=None, name=None,
+                       version=None, focus=None, note=None) -> dict:
+        """Ask a project member to review one exact version (or commit). The same open request
+        is never made twice, so nobody is notified twice."""
+        project = self._require(project)
+        reviewer = str(reviewer or "").strip()
+        if not reviewer:
+            raise ValueError("REVIEWER_REQUIRED: who should review it")
+        checkpoint, artifact = self._target(project, checkpoint_id=checkpoint_id, name=name,
+                                            version=version)
+        target = (f"{artifact['artifact_id']}@v{artifact['version']}" if artifact.get("artifact_id")
+                  else f"git:{artifact.get('commit')}")
+        for existing in self.reviews(project):
+            if (existing["target"] == target and existing["reviewer"] == reviewer
+                    and existing["status"] in OPEN_REVIEW):
+                return {**existing, "duplicate": True,
+                        "note": "This exact version is already waiting for this reviewer; no "
+                                "second request or notification was made."}
+        focus = str(focus or "").strip()[:2000] or (checkpoint.get("context") or {}).get(
+            "review_focus", "")
+        note = str(note or "").strip()[:2000]
+        found = scan_text(focus + "\n" + note)
+        if found:
+            raise ValueError("SECRET_IN_REVIEW: " + ", ".join(found))
+        review = {"id": "rv-" + uuid.uuid4().hex[:12], "project": project, "requester": by,
+                  "reviewer": reviewer, "target": target, "checkpoint_id": checkpoint["id"],
+                  "artifact": {k: artifact[k] for k in REVIEW_TARGET_FIELDS if k in artifact},
+                  "focus": focus or NOT_RECORDED, "note": note, "requested_at": _now(),
+                  "opened_at": None, "responded_at": None, "response": None}
+        try:
+            with self._atomic():
+                self._sql("INSERT INTO ledger_reviews(id, project, stamp, status, reviewer_role, "
+                          "reviewer, target, payload) VALUES(?,?,?,?,?,?,?,?)",
+                          (review["id"], project, _stamp(), "requested",
+                           self._reviewer_role(project, reviewer), reviewer, target,
+                           self._store(review)))
+                self._audit(by, "request_review", f"{project}/{review['id']} -> {reviewer}")
+        except ValueError as error:
+            if "NOT_ALLOWED" in str(error):
+                raise ValueError(f"REVIEWER_NOT_IN_PROJECT: {reviewer} has no access to "
+                                 f"'{project}' (or your role cannot request reviews)") from None
+            raise
+        return {**review, "status": "requested"}
+
+    def reviews(self, project=None, *, mine=False) -> list[dict]:
+        """Review requests, newest first. `mine`: the ones waiting for this person and the
+        answers to the ones they asked for."""
+        query = ("SELECT status, reviewer_role, requester_role, payload FROM ledger_reviews"
+                 + (" WHERE project=?" if project else "") + " ORDER BY stamp DESC")
+        out = []
+        for status, reviewer_role, requester_role, payload in self._sql(
+                query, (project,) if project else ()).fetchall():
+            review = {**self._payload(payload), "status": status}
+            if mine:
+                to_me = (reviewer_role == self.role) if self.postgres else (
+                    review["reviewer"] == self.by)
+                from_me = (requester_role == self.role) if self.postgres else (
+                    review["requester"] == self.by)
+                if not (to_me or from_me):
+                    continue
+                review["for_me"] = "to review" if to_me else "my request"
+            out.append(review)
+        return out
+
+    def _review(self, review_id):
+        rows = self._sql("SELECT status, reviewer_role, requester_role, payload FROM "
+                         "ledger_reviews WHERE id=?", (review_id,)).fetchall()
+        if not rows:
+            raise ValueError(f"REVIEW_NOT_FOUND: {review_id}")
+        status, reviewer_role, requester_role, payload = rows[0]
+        return self._payload(payload), status, reviewer_role, requester_role
+
+    def _is_reviewer(self, review, reviewer_role) -> bool:
+        return reviewer_role == self.role if self.postgres else review["reviewer"] == self.by
+
+    def _save_review(self, review_id, review, status, by, action):
+        with self._atomic():
+            updated = self._sql("UPDATE ledger_reviews SET status=?, payload=? WHERE id=?",
+                                (status, self._store(review), review_id))
+            if getattr(updated, "rowcount", 1) == 0:
+                raise ValueError("NOT_ALLOWED: only the reviewer (or the requester, to cancel) "
+                                 "can change this review")
+            self._audit(by, action, review_id)
+
+    def open_review(self, review_id, *, into, by) -> dict:
+        """Everything a reviewer's AI needs: the exact version, what changed since the last
+        one (measured from the files), the publisher's account of it (marked as such, with
+        "not recorded" where nothing was written), the decisions and earlier reviews it builds
+        on, and what to check. Opening is not approving: the status only becomes in_review."""
+        review, status, reviewer_role, _ = self._review(review_id)
+        project = review["project"]
+        checkpoint, _ = self._checkpoint(review["checkpoint_id"])
+        artifact = review["artifact"]
+        result = {"review": {**review, "status": status},
+                  "checkpoint": {"id": checkpoint["id"], "summary": checkpoint["summary"],
+                                 "by": checkpoint["actor"], "at": checkpoint["created_at"],
+                                 "details": checkpoint.get("details") or NOT_RECORDED},
+                  "context": context_view(checkpoint),
+                  "history": self._history(project, checkpoint, artifact)}
+        if artifact.get("artifact_id"):
+            result["file"] = self.fetch(project, artifact_id=artifact["artifact_id"],
+                                        into=into, by=by)
+            result["changes"] = self.compare(project, artifact["name"],
+                                             version=artifact["version"])
+        else:
+            result["code"] = artifact
+            result["changes"] = {"note": "Code is reviewed on GitHub: the commit and PR above "
+                                         "carry the diff and the checks."}
+        if status == "requested" and self._is_reviewer(review, reviewer_role):
+            review["opened_at"] = _now()
+            self._save_review(review_id, review, "in_review", by, "open_review")
+            result["review"].update(status="in_review", opened_at=review["opened_at"])
+        return result
+
+    def respond_review(self, review_id, decision, by, *, note=None, version=None) -> dict:
+        """Record the reviewer's own decision on the exact version asked about. Only on the
+        person's explicit word ("승인해", "수정 요청해"): never because a file was opened."""
+        if decision not in ("approved", "changes_requested"):
+            raise ValueError("DECISION must be approved or changes_requested")
+        review, status, reviewer_role, _ = self._review(review_id)
+        if not self._is_reviewer(review, reviewer_role):
+            raise ValueError("NOT_ALLOWED: only the requested reviewer can answer it")
+        if status not in OPEN_REVIEW:
+            raise ValueError(f"REVIEW_CLOSED: it is already {status}")
+        asked = review["artifact"].get("version")
+        if version is not None and asked is not None and int(version) != asked:
+            raise ValueError(f"WRONG_VERSION: this review is for v{asked}; v{version} needs its "
+                             "own review request")
+        text = str(note or "").strip()[:4000]
+        found = scan_text(text)
+        if found:
+            raise ValueError("SECRET_IN_REVIEW: " + ", ".join(found))
+        review["responded_at"] = _now()
+        review["response"] = {"decision": decision, "note": text, "by": by,
+                              "target": review["target"], "version": asked}
+        self._save_review(review_id, review, decision, by, decision)
+        return {**review, "status": decision,
+                "applies_to": f"{review['target']} only: a later version needs its own review"}
+
+    def cancel_review(self, review_id, by) -> dict:
+        review, status, _, requester_role = self._review(review_id)
+        mine = (requester_role == self.role) if self.postgres else review["requester"] == by
+        if not mine:
+            raise ValueError("NOT_ALLOWED: only who asked for the review can cancel it")
+        if status not in OPEN_REVIEW:
+            raise ValueError(f"REVIEW_CLOSED: it is already {status}")
+        self._save_review(review_id, review, "cancelled", by, "cancel_review")
+        return {**review, "status": "cancelled"}
+
+    def compare(self, project, name, *, version=None, against=None) -> dict:
+        """What changed between two versions of a result, measured from the stored files."""
+        project = self._require(project)
+        _, new = self._target(project, name=name, version=version)
+        if not new.get("artifact_id"):
+            return {"code": new, "note": "Code: compare commits on GitHub."}
+        earlier = [a for c in self.timeline(project, limit=10**6) for a in c.get("artifacts", [])
+                   if a.get("name") == new["name"] and a.get("artifact_id")
+                   and a["version"] < new["version"]
+                   and (against is None or a["version"] == int(against))]
+        if not earlier:
+            return {"name": new["name"], "version": new["version"], "previous": None,
+                    "changes": "first version: nothing earlier to compare with"}
+        old = earlier[0]
+        return {"name": new["name"], "from": old["version"], "to": new["version"],
+                "changes": describe_changes(new["name"], self._bytes(old), self._bytes(new)),
+                "source": "measured from the two stored files, not from anyone's summary"}
+
+    def _history(self, project, checkpoint, artifact) -> dict:
+        """The decisions, feedback and earlier versions this result builds on: what the
+        checkpoint says it addresses, plus the earlier versions and reviews of the same result."""
+        label = artifact.get("name") or artifact.get("repo")
+        addressed = set((checkpoint.get("context") or {}).get("addresses") or [])
+        brief = lambda c: {"id": c["id"], "type": c["type"], "summary": c["summary"],  # noqa: E731
+                           "by": c["actor"], "at": c["created_at"], "status": c["status"],
+                           "context": c.get("context") or {}}
+        linked, earlier = [], []
+        for c in self.timeline(project, limit=10**6):
+            if c["id"] == checkpoint["id"]:
+                continue
+            if c["id"] in addressed:
+                linked.append(brief(c))
+            elif any((a.get("name") or a.get("repo")) == label for a in c.get("artifacts", [])):
+                earlier.append(brief(c))
+        reviews = [{"id": r["id"], "target": r["target"], "status": r["status"],
+                    "reviewer": r["reviewer"], "focus": r.get("focus"),
+                    "response": r.get("response")}
+                   for r in self.reviews(project)
+                   if r["id"] in addressed
+                   or (r["artifact"].get("name") or r["artifact"].get("repo")) == label]
+        return {"addresses": linked + [r for r in reviews if r["id"] in addressed]
+                or NOT_RECORDED,
+                "earlier_versions": earlier[:5], "reviews_of_this_result": reviews[:10]}
+
 
     def audit(self, *, limit=50) -> list[dict]:
         rows = self._sql("SELECT at, actor, action, target FROM ledger_audit ORDER BY stamp DESC "
@@ -679,6 +926,221 @@ def git_link(folder: Path) -> dict | None:
         except (OSError, subprocess.SubprocessError, ValueError, KeyError):
             pass                                        # no gh login: pushed is still true
     return link
+
+
+# -- work context, reviews and notifications ---------------------------------------------------
+NOT_RECORDED = "not recorded"
+OPEN_REVIEW = ("requested", "in_review")
+REVIEW_TARGET_FIELDS = ("kind", "artifact_id", "name", "version", "sha256", "size", "repo",
+                        "branch", "commit", "stage", "pr", "release")
+# what a checkpoint says about its work. The text fields are the publishing AI's own account;
+# `addresses` (ids of the decisions, feedback and reviews it answers) and `evidence` (commit,
+# PR, test log or document ids and links) point at the record itself.
+CONTEXT_TEXT = ("what", "where", "why", "verification", "remaining", "review_focus")
+CONTEXT_LINKS = ("addresses", "evidence")
+
+
+def _clean_context(context) -> dict:
+    if not context:
+        return {}
+    if not isinstance(context, dict):
+        raise ValueError("CONTEXT: an object with " + ", ".join(CONTEXT_TEXT + CONTEXT_LINKS))
+    out = {}
+    for key, value in context.items():
+        if key in CONTEXT_LINKS:
+            items = [str(v).strip() for v in (value if isinstance(value, list) else [value])
+                     if str(v).strip()]
+            if any(len(item) > 300 for item in items):
+                raise ValueError(f"CONTEXT_{key.upper()}: ids and links only, not text")
+            out[key] = items
+        elif key in CONTEXT_TEXT:
+            text = str(value or "").strip()
+            if len(text) > 2000:
+                raise ValueError(f"CONTEXT_{key.upper()}_TOO_LONG: 2,000 characters at most")
+            if text:
+                out[key] = text
+        else:
+            raise ValueError(f"CONTEXT_FIELD '{key}': use " + ", ".join(CONTEXT_TEXT + CONTEXT_LINKS))
+    found = scan_text(json.dumps(out, ensure_ascii=False))
+    if found:
+        raise ValueError("SECRET_IN_CONTEXT: " + ", ".join(found))
+    return out
+
+
+def context_view(checkpoint) -> dict:
+    """The publisher's account and the links to the record, kept apart; a missing part says
+    "not recorded" so an AI never fills it in."""
+    context = checkpoint.get("context") or {}
+    code = [a for a in checkpoint.get("artifacts", []) if a.get("kind") == "git"]
+    return {"publishers_account": {key: context.get(key) or NOT_RECORDED for key in CONTEXT_TEXT},
+            "record": {"addresses": context.get("addresses") or NOT_RECORDED,
+                       "evidence": context.get("evidence") or NOT_RECORDED,
+                       "source_refs": checkpoint.get("source_refs") or NOT_RECORDED,
+                       "code": code or NOT_RECORDED}}
+
+
+def _xml_text(fragment: str, tag: str) -> str:
+    import html
+    return html.unescape("".join(re.findall(rf"<{tag}[^>]*>(.*?)</{tag}>", fragment, re.S)))
+
+
+def readable_lines(name: str, data: bytes) -> list[str] | None:
+    """The text of a result, line by line, labelled by slide, paragraph, sheet cell or file, so
+    two versions can be compared; None for binaries (images, PDFs, installers)."""
+    lower = name.lower()
+    try:
+        if lower.endswith((".pptx", ".docx", ".xlsx", ".zip")) and zipfile.is_zipfile(io.BytesIO(data)):
+            archive = zipfile.ZipFile(io.BytesIO(data))
+            names = archive.namelist()
+            number = lambda n: int(re.findall(r"(\d+)\.xml$", n)[0])  # noqa: E731
+            if lower.endswith(".pptx"):
+                slides = sorted((n for n in names if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
+                                key=number)
+                return [f"[slide {number(n)}] {_xml_text(p, 'a:t')}" for n in slides
+                        for p in re.findall(r"<a:p[ >].*?</a:p>", archive.read(n).decode("utf-8",
+                                                                                         "replace"), re.S)
+                        if _xml_text(p, "a:t").strip()]
+            if lower.endswith(".docx"):
+                body = archive.read("word/document.xml").decode("utf-8", "replace")
+                return [_xml_text(p, "w:t") for p in re.findall(r"<w:p[ >].*?</w:p>", body, re.S)
+                        if _xml_text(p, "w:t").strip()]
+            if lower.endswith(".xlsx"):
+                shared = []
+                if "xl/sharedStrings.xml" in names:
+                    shared = [_xml_text(si, "t") for si in re.findall(
+                        r"<si>.*?</si>", archive.read("xl/sharedStrings.xml").decode("utf-8", "replace"), re.S)]
+                lines = []
+                for sheet in sorted((n for n in names if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n)),
+                                    key=number):
+                    xml = archive.read(sheet).decode("utf-8", "replace")
+                    for ref, attrs, inner in re.findall(r'<c r="([A-Z]+\d+)"([^>]*)>(.*?)</c>', xml, re.S):
+                        value = re.findall(r"<v>(.*?)</v>", inner)
+                        if not value:
+                            continue
+                        text = shared[int(value[0])] if 't="s"' in attrs else value[0]
+                        lines.append(f"[sheet {number(sheet)} {ref}] {text}")
+                return lines
+            lines = []                                    # a demo bundle: file by file
+            for member in sorted(names):
+                content = archive.read(member)
+                if b"\0" in content[:8192] or len(content) > 2 * 2**20:
+                    lines.append(f"[{member}] binary, {len(content)} bytes, "
+                                 f"sha256 {hashlib.sha256(content).hexdigest()[:12]}")
+                else:
+                    lines += [f"[{member}] {line}" for line in
+                              content.decode("utf-8", "replace").splitlines()]
+            return lines
+    except (zipfile.BadZipFile, KeyError, IndexError, ValueError):
+        return None
+    if b"\0" in data[:8192]:
+        return None
+    try:
+        return data.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return None
+
+
+def describe_changes(name: str, old: bytes, new: bytes) -> dict:
+    import difflib
+    if old == new:
+        return {"identical": True}
+    before, after = readable_lines(name, old), readable_lines(name, new)
+    if before is None or after is None:
+        return {"binary": True, "size": f"{len(old)} -> {len(new)} bytes",
+                "note": "The content differs; it has no text to compare line by line."}
+    diff = [line for line in difflib.unified_diff(before, after, "before", "after", n=1,
+                                                  lineterm="")][2:]
+    added = sum(line.startswith("+") for line in diff)
+    removed = sum(line.startswith("-") for line in diff)
+    shown, size = [], 0
+    for line in diff:
+        if len(shown) >= 300 or size > 8000:
+            shown.append(f"... {len(diff) - len(shown)} more lines")
+            break
+        shown.append(line)
+        size += len(line)
+    return {"lines_added": added, "lines_removed": removed, "diff": shown}
+
+
+def inbox_events(ledger) -> list[dict]:
+    """What this person should hear about on one ledger: reviews waiting for them, and answers
+    to the reviews they asked for. Only that project's shared content goes in a notification."""
+    events = []
+    for review in ledger.reviews(mine=True):
+        artifact = review["artifact"]
+        what = artifact.get("name") or artifact.get("repo") or "result"
+        if artifact.get("version"):
+            what += f" v{artifact['version']}"
+        if review["for_me"] == "to review" and review["status"] == "requested":
+            events.append({"key": f"{review['id']}:requested", "review_id": review["id"],
+                           "project": review["project"], "title": f"[{review['project']}] 검토 요청",
+                           "body": f"{review['requester']}님이 {what} 검토를 요청했습니다."})
+        elif review["for_me"] == "my request" and review["status"] in ("approved",
+                                                                         "changes_requested"):
+            word = "승인" if review["status"] == "approved" else "수정 요청"
+            note = (review.get("response") or {}).get("note") or ""
+            events.append({"key": f"{review['id']}:{review['status']}", "review_id": review["id"],
+                           "project": review["project"], "title": f"[{review['project']}] {word}",
+                           "body": f"{review['reviewer']}님이 {what}을(를) {word}했습니다."
+                                   + (f" {note[:80]}" if note else "")})
+    return events
+
+
+def notify_new(show=True) -> list[dict]:
+    """Deliver what is new since last time, once each: a PC notification per event. A hub that
+    is offline now is simply asked again on the next round, so nothing is lost."""
+    state = _home() / "notified.json"
+    try:
+        seen = set(json.loads(state.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        seen = set()
+    found, _ = ledgers()
+    fresh = []
+    for ledger in found:
+        try:
+            fresh += [event for event in inbox_events(ledger) if event["key"] not in seen]
+        except Exception:
+            pass
+        finally:
+            ledger.db.close()
+    for event in fresh:
+        if show:
+            toast(event["title"], event["body"])
+        seen.add(event["key"])
+    if fresh:
+        state.parent.mkdir(parents=True, exist_ok=True)
+        temporary = state.with_suffix(".tmp")
+        temporary.write_text(json.dumps(sorted(seen)), encoding="utf-8")
+        os.replace(temporary, state)
+    return fresh
+
+
+def toast(title: str, body: str) -> None:
+    """A desktop notification. Text goes through the environment, never into a command line."""
+    environment = {**os.environ, "GM_TITLE": title, "GM_BODY": body}
+    quiet = {"capture_output": True, "timeout": 20, "stdin": subprocess.DEVNULL, "env": environment}
+    try:
+        if os.name == "nt":
+            script = (
+                "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, "
+                "ContentType = WindowsRuntime] > $null;"
+                "$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent("
+                "[Windows.UI.Notifications.ToastTemplateType]::ToastText02);"
+                "$t = $x.GetElementsByTagName('text');"
+                "$t.Item(0).AppendChild($x.CreateTextNode($env:GM_TITLE)) > $null;"
+                "$t.Item(1).AppendChild($x.CreateTextNode($env:GM_BODY)) > $null;"
+                "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("
+                "'{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe')"
+                ".Show([Windows.UI.Notifications.ToastNotification]::new($x))")
+            subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                           creationflags=0x08000000, **quiet)
+        elif sys.platform == "darwin":
+            subprocess.run(["osascript", "-e", "on run argv\ndisplay notification (item 2 of "
+                            "argv) with title (item 1 of argv)\nend run", title, body], **quiet)
+        elif shutil.which("notify-send"):
+            subprocess.run(["notify-send", title, body], **quiet)
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 # -- secret scan --------------------------------------------------------------------------------
@@ -787,11 +1249,8 @@ def _prepare(owner_url) -> None:
         # the owner's role owns the tables; what was written before sharing gets sealed now
         Ledger(owner, postgres=True,
                key=_fernet(ledger_secret(password)) if password else None).seal_existing()
-        for statement in POLICIES.split(";"):
-            if statement.strip():
-                owner.execute(statement)
     root = hub_artifacts().as_posix().replace("'", "''")
-    with _admin() as admin:
+    with _admin() as admin:            # the functions before the policies that call them
         for statement in HUB_FUNCTIONS.format(root=root, owner=OWNER_ROLE).split("$f$;"):
             if statement.strip():
                 admin.execute(statement + ("$f$" if not statement.rstrip().endswith("$f$") else ""))
@@ -806,9 +1265,14 @@ def _prepare(owner_url) -> None:
         admin.execute(f"GRANT SELECT ON ledger_projects, ledger_checkpoints, ledger_artifacts, "
                       f"ledger_access TO {TEAM_GROUP}")
         admin.execute(f"GRANT INSERT ON ledger_audit TO {TEAM_GROUP}")
+        admin.execute(f"GRANT SELECT, INSERT, UPDATE ON ledger_reviews TO {TEAM_GROUP}")
         # a hub that hosts only project brains has no personal memory table at all
         if admin.execute("SELECT to_regclass('public.brain_log')").fetchone()[0]:
             admin.execute(f"REVOKE ALL ON brain_log FROM {TEAM_GROUP}")
+    with psycopg.connect(owner_url, autocommit=True) as owner:
+        for statement in POLICIES.split(";"):
+            if statement.strip():
+                owner.execute(statement)
 
 
 def secure_hub() -> None:
@@ -1026,7 +1490,8 @@ def _team_ledger(code: str) -> Ledger:
     except psycopg.OperationalError as error:
         raise HubUnavailable(f"team hub at {host}") from error
     return Ledger(connection, postgres=True, key=_fernet(base64.urlsafe_b64decode(value["l"])),
-                  create=False, where=f"team hub at {host} (as {value['n']})", by=value["n"])
+                  create=False, where=f"team hub at {host} (as {value['n']})", by=value["n"],
+                  role=value["u"])
 
 
 def _hosts_here() -> bool:
@@ -1059,7 +1524,8 @@ def own_ledger() -> Ledger:
         password = urllib.parse.urlsplit(url).password
         password = urllib.parse.unquote(password) if password else settings.get("share_password")
         key = _fernet(ledger_secret(password)) if password else None
-        return Ledger(connection, postgres=True, key=key, where="your project hub", by=actor())
+        return Ledger(connection, postgres=True, key=key, where="your project hub", by=actor(),
+                      role=OWNER_ROLE)
     path = _home() / "ledger.sqlite"
     path.parent.mkdir(parents=True, exist_ok=True)
     return Ledger(sqlite3.connect(path), by=actor(),
@@ -1097,6 +1563,24 @@ def ledger_for(project: str) -> Ledger:
         if unreachable:
             raise HubUnavailable(", ".join(unreachable))
         raise ValueError(f"PROJECT_NOT_FOUND: '{name}' is in none of your project brains")
+    return chosen
+
+
+def ledger_with_review(review_id: str) -> Ledger:
+    """The ledger holding this review request (it may be on any hub this person is in)."""
+    found, unreachable = ledgers()
+    chosen = None
+    for ledger in found:
+        hit = chosen is None and ledger._sql("SELECT 1 FROM ledger_reviews WHERE id=?",
+                                             (review_id,)).fetchall()
+        if hit:
+            chosen = ledger
+        else:
+            ledger.db.close()
+    if chosen is None:
+        if unreachable:
+            raise HubUnavailable(", ".join(unreachable))
+        raise ValueError(f"REVIEW_NOT_FOUND: {review_id}")
     return chosen
 
 

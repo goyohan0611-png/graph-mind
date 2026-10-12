@@ -3,6 +3,12 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.6.0 — 2026-10-12
+- `graph-mind-view`: your memory as an interactive 3D graph in the browser. Turns and memories
+  are points, joined by the associations recall already keeps; related ones gather into coloured
+  regions named by their topic words. `--no-text` writes a copy with no conversation text, safe
+  to screenshot or share.
+
 ## 0.5.5 — 2026-10-12
 - Recall stays fast as memory grows. Meaning search keeps its pieces and vectors in memory and
   adds only the turns captured since the previous question, instead of rebuilding everything per

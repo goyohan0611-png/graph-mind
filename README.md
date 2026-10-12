@@ -216,6 +216,19 @@ tools get confused with each other. Version 0.1 had thirteen.
 
 ---
 
+## See your memory
+
+```bash
+graph-mind-view              # opens your memory as a 3D graph in the browser
+graph-mind-view --no-text    # the same picture with no conversation text in the file
+```
+
+Every conversation turn and memory is a point; the links are the associations recall already
+uses (shared words and names, neighbours in time). Points that keep coming up together gather
+into coloured regions, each named by its most particular words. Hover a point to read it; click
+to fly to it. The page is a local file (`~/.graph-mind/brain.html`); only the 3D library is
+fetched from a CDN. Use `--no-text` before you screenshot or share it.
+
 ## One memory across PCs
 
 On the PC that holds the memory, tell its AI:

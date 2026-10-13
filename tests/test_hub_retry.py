@@ -28,11 +28,10 @@ class HubRetryTests(unittest.TestCase):
         with mock.patch("time.sleep"), self.assertRaises(subprocess.CalledProcessError):
             brain_log._retry(broken, attempts=3)
 
-    def test_postgres_runs_on_any_python(self):
-        """On 3.13+ pgserver has no wheel: the pinned one is fetched and its Postgres runs."""
-        brain_log.import_pgserver()
-        from pgserver._commands import postgres
-        self.assertIn("PostgreSQL", postgres(["-V"], **brain_log._DETACHED))
+    def test_the_hubs_postgres_is_fetched_and_speaks_tls(self):
+        """Any Python, any supported machine: the pinned build is fetched, runs, has OpenSSL."""
+        self.assertIn("PostgreSQL) 16.", brain_log._pg_tool("postgres", ["-V"]))
+        self.assertIn("openssl", brain_log._pg_tool("pg_config", ["--configure"]))
 
 
 if __name__ == "__main__":

@@ -23,15 +23,11 @@ dependencies = [
     "onnxruntime>=1.17",
     "tokenizers>=0.15",
     "huggingface_hub>=0.20",
-    # hosts the shared brain's Postgres. Its wheels are for Python 3.9-3.12; on a newer Python
-    # brain_log.import_pgserver fetches the same files on first use (they hold no Python code
-    # tied to a version).
-    "pgserver; python_version < '3.13'",
     "psycopg[binary]",
     "cryptography",          # seals lines on a shared hub
     "psutil",
     "fasteners",
-    "platformdirs",          # pgserver's, needed when it is fetched on Python 3.13+
+    "platformdirs",          # where the hub's Postgres programs are kept (fetched once)
 ]
 
 [project.urls]

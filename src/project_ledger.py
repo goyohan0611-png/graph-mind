@@ -1327,7 +1327,8 @@ def _decode_team(code: str) -> dict:
     try:
         value = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
         return {"h": [str(h) for h in value["h"]], "p": int(value["p"]), "u": str(value["u"]),
-                "k": str(value["k"]), "l": str(value["l"]), "n": str(value["n"])}
+                "k": str(value["k"]), "l": str(value["l"]), "n": str(value["n"]),
+                "c": value.get("c")}
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError("INVALID_TEAM_CODE: a team invite starts with gmt1.") from error
 
@@ -1423,14 +1424,7 @@ def secure_hub() -> None:
     """prepare_hub, and let teammates (group gm_team) log in from the network."""
     import brain_log
     prepare_hub()
-    hba = brain_log._pg_data() / "pg_hba.conf"
-    rule = f"host graphmind +{TEAM_GROUP} all scram-sha-256"
-    if rule not in hba.read_text(encoding="utf-8"):
-        with hba.open("a", encoding="utf-8") as stream:
-            stream.write("\n# Graph-MIND: teammates, project brains only\n" + rule + "\n")
-        from pgserver._commands import pg_ctl
-        brain_log._retry(lambda: pg_ctl(["reload"], pgdata=brain_log._pg_data(), timeout=60,
-                                        **brain_log._DETACHED), attempts=10)
+    brain_log.allow_from_network(f"graphmind +{TEAM_GROUP}", "teammates, project brains only")
 
 
 def host_projects() -> dict:
@@ -1528,7 +1522,8 @@ def add_account(member: str, by: str = "hub operator", *, reset: bool = False) -
     secret = ledger_secret(brain_log._config()["share_password"])
     code = TEAM_PREFIX + base64.urlsafe_b64encode(json.dumps(
         {"h": opened["addresses"], "p": brain_log.PORT, "u": login, "k": password,
-         "l": base64.urlsafe_b64encode(secret).decode(), "n": member}).encode()).decode().rstrip("=")
+         "l": base64.urlsafe_b64encode(secret).decode(), "n": member,
+         "c": opened["certificate"]}).encode()).decode().rstrip("=")
     return {"member": member, "account": "reset" if exists else "created", "team_code": code,
             "firewall": opened["firewall"],
             "note": "Give this code to them privately (it works like a password). On their PC "
@@ -1646,6 +1641,7 @@ def leave_team(project: str) -> dict:
 
 
 def _team_url(value: dict) -> str:
+    import brain_log
     import socket
     import urllib.parse
     host = value["h"][0] if value["h"] else "127.0.0.1"
@@ -1657,7 +1653,7 @@ def _team_url(value: dict) -> str:
         except OSError:
             continue
     return (f"postgresql://{value['u']}:{urllib.parse.quote(value['k'], safe='')}"
-            f"@{host}:{value['p']}/graphmind")
+            f"@{host}:{value['p']}/graphmind" + brain_log.tls_options(value["c"]))
 
 
 # -- which ledgers ------------------------------------------------------------------------------

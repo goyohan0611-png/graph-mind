@@ -28,9 +28,15 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   projects become the hosting person's, who made them.
 - `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,
   `remove-user --transfer-to`, `audit`.
-- Hosting works on Python 3.13 and later: pgserver's Postgres (published for 3.9-3.12 only, but
-  holding nothing tied to the Python version) is fetched once on first use and checked against a
-  pinned hash.
+- **Hub connections are TLS.** Every code carries the hub's own certificate (made once,
+  self-signed) and PCs check it (`verify-ca`); the hub accepts other machines over TLS only.
+  Codes from before still connect, encrypted but unchecked; a new code adds the check.
+- **Postgres from its own builds instead of pgserver**, which has no TLS and no ARM build:
+  Postgres 16.14 (EnterpriseDB's on Windows, theseus-rs elsewhere), fetched once per machine on
+  first hosting, checked against pinned hashes and kept in the user's cache folder. Hosting now
+  works on any Python and on 64-bit ARM Linux (a NAS, a Raspberry Pi); `pip install` no longer
+  carries a Postgres for people who never host. A hub running on the old programs is restarted on
+  the new ones once; its data is kept (same major version).
 - Postgres no longer opens console windows on Windows: it runs with a hidden console instead of
   none, so the cmd.exe it starts for its own checks has no window to open either. The random
   start failures: on the PC where they happened, Windows itself refused to start cmd.exe in

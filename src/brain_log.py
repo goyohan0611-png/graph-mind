@@ -19,7 +19,7 @@ The index lives outside the folder and can be deleted at any time; `sync` rebuil
 The same log can live in Postgres instead of a folder ("memory_folder": "local" or a postgres://
 URL). A synced folder reaches other PCs when the sync client gets round to it, often a minute
 later; a Postgres table is there the moment the row commits, so a PC asking right after another
-answered already sees it. "local" runs Postgres on this PC (pgserver, no setup); other PCs reach
+answered already sees it. "local" runs Postgres on this PC (fetched once, no setup); other PCs reach
 it over Tailscale with its postgres:// URL. Rows are only ever inserted, one writer at a time
 (an advisory lock), so reading by sequence number never skips a row committed late.
 
@@ -82,33 +82,27 @@ def local_postgres() -> str:
     """This PC's own Postgres, started on first use and left running for every other client
     (Claude, Codex and the capture service find the running server and share it).
 
-    pgserver supplies the binaries; the server is started here rather than by pgserver because
-    pgserver picks a new port on every start and trusts every connection, and a PC that shares
-    its brain needs a port that stays put and a password for anyone not on this PC. The memory
-    lives in database "graphmind" under role "graphmind", which is not a superuser: that is the
-    role other PCs log in as."""
-    import_pgserver()
-    from pgserver._commands import initdb, pg_ctl
-    from pgserver.utils import PostmasterInfo
+    The server is started here on a port that stays put, with a password for anyone not on this
+    PC (postgres_bin says where its programs come from). The memory lives in database
+    "graphmind" under role "graphmind", which is not a superuser: that is the role other PCs log
+    in as."""
     data = _pg_data()
-    running = PostmasterInfo.read_from_pgdata(data) if (data / "PG_VERSION").exists() else None
     # Checked on every call, not once per process: a server that stopped (reboot, a crash, a
     # console closing on it) is started again by whoever needs it next, instead of every
-    # client failing until someone notices.
-    if running is None or not running.is_running():
+    # client failing until someone notices. A server still running on programs from before
+    # (pgserver's, built without TLS) is restarted on the current ones, once.
+    if not _current(_server_exe(data)):
         import fasteners
         data.parent.mkdir(parents=True, exist_ok=True)
         with fasteners.InterProcessLock(str(data.parent / "postgres.lock")):
             fresh = not (data / "PG_VERSION").exists()
             if fresh:
-                _initdb_with_retries(initdb, data)
-
-            def start():
-                running = PostmasterInfo.read_from_pgdata(data)
-                if running is None or not running.is_running():    # a failed try may have
-                    pg_ctl(["-w", "-o", f"-p {PORT}", "-l", str(data / "log"), "start"],
-                           pgdata=data, timeout=60, **_DETACHED)   # started it anyway
-            _retry(start, attempts=10)
+                _initdb_with_retries(data)
+            running = _server_exe(data)
+            if running and not _current(running):
+                _pg_tool("pg_ctl", ["-D", data, "-w", "-m", "fast", "stop"])
+            if not _current(_server_exe(data)):
+                _start(data, PORT)
             if fresh:
                 import psycopg
                 with psycopg.connect(_admin_uri(), autocommit=True) as admin:
@@ -125,65 +119,124 @@ def local_postgres() -> str:
     return _LOCAL_URI["uri"]
 
 
-# pgserver is Postgres's own programs plus pure-Python helpers, but it publishes wheels for
-# CPython 3.9-3.12 only. Nothing in it depends on the Python version, so a newer Python fetches
-# the 3.12 wheel for this platform once, checks it against the hash pinned here, and unpacks it
-# under ~/.graph-mind: the same files pip would install, with no version limit on hosting.
-PGSERVER = "pgserver-0.1.4"
-_PGSERVER_WHEELS = {
-    ("Windows", "amd64"): ("85/80/f6304274c1740c283bc7317ababceb3c23c8275ce4995f7379e17b49bc6d/"
-                           "pgserver-0.1.4-cp312-cp312-win_amd64.whl",
-                           "406e9355334e40754160a33d93f18a848720a38cd0b68da50be2ea272c89ed2d"),
-    ("Linux", "x86_64"): ("cf/f1/c9d717f66d2e4a27801577e1ae233c25aa88db875c586ac3ebe7d73b6b75/"
-                          "pgserver-0.1.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-                          "1a5d07c61d51f2abfef4ef61e2ef5cd014b994f7e09de8d3c140d2cf370e84a8"),
-    ("Darwin", "x86_64"): ("92/e3/9f8eea535ab4f2906a9924eccc5fb3a7bcff3e02222fbe338d9c24639750/"
-                           "pgserver-0.1.4-cp312-cp312-macosx_10_9_x86_64.whl",
-                           "dc34f88561b18bc08edd98a84528f99a3720fe713a4e39a4a6210a4d009fe465"),
-    ("Darwin", "arm64"): ("23/57/94b5f05a23d0fa683c01bfc2d785224057a9eaf0eb00cbfd6da19547012f/"
-                          "pgserver-0.1.4-cp312-cp312-macosx_11_0_arm64.whl",
-                          "780fa89f26a960cca0215caf471e70848dd8597bd8ceaeba7faf42170278980c"),
+# Postgres's own programs, built with OpenSSL for every machine a hub runs on: Windows, macOS,
+# and Linux on x86-64 and 64-bit ARM (a NAS, a Raspberry Pi), from
+# theseus-rs/postgresql-binaries (the Windows build is EnterpriseDB's). They are fetched once,
+# the first time a machine hosts,
+# checked against the hashes pinned here and kept in the user's cache folder, apart from any
+# memory; every Graph-MIND home on the machine shares them. Nothing here is a Python package, so
+# hosting works on any Python. Same major version as before (16): existing data is used as is.
+POSTGRES = "16.14.0"
+_POSTGRES_BUILDS = {
+    ("Windows", "x86_64"): ("x86_64-pc-windows-msvc.zip",
+                            "69f1cf5060ab99190f98604312b09d80a691cbcd1836bd4a2eb2067a7ad9a89f"),
+    ("Linux", "x86_64"): ("x86_64-unknown-linux-gnu.tar.gz",
+                          "3541705c9ca2fdbb0bfc7562b10a36aac155f18d45577d8ec6725b874ccada4a"),
+    ("Linux", "aarch64"): ("aarch64-unknown-linux-gnu.tar.gz",
+                           "b266719b02d7e1dd7c9e74ec129d6443ba1f4bb2f13ff71e6e75fde459d49b47"),
+    ("Darwin", "x86_64"): ("x86_64-apple-darwin.tar.gz",
+                           "c5ecdea2528e29503140e259c043002f6f8f2e9d1ee2f1decb44e8b394254820"),
+    ("Darwin", "aarch64"): ("aarch64-apple-darwin.tar.gz",
+                            "a7a4846456df26d27f815267dfe725b4ad4f46312c032e7b5939468250a4891c"),
 }
+_MACHINES = {"amd64": "x86_64", "x86_64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
 
 
-def import_pgserver() -> None:
-    import importlib.util
-    import sys
-    from development_paths import graph_mind_home
-    target = graph_mind_home() / PGSERVER
-    if (target / "pgserver").is_dir() and str(target) not in sys.path:
-        sys.path.insert(0, str(target))
-    if importlib.util.find_spec("pgserver"):
-        return
-    wheel = _PGSERVER_WHEELS.get((platform.system(), platform.machine().lower()))
-    if wheel is None:
+def postgres_bin() -> Path:
+    """The folder holding this machine's Postgres programs, fetched the first time."""
+    build = _POSTGRES_BUILDS.get((platform.system(),
+                                  _MACHINES.get(platform.machine().lower(), "")))
+    if build is None:
         raise RuntimeError(f"Hosting a hub on {platform.system()} {platform.machine()} is not "
-                           "supported yet (Windows, Linux x86-64 and macOS are). Joining a hub "
-                           "another machine hosts works here.")
+                           "supported yet (Windows, macOS, and Linux on x86-64 or 64-bit ARM "
+                           "are). Joining a hub another machine hosts works here.")
+    from platformdirs import user_cache_dir
+    root = Path(os.environ.get("GRAPH_MIND_RUNTIME")
+                or user_cache_dir("graph-mind", appauthor=False)) / f"postgresql-{POSTGRES}"
+    if (root / "bin" / _exe("postgres")).exists():
+        return root / "bin"
     import hashlib
     import io
     import shutil
+    import tarfile
     import urllib.request
     import uuid
     import zipfile
-    with urllib.request.urlopen("https://files.pythonhosted.org/packages/" + wheel[0],
-                                timeout=300) as response:
+    name = f"postgresql-{POSTGRES}-{build[0]}"
+    with urllib.request.urlopen("https://github.com/theseus-rs/postgresql-binaries/releases/"
+                                f"download/{POSTGRES}/{name}", timeout=600) as response:
         data = response.read()
-    if hashlib.sha256(data).hexdigest() != wheel[1]:
+    if hashlib.sha256(data).hexdigest() != build[1]:
         raise RuntimeError("The Postgres download did not match its pinned hash; nothing was "
                            "installed. Try again later.")
-    partial = target.with_name(f"{PGSERVER}.partial-{uuid.uuid4().hex[:8]}")
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        for info in archive.infolist():
-            path = archive.extract(info, partial)
-            mode = info.external_attr >> 16                    # zip keeps the programs' x bit
-            if mode and os.name != "nt":
-                os.chmod(path, mode)
+    partial = root.with_name(f"{root.name}.partial-{uuid.uuid4().hex[:8]}")
+    if name.endswith(".zip"):
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            archive.extractall(partial)
+    else:
+        with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+            if hasattr(tarfile, "data_filter"):
+                archive.extractall(partial, filter="data")    # no path leaves the folder
+            else:
+                archive.extractall(partial)                   # ponytail: Python <3.10.12
+    inner = partial / name.removesuffix(".zip").removesuffix(".tar.gz")
     try:
-        os.replace(partial, target)
-    except OSError:                                            # another process got there first
-        shutil.rmtree(partial, ignore_errors=True)
-    sys.path.insert(0, str(target))
+        os.replace(inner if inner.is_dir() else partial, root)
+    except OSError:
+        if not (root / "bin").is_dir():                       # not another process's copy
+            raise
+    shutil.rmtree(partial, ignore_errors=True)
+    return root / "bin"
+
+
+def _exe(name: str) -> str:
+    return name + ".exe" if os.name == "nt" else name
+
+
+def _pg_tool(name: str, args: list, timeout: int = 120) -> str:
+    """Run one of Postgres's programs, hidden, and return what it printed. The output goes to a
+    file, not a pipe: the server pg_ctl starts keeps a pipe open and the call never returns."""
+    import tempfile
+    with tempfile.TemporaryFile() as output:
+        try:
+            subprocess.run([str(postgres_bin() / _exe(name)), *map(str, args)], check=True,
+                           stdout=output, stderr=subprocess.STDOUT, timeout=timeout, **_DETACHED)
+        except subprocess.CalledProcessError as error:
+            output.seek(0)
+            raise subprocess.CalledProcessError(error.returncode, error.cmd,
+                                                output.read().decode(errors="replace")) from None
+        output.seek(0)
+        return output.read().decode(errors="replace")
+
+
+def _server_exe(data: Path) -> str | None:
+    """The program of the Postgres running on `data`, or None when none is."""
+    import psutil
+    try:
+        pid = int((data / "postmaster.pid").read_text(encoding="utf-8").split()[0])
+        process = psutil.Process(pid)
+        return process.exe() if "postgres" in process.name().lower() else None
+    except (OSError, ValueError, IndexError, psutil.Error):
+        return None
+
+
+def _current(exe: str | None) -> bool:
+    return bool(exe) and (os.path.normcase(str(Path(exe).parent))
+                          == os.path.normcase(str(postgres_bin())))
+
+
+def _start(data: Path, port: int) -> None:
+    def start():
+        if not _current(_server_exe(data)):                # a failed try may have started it
+            _pg_tool("pg_ctl", ["-D", data, "-w", "-t", "60", "-o", f"-p {port}",
+                                "-l", data / "log", "start"], timeout=90)
+    _retry(start, attempts=10)
+
+
+def stop_postgres(data: Path | None = None) -> None:
+    data = data or _pg_data()
+    if _server_exe(data):
+        _pg_tool("pg_ctl", ["-D", data, "-w", "-m", "fast", "stop"])
 
 
 def _retry(step, attempts, undo=None):
@@ -206,11 +259,11 @@ def _retry(step, attempts, undo=None):
             time.sleep(0.5)
 
 
-def _initdb_with_retries(initdb, data):
+def _initdb_with_retries(data):
     """Create the cluster, once per PC. A failed run leaves the folder half made; clear it."""
     import shutil
-    _retry(lambda: initdb(["--auth=trust", "--encoding=utf8", "-U", "postgres"], pgdata=data,
-                          **_DETACHED),
+    _retry(lambda: _pg_tool("initdb", ["-D", data, "--auth=trust", "--encoding=UTF8",
+                                       "--locale=C", "-U", "postgres"]),
            attempts=10, undo=lambda: shutil.rmtree(data, ignore_errors=True))
 
 
@@ -243,36 +296,110 @@ def share(open_firewall: bool = True) -> dict:
     set_folder("local")
     sealed = _seal_existing(local_postgres())
     code = CODE_PREFIX + base64.urlsafe_b64encode(json.dumps(
-        {"h": opened["addresses"], "p": PORT, "k": opened["password"]}).encode()).decode().rstrip("=")
+        {"h": opened["addresses"], "p": PORT, "k": opened["password"],
+         "c": opened["certificate"]}).encode()).decode().rstrip("=")
     return {"connection_code": code, "addresses": opened["addresses"], "port": PORT,
             "lines_sealed": sealed, "firewall": opened["firewall"]}
 
 
 def open_to_network(open_firewall: bool = True) -> dict:
-    """Make this PC's Postgres reachable from the network with a password, without moving this
-    PC's personal memory there: a team hub on a NAS or a server needs only this."""
+    """Make this PC's Postgres reachable from the network, over TLS and with a password only,
+    without moving this PC's personal memory there: a team hub on a NAS or a server needs only
+    this. The hub's certificate goes into every code, so a PC checks it reached this hub."""
     import psycopg
     import secrets
-    local_postgres()                        # first: it explains a missing pgserver
-    from pgserver._commands import pg_ctl
+    local_postgres()                        # first: it explains a machine it cannot host on
     password = _config().get("share_password") or secrets.token_urlsafe(18)
     _save({"share_password": password})          # before sealing: the line key derives from it
     data = _pg_data()
+    certificate = _certificate(data)
     with psycopg.connect(_admin_uri(), autocommit=True) as admin:
         # token_urlsafe is [A-Za-z0-9_-]: nothing in it can close the quoted literal
         admin.execute(f"ALTER ROLE graphmind PASSWORD '{password}'")
         restart = admin.execute("SHOW listen_addresses").fetchone()[0] != "*"
         if restart:
             admin.execute("ALTER SYSTEM SET listen_addresses = '*'")
-    hba = data / "pg_hba.conf"
-    rule = "host graphmind graphmind all scram-sha-256"
-    if rule not in hba.read_text(encoding="utf-8"):
-        with hba.open("a", encoding="utf-8") as stream:
-            stream.write("\n# Graph-MIND: other PCs, with the password\n" + rule + "\n")
-    _retry(lambda: pg_ctl(["-w", "-m", "fast", "restart"] if restart else ["reload"],
-                          pgdata=data, timeout=60, **_DETACHED), attempts=10)
-    return {"password": password, "addresses": _addresses(),
+        if admin.execute("SHOW ssl").fetchone()[0] != "on":
+            admin.execute("ALTER SYSTEM SET ssl = on")
+    allow_from_network("graphmind graphmind", "other PCs, with the password")
+    if restart:
+        _retry(lambda: _pg_tool("pg_ctl", ["-D", data, "-w", "-m", "fast", "restart"]),
+               attempts=10)
+    return {"password": password, "addresses": _addresses(), "certificate": certificate,
             "firewall": _firewall() if open_firewall else "not changed"}
+
+
+def allow_from_network(database_and_role: str, why: str) -> None:
+    """A rule letting `database role` in from other machines: over TLS, with the password.
+    The plain rules written before TLS become TLS-only. Then the server reads its settings."""
+    import psycopg
+    import time
+    hba = _pg_data() / "pg_hba.conf"
+    plain = f"host {database_and_role} all scram-sha-256"
+    rule = "hostssl " + plain[len("host "):]
+    before = hba.read_text(encoding="utf-8").splitlines()
+    lines = [rule if line.strip() == plain else line for line in before]
+    if rule not in lines:
+        lines += ["", f"# Graph-MIND: {why}", rule]
+    if lines != before:
+        hba.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with psycopg.connect(_admin_uri(), autocommit=True) as admin:
+        admin.execute("SELECT pg_reload_conf()")
+    for _ in range(50):                      # the reload is a signal: wait until it took
+        with psycopg.connect(_admin_uri(), autocommit=True) as admin:
+            if admin.execute("SHOW ssl").fetchone()[0] == "on":
+                break
+        time.sleep(0.1)
+    time.sleep(0.3)                          # ponytail: the rules have no "loaded" flag to read
+
+
+def _certificate(data: Path) -> str:
+    """This hub's TLS certificate (DER, base64url), made once: self-signed, and carried by every
+    code for this hub, so a PC accepts this hub and nothing in between (sslmode=verify-ca)."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import serialization
+    crt, key = data / "server.crt", data / "server.key"
+    if not (crt.exists() and key.exists()):
+        import datetime as dt
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.x509.oid import NameOID
+        private = ec.generate_private_key(ec.SECP256R1())
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Graph-MIND hub")])
+        now = dt.datetime.now(dt.timezone.utc)
+        made = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
+                .public_key(private.public_key()).serial_number(x509.random_serial_number())
+                .not_valid_before(now - dt.timedelta(days=1))
+                .not_valid_after(now + dt.timedelta(days=365 * 30))
+                .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .sign(private, hashes.SHA256()))
+        key.write_bytes(private.private_bytes(serialization.Encoding.PEM,
+                                              serialization.PrivateFormat.PKCS8,
+                                              serialization.NoEncryption()))
+        if os.name != "nt":
+            os.chmod(key, 0o600)             # Postgres refuses a key others can read
+        crt.write_bytes(made.public_bytes(serialization.Encoding.PEM))
+    der = x509.load_pem_x509_certificate(crt.read_bytes()).public_bytes(
+        serialization.Encoding.DER)
+    return base64.urlsafe_b64encode(der).decode().rstrip("=")
+
+
+def tls_options(certificate: str | None) -> str:
+    """The connection settings for a hub: its own certificate pinned when the code carries one.
+    A code from before TLS has none; the connection is then still encrypted whenever the hub
+    offers it (libpq's default), only without the check."""
+    if not certificate:
+        return ""
+    import hashlib
+    import ssl
+    import urllib.parse
+    from development_paths import graph_mind_home
+    der = base64.urlsafe_b64decode(certificate + "=" * (-len(certificate) % 4))
+    path = graph_mind_home() / "hubs" / f"{hashlib.sha256(der).hexdigest()[:16]}.crt"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(ssl.DER_cert_to_PEM_cert(der), encoding="ascii")
+    return "?sslmode=verify-ca&sslrootcert=" + urllib.parse.quote(str(path), safe="")
 
 
 def _addresses() -> list[str]:
@@ -315,7 +442,8 @@ def _decode(code: str) -> dict:
     body = code.strip()[len(CODE_PREFIX):]
     try:
         value = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
-        return {"h": [str(h) for h in value["h"]], "p": int(value["p"]), "k": str(value["k"])}
+        return {"h": [str(h) for h in value["h"]], "p": int(value["p"]), "k": str(value["k"]),
+                "c": value.get("c")}
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError("INVALID_CONNECTION_CODE") from error
 
@@ -339,7 +467,7 @@ def _joined(code: str) -> str:
         except OSError:
             continue
     url = (f"postgresql://graphmind:{urllib.parse.quote(value['k'], safe='')}"
-           f"@{host}:{value['p']}/graphmind")
+           f"@{host}:{value['p']}/graphmind" + tls_options(value["c"]))
     _JOINED[code] = (time.monotonic(), url)
     return url
 
@@ -505,9 +633,9 @@ _KEYS = {}
 def _line_key(url):
     """The key that seals this hub's lines, or None when it has none.
 
-    The Postgres that pgserver ships is built without SSL, so the connection to a hub is not
-    encrypted: on a shared network anyone could read memory off the wire. Each line is sealed
-    instead (Fernet: AES with an HMAC) under a key derived from the password in the connection
+    The connection to a hub is TLS (since 0.7; before, it was not encrypted at all), and each
+    line is sealed besides, so the hub's disk holds ciphertext only and a hub reached by a code
+    from before TLS still never carries memory in clear. Each line is sealed (Fernet: AES with an HMAC) under a key derived from the password in the connection
     code, which every PC that joined holds and nobody else does. The hub stores ciphertext too.
     A joined PC finds the password in its URL; the hub PC in its own config."""
     import urllib.parse

@@ -109,9 +109,9 @@ saves them. Graph-MIND does not.
 
 ## Install
 
-Requires Python 3.10+ (64-bit). Windows, macOS or Linux. Hosting a brain that other PCs join
-works on Windows, macOS and Linux x86-64; on Python 3.13 and later its Postgres is downloaded
-once the first time (about 12 MB, hash-checked).
+Requires Python 3.10+ (64-bit). Windows, macOS or Linux, on x86-64 or 64-bit ARM. The first
+time a machine hosts a brain or a hub, Graph-MIND downloads Postgres 16 for it once (12 MB, 46 MB
+on Windows; checked against a pinned hash) and keeps it in the user's cache folder.
 
 What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 
@@ -249,11 +249,12 @@ The memory then lives in a Postgres server on the first PC, which Graph-MIND set
 PCs reach it over the local network in the office, or over [Tailscale](https://tailscale.com) from
 anywhere. Each connection tries the addresses in turn and uses the first that answers.
 
-Other PCs log in with a generated password, as a role that can reach only the memory database. The
-Windows firewall rule admits only the local network and Tailscale. Every line of memory is
-encrypted (AES with an HMAC) under a key derived from that password before it leaves a PC, so the
-network and the hub's own database carry only ciphertext. The code contains the password: do not
-post it publicly.
+Other PCs log in with a generated password, as a role that can reach only the memory database,
+over TLS only: the code carries the hub's own certificate, so a PC accepts that hub and nothing
+in between. The Windows firewall rule admits only the local network and Tailscale. Every line of
+memory is also encrypted (AES with an HMAC) under a key derived from that password before it
+leaves a PC, so the hub's own database holds only ciphertext. The code contains the password: do
+not post it publicly.
 
 A synced folder also works. Tell the AI *"use my Google Drive's Graph-MIND folder as my memory"* on
 each PC.
@@ -287,8 +288,8 @@ only what someone publishes.
   action, reads included, is in an audit log the owner can read; removing her ends access at once.
 - **Running the hub is not owning the projects**: whoever hosts the hub sees a project only when
   its owner adds them, on their own PC as on a company server. A server needs no AI and no API
-  key, only `pip install graph-mind-memory` (any Python from 3.10; Windows, Linux x86-64 or
-  macOS) and these commands:
+  key, only `pip install graph-mind-memory` (any Python from 3.10; Windows, macOS, or Linux on
+  x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS) and these commands:
 
   ```bash
   graph-mind-hub host                # once: this machine becomes a hub (it stays one)

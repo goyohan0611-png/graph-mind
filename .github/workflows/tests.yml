@@ -14,11 +14,13 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
         python: ["3.12"]
-        include:                     # newest Python: no pgserver build, hosting tests skip
+        include:                     # newest Python, and a 64-bit ARM machine (a NAS, a Pi)
           - os: windows-latest
             python: "3.14"
           - os: ubuntu-latest
             python: "3.14"
+          - os: ubuntu-24.04-arm
+            python: "3.12"
     runs-on: ${{ matrix.os }}
     env:
       PYTHONUTF8: "1"

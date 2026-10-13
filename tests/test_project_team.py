@@ -46,7 +46,6 @@ class FolderTests(unittest.TestCase):
                 pl.home_ledger()
 
 
-@unittest.skipUnless(importlib.util.find_spec("pgserver"), "pgserver is built for Python <3.13")
 class TeamHubTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.gettempdir()) / f"graph-mind-team-{os.getpid()}-{time.time_ns()}"
@@ -60,10 +59,8 @@ class TeamHubTests(unittest.TestCase):
         brain_log._save({"memory_folder": "local", "user_name": "yohan"})
 
     def tearDown(self):
-        from pgserver._commands import pg_ctl
         try:
-            pg_ctl(["stop", "-m", "fast"], pgdata=brain_log._pg_data(), timeout=60,
-                   **brain_log._DETACHED)
+            brain_log.stop_postgres()
         except Exception:
             pass
         brain_log.PORT = self.saved[0]
@@ -324,9 +321,7 @@ class TeamHubTests(unittest.TestCase):
             self.assertEqual(peek["status"], "REFUSED")
             self.assertGreaterEqual(toast.call_count, 4)
 
-            from pgserver._commands import pg_ctl
-            pg_ctl(["stop", "-m", "fast"], pgdata=brain_log._pg_data(), timeout=60,
-                   **brain_log._DETACHED)
+            brain_log.stop_postgres()
             down = run(minji, "b.sqlite", {"action": "timeline", "project": "graph-mind"})[0]
             self.assertEqual(down["status"], "UNAVAILABLE")
             self.assertIn("unknown", down["note"])

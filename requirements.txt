@@ -3,7 +3,6 @@ numpy
 onnxruntime>=1.17
 tokenizers>=0.15
 huggingface_hub>=0.20
-pgserver; python_version < "3.13"
 psycopg[binary]
 cryptography
 psutil

@@ -8,5 +8,6 @@ psycopg[binary]
 cryptography
 psutil
 fasteners
+platformdirs
 # research and benchmark scripts only
 tiktoken

@@ -261,10 +261,12 @@ class OutboxTests(unittest.TestCase):
 
 
 class NoPgserverTests(unittest.TestCase):
-    def test_hosting_without_pgserver_says_why(self):
-        """Python 3.13+: no pgserver build. Hosting must explain itself, not raise ImportError."""
+    def test_hosting_where_postgres_has_no_build_says_why(self):
+        """No pgserver and a machine it publishes nothing for: a clear reason, no download."""
         import brain_log
-        brain_log._LOCAL_URI.clear()
-        with unittest.mock.patch.dict("sys.modules", {"pgserver": None, "pgserver._commands": None}):
-            with self.assertRaisesRegex(RuntimeError, "Python 3.12"):
-                brain_log.local_postgres()
+        with (unittest.mock.patch("importlib.util.find_spec", return_value=None),
+              unittest.mock.patch("platform.machine", return_value="riscv64"),
+              unittest.mock.patch("urllib.request.urlopen") as download):
+            with self.assertRaisesRegex(RuntimeError, "not supported yet"):
+                brain_log.import_pgserver()
+        download.assert_not_called()

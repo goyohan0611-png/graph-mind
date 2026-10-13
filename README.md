@@ -110,8 +110,8 @@ saves them. Graph-MIND does not.
 ## Install
 
 Requires Python 3.10+ (64-bit). Windows, macOS or Linux. Hosting a brain that other PCs join
-needs Python 3.12 or older on that one PC (its Postgres helper, pgserver, has no newer build yet);
-everything else, joining included, works on 3.13 and 3.14 too.
+works on Windows, macOS and Linux x86-64; on Python 3.13 and later its Postgres is downloaded
+once the first time (about 12 MB, hash-checked).
 
 What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 
@@ -278,11 +278,29 @@ only what someone publishes.
 - **Results**: files are stored on the hub as versions (v1, v2, … never overwritten), checked by
   SHA-256 when opened, refused if they contain an API key or password (Office files are checked
   inside), up to 50 MB. Code is linked by repository, branch and commit, not copied.
-- **Members**: on the PC hosting the hub, *"민지를 graph-mind 프로젝트 편집자로 초대해"* returns a
-  `gmt1.` code for her. Her AI joins with it. She gets her own login, which Postgres itself limits:
-  no access at all to your personal memory, only the projects she was given, editor (publish,
-  attach, retract her own) or viewer (read). Her key opens project data only. Every action,
-  reads included, is in an audit log you can read; removing her ends access at once.
+- **Members, as on GitHub**: whoever creates a project owns it. Only owners add people (owner,
+  editor or viewer), change roles, set the project's instructions or take back someone else's
+  checkpoint; editors publish and attach, viewers read. On the PC hosting your hub, *"민지를
+  graph-mind 프로젝트 편집자로 초대해"* also makes her an account and returns a `gmt1.` code for
+  her; her AI joins with it. Her login is limited by Postgres itself: no access at all to anyone's
+  personal memory, only the projects she is a member of, and she can create her own. Every
+  action, reads included, is in an audit log the owner can read; removing her ends access at once.
+- **Running the hub is not owning the projects**: whoever hosts the hub sees a project only when
+  its owner adds them, on their own PC as on a company server. A server needs no AI and no API
+  key, only `pip install graph-mind-memory` (any Python from 3.10; Windows, Linux x86-64 or
+  macOS) and these commands:
+
+  ```bash
+  graph-mind-hub host                # once: this machine becomes a hub (it stays one)
+  graph-mind-hub add-user 민지        # an account and the code to give her (no projects yet)
+  graph-mind-hub users               # accounts and their roles; never what is in a project
+  graph-mind-hub remove-user 민지 --transfer-to 준   # projects only she owned go to 준
+  graph-mind-hub audit
+  ```
+
+  Everyone's AI runs on their own PC and reaches the hub with their code. The tools never show
+  the operator a project's content, though whoever administers the machine can reach its disk,
+  as with any server.
 - **Instructions**: each project can carry standing guidance for every AI that works on it.
 - **Reviews**: *"설치파일 완성했어. 프로젝트에 올리고 민지에게 확인받아줘."* publishes the
   version with its context (what changed, where, why, what it answers, how it was verified,

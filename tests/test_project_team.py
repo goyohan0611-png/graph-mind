@@ -34,6 +34,18 @@ class FolderTests(unittest.TestCase):
             pl.ledger_for("solo").db.close()
 
 
+    def test_someone_on_several_team_hubs_says_which_one_gets_a_new_project(self):
+        import base64
+        import json
+        code = lambda host: pl.TEAM_PREFIX + base64.urlsafe_b64encode(json.dumps(  # noqa: E731
+            {"h": [host], "p": 1, "u": "u", "k": "k", "l": "", "n": "n"}).encode()).decode()
+        root = Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
+            brain_log._save({"team_hubs": [code("10.0.0.1"), code("10.0.0.2")]})
+            with self.assertRaisesRegex(ValueError, "HUB_REQUIRED.*10.0.0.1.*10.0.0.2"):
+                pl.home_ledger()
+
+
 @unittest.skipUnless(importlib.util.find_spec("pgserver"), "pgserver is built for Python <3.13")
 class TeamHubTests(unittest.TestCase):
     def setUp(self):
@@ -50,7 +62,8 @@ class TeamHubTests(unittest.TestCase):
     def tearDown(self):
         from pgserver._commands import pg_ctl
         try:
-            pg_ctl(["stop", "-m", "fast"], pgdata=brain_log._pg_data(), timeout=60)
+            pg_ctl(["stop", "-m", "fast"], pgdata=brain_log._pg_data(), timeout=60,
+                   **brain_log._DETACHED)
         except Exception:
             pass
         brain_log.PORT = self.saved[0]
@@ -99,14 +112,76 @@ class TeamHubTests(unittest.TestCase):
             jun.publish("alpha", "progress", "읽기만 가능", "jun")
         jun.db.close()
 
-        pl.remove_member("minji", "yohan")
+        pl.remove_account("minji", "yohan")
         with self.assertRaises(Exception):
             pl._team_ledger(editor).names()
         owner = pl.own_ledger()
         actions = [entry["action"] for entry in owner.audit(limit=100)]
         owner.db.close()
-        for action in ("invite", "publish", "retract", "timeline", "remove_member"):
+        for action in ("invite", "publish", "retract", "timeline"):
             self.assertIn(action, actions)
+        self.assertIn("remove_account", [entry["action"] for entry in pl.hub_audit()])
+
+    def test_owners_run_their_projects_and_the_host_only_runs_the_hub(self):
+        import contextlib
+        import io
+        owner = pl.own_ledger()
+        owner.create_project("alpha", "yohan")
+        owner.db.close()
+        with mock.patch.object(brain_log, "_firewall", return_value="open"):
+            minji_code = pl.invite("minji", "editor", ["alpha"], "yohan")["team_code"]
+            jun_code = pl.add_account("jun")["team_code"]
+            self.assertIsNone(pl.add_account("jun")["team_code"])     # the code stays valid
+        minji, jun = pl._team_ledger(minji_code), pl._team_ledger(jun_code)
+        self.assertEqual(jun.names(), [])                     # an account alone opens nothing
+        self.assertTrue(minji.create_project("gamma", "minji")["created"])
+        with self.assertRaisesRegex(ValueError, "PROJECT_NAME_TAKEN"):
+            jun.create_project("gamma", "jun")
+        with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):
+            minji.grant("alpha", "jun", "viewer", "minji")    # an editor there, not the owner
+        minji.grant("gamma", "jun", "editor", "minji")
+        minji.set_instructions("gamma", "테스트 먼저", "minji")
+        plan = self.root / "plan.md"
+        plan.write_text("# 감마 계획", encoding="utf-8")
+        attached = minji.attach("gamma", plan, "계획 v1", "minji")["artifacts"][0]
+
+        host = pl.own_ledger()                                # who runs the hub sees none of it
+        self.assertEqual(host.names(), ["alpha"])
+        with self.assertRaisesRegex(ValueError, "PROJECT_NOT_FOUND"):
+            host.grant("gamma", "yohan", "owner", "yohan")
+        with self.assertRaisesRegex(ValueError, "ARTIFACT_NOT_FOUND"):
+            host._sql("SELECT ledger_read_part(?,0)", (attached["artifact_id"],)).fetchall()
+        host.db.close()
+
+        self.assertEqual(jun.names(), ["gamma"])
+        self.assertEqual(jun.instructions("gamma"), "테스트 먼저")
+        with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):
+            jun.set_instructions("gamma", "바꿔치기", "jun")
+        with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):
+            jun.grant("gamma", "yohan", "viewer", "jun")
+        note = jun.publish("gamma", "progress", "준 작업", "jun")
+        minji.retract(note["id"], "minji")                    # the owner may take it back
+        with self.assertRaisesRegex(ValueError, "LAST_OWNER"):
+            minji.revoke("gamma", "minji", "minji")
+        with self.assertRaisesRegex(ValueError, "LAST_OWNER"):
+            minji.grant("gamma", "minji", "editor", "minji")
+        with self.assertRaisesRegex(ValueError, "NO_ACCOUNT"):
+            minji.grant("gamma", "nobody", "viewer", "minji")
+        self.assertEqual({m["member"]: m["role"] for m in jun.members("gamma")},
+                         {"minji": "owner", "jun": "editor"})
+        self.assertIn("retract", [e["action"] for e in minji.audit(limit=100)])
+        minji.db.close()
+
+        users = {a["member"]: a["projects"] for a in pl.accounts()}
+        self.assertEqual(users["minji"], {"alpha": "editor", "gamma": "owner"})
+        with self.assertRaisesRegex(ValueError, "LAST_OWNER"):
+            pl.remove_account("minji")
+        pl.remove_account("minji", transfer_to="jun")
+        self.assertEqual(jun.members("gamma"), [{"member": "jun", "role": "owner"}])
+        jun.db.close()
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(pl.hub_main(["users"]), 0)
+        self.assertIn('"jun"', printed.getvalue())
 
 
     def test_a_teammate_picks_up_the_work_through_their_own_assistant(self):
@@ -250,7 +325,8 @@ class TeamHubTests(unittest.TestCase):
             self.assertGreaterEqual(toast.call_count, 4)
 
             from pgserver._commands import pg_ctl
-            pg_ctl(["stop", "-m", "fast"], pgdata=brain_log._pg_data(), timeout=60)
+            pg_ctl(["stop", "-m", "fast"], pgdata=brain_log._pg_data(), timeout=60,
+                   **brain_log._DETACHED)
             down = run(minji, "b.sqlite", {"action": "timeline", "project": "graph-mind"})[0]
             self.assertEqual(down["status"], "UNAVAILABLE")
             self.assertIn("unknown", down["note"])

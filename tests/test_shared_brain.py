@@ -178,7 +178,8 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                     os.environ.pop(name, None)
                 os.environ["GRAPH_MIND_HOME"] = home_before
                 if (root / "home" / "postgres" / "postmaster.pid").exists():
-                    pg_ctl(["-w", "-m", "fast", "stop"], pgdata=root / "home" / "postgres")
+                    pg_ctl(["-w", "-m", "fast", "stop"], pgdata=root / "home" / "postgres",
+                           **brain_log._DETACHED)
                 brain_log.PORT = port
                 brain_log._LOCAL_URI.clear()
                 brain_log._JOINED.clear()

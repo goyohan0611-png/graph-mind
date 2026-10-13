@@ -19,12 +19,17 @@ the stage it really reached (committed, pushed, pr_open, merged, released), so "
 claimed for a commit that only exists on one PC. GitHub keeps the code history; the ledger keeps
 what an AI needs to pick the work up.
 
-Teams. The hub's host invites a teammate (`invite`): Postgres gets a login role for them that
-holds no right at all on anyone's personal memory (brain_log) and sees, through row-level
-security, only the projects it was given, as editor or viewer. Files are read and written only
-through functions on the hub that check the same membership. The teammate's code carries a key
-derived one way from the host's share password: it opens project data, never personal lines.
-Every action, reads included, is audited; removing a member drops the role.
+Teams, as on GitHub. Whoever runs a hub runs the server: on the hub's machine they give a
+person an account (`add_account`, or `graph-mind-hub add-user`), a Postgres login that holds no
+right at all on anyone's personal memory (brain_log) and, through row-level security forced on
+every role, sees only the projects it is a member of. Whoever creates a project owns it, and
+only owners add members (owner, editor or viewer), change roles, set the instructions or take
+others' checkpoints back; the hosting person's own role is bound by the same rules. Files are
+read and written only through functions on the hub that check the same membership. The code a
+person gets carries a key derived one way from the host's share password: it opens project
+data, never personal lines. Every action, reads included, is audited; closing an account drops
+the login. The operator's tools name accounts and roles, never what is in a project (the
+machine's administrator can still reach its disk, as with any server).
 """
 from __future__ import annotations
 
@@ -46,7 +51,7 @@ import uuid
 import zipfile
 
 TYPES = ("decision", "progress", "blocker", "next_action", "artifact", "release")
-ROLES = ("editor", "viewer")
+ROLES = ("owner", "editor", "viewer")
 MAX_FILE = 50 * 2**20            # ponytail: a policy, not a storage limit; raise when needed
 CHUNK = 8 * 2**20                # stored in parts: no 50 MB value is ever held whole in a query
 TEAM_PREFIX = "gmt1."
@@ -77,19 +82,23 @@ CREATE TABLE IF NOT EXISTS ledger_reviews(
     reviewer TEXT NOT NULL, target TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS ledger_audit(
     stamp TEXT NOT NULL, at TEXT NOT NULL, actor_role TEXT NOT NULL DEFAULT {who},
-    actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL)
+    actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ledger_accounts(
+    member_role TEXT PRIMARY KEY, member TEXT NOT NULL)
 """
 
-# Row-level security on the hub. The owner's role owns the tables and is not bound by these; a
-# member role sees and writes only what they allow.
+# Row-level security on the hub, forced on every role, the tables' owner (the hosting person's
+# own role, "graphmind") included: whoever runs the hub runs the server, and sees a project only
+# when its owner made them a member. Whoever creates a project owns it. Only the database
+# superuser, which logs in from the hub's own machine alone, is above these rules; its tools
+# manage accounts and never read project content.
 _MEMBER = "SELECT project FROM ledger_access WHERE member_role = current_user"
-POLICIES = f"""
-ALTER TABLE ledger_projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ledger_checkpoints ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ledger_artifacts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ledger_access ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ledger_audit ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ledger_reviews ENABLE ROW LEVEL SECURITY;
+_WRITER = _MEMBER + " AND role IN ('owner', 'editor')"
+_OWNER = _MEMBER + " AND role = 'owner'"
+LEDGER_TABLES = ("ledger_projects", "ledger_checkpoints", "ledger_artifacts", "ledger_access",
+                 "ledger_audit", "ledger_reviews", "ledger_accounts")
+POLICIES = "".join(f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;\n"
+                   f"ALTER TABLE {t} FORCE ROW LEVEL SECURITY;\n" for t in LEDGER_TABLES) + f"""
 DROP POLICY IF EXISTS member_read ON ledger_reviews;
 CREATE POLICY member_read ON ledger_reviews FOR SELECT USING (project IN ({_MEMBER}));
 DROP POLICY IF EXISTS member_request ON ledger_reviews;
@@ -101,23 +110,33 @@ CREATE POLICY member_respond ON ledger_reviews FOR UPDATE
     USING (reviewer_role = current_user OR requester_role = current_user);
 DROP POLICY IF EXISTS member_read ON ledger_projects;
 CREATE POLICY member_read ON ledger_projects FOR SELECT USING (name IN ({_MEMBER}));
+DROP POLICY IF EXISTS owner_update ON ledger_projects;
+CREATE POLICY owner_update ON ledger_projects FOR UPDATE USING (name IN ({_OWNER}));
 DROP POLICY IF EXISTS member_read ON ledger_checkpoints;
 CREATE POLICY member_read ON ledger_checkpoints FOR SELECT USING (project IN ({_MEMBER}));
 DROP POLICY IF EXISTS member_write ON ledger_checkpoints;
 CREATE POLICY member_write ON ledger_checkpoints FOR INSERT WITH CHECK (
-    actor_role = current_user AND project IN ({_MEMBER} AND role = 'editor'));
+    actor_role = current_user AND project IN ({_WRITER}));
 DROP POLICY IF EXISTS member_retract ON ledger_checkpoints;
 CREATE POLICY member_retract ON ledger_checkpoints FOR UPDATE
-    USING (actor_role = current_user) WITH CHECK (actor_role = current_user);
+    USING (actor_role = current_user OR project IN ({_OWNER}))
+    WITH CHECK (actor_role = current_user OR project IN ({_OWNER}));
 DROP POLICY IF EXISTS member_read ON ledger_artifacts;
 CREATE POLICY member_read ON ledger_artifacts FOR SELECT USING (project IN ({_MEMBER}));
 DROP POLICY IF EXISTS member_write ON ledger_artifacts;
 CREATE POLICY member_write ON ledger_artifacts FOR INSERT WITH CHECK (
-    actor_role = current_user AND project IN ({_MEMBER} AND role = 'editor'));
+    actor_role = current_user AND project IN ({_WRITER}));
 DROP POLICY IF EXISTS member_own ON ledger_access;
-CREATE POLICY member_own ON ledger_access FOR SELECT USING (member_role = current_user);
+DROP POLICY IF EXISTS member_read ON ledger_access;
+CREATE POLICY member_read ON ledger_access FOR SELECT
+    USING (ledger_is_member(current_user::text, project));
 DROP POLICY IF EXISTS member_log ON ledger_audit;
-CREATE POLICY member_log ON ledger_audit FOR INSERT WITH CHECK (actor_role = current_user)
+CREATE POLICY member_log ON ledger_audit FOR INSERT WITH CHECK (actor_role = current_user);
+DROP POLICY IF EXISTS member_read ON ledger_audit;
+CREATE POLICY member_read ON ledger_audit FOR SELECT USING (actor_role = current_user
+    OR EXISTS (SELECT 1 FROM ledger_access a WHERE a.member_role = current_user
+               AND a.role = 'owner' AND (target = a.project
+                   OR left(target, length(a.project) + 1) = a.project || '/')))
 """
 
 # File store on the hub, reached through these functions only. They run as the database
@@ -126,14 +145,60 @@ CREATE POLICY member_log ON ledger_audit FOR INSERT WITH CHECK (actor_role = cur
 HUB_FUNCTIONS = """
 CREATE OR REPLACE FUNCTION ledger_can(p text, writing boolean) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
-  SELECT session_user = '{owner}' OR EXISTS (SELECT 1 FROM ledger_access
-    WHERE member_role = session_user AND project = p AND (NOT writing OR role = 'editor'))
+  SELECT EXISTS (SELECT 1 FROM ledger_access WHERE member_role = session_user AND project = p
+    AND (NOT writing OR role IN ('owner', 'editor')))
 $f$;
 CREATE OR REPLACE FUNCTION ledger_is_member(r text, p text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
-  SELECT r = '{owner}' OR EXISTS (SELECT 1 FROM ledger_access
-    WHERE member_role = r AND project = p)
+  SELECT EXISTS (SELECT 1 FROM ledger_access WHERE member_role = r AND project = p)
 $f$;
+CREATE OR REPLACE FUNCTION ledger_owns(p text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+  SELECT EXISTS (SELECT 1 FROM ledger_access WHERE member_role = session_user AND project = p
+    AND role = 'owner')
+$f$;
+CREATE OR REPLACE FUNCTION ledger_create_project(p text, who text, at text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM ledger_accounts WHERE member_role = session_user) THEN
+    RAISE EXCEPTION 'permission denied: no account on this hub';
+  END IF;
+  IF EXISTS (SELECT 1 FROM ledger_projects WHERE name = p) THEN RETURN false; END IF;
+  INSERT INTO ledger_projects(name, created_by, created_at) VALUES (p, who, at);
+  INSERT INTO ledger_access VALUES (session_user, p, 'owner',
+    (SELECT member FROM ledger_accounts WHERE member_role = session_user));
+  RETURN true;
+END $f$;
+CREATE OR REPLACE FUNCTION ledger_grant(p text, r text, level text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+DECLARE m text;
+BEGIN
+  IF NOT ledger_owns(p) THEN
+    RAISE EXCEPTION 'permission denied: only the project''s owner adds members';
+  END IF;
+  IF level NOT IN ('owner', 'editor', 'viewer') THEN RAISE EXCEPTION 'invalid role'; END IF;
+  SELECT member INTO m FROM ledger_accounts WHERE member_role = r;
+  IF NOT FOUND THEN RAISE EXCEPTION 'NO_ACCOUNT'; END IF;
+  INSERT INTO ledger_access VALUES (r, p, level, m)
+    ON CONFLICT (member_role, project) DO UPDATE SET role = EXCLUDED.role;
+  IF NOT EXISTS (SELECT 1 FROM ledger_access WHERE project = p AND role = 'owner') THEN
+    RAISE EXCEPTION 'LAST_OWNER';
+  END IF;
+  RETURN m;
+END $f$;
+CREATE OR REPLACE FUNCTION ledger_revoke(p text, r text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+BEGIN
+  IF NOT (ledger_owns(p) OR r = session_user) THEN
+    RAISE EXCEPTION 'permission denied: only the project''s owner removes members';
+  END IF;
+  DELETE FROM ledger_access WHERE member_role = r AND project = p;
+  IF NOT FOUND THEN RETURN false; END IF;
+  IF NOT EXISTS (SELECT 1 FROM ledger_access WHERE project = p AND role = 'owner') THEN
+    RAISE EXCEPTION 'LAST_OWNER';
+  END IF;
+  RETURN true;
+END $f$;
 CREATE OR REPLACE FUNCTION ledger_store_part(aid text, ver int, part int, p text, data bytea)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
 DECLARE target text; o oid;
@@ -167,7 +232,7 @@ DECLARE a ledger_artifacts; o oid;
 BEGIN
   SELECT * INTO a FROM ledger_artifacts WHERE artifact_id = aid;
   IF NOT FOUND THEN RETURN 0; END IF;
-  IF session_user <> '{owner}' AND a.actor_role <> session_user THEN
+  IF a.actor_role <> session_user AND NOT ledger_owns(a.project) THEN
     RAISE EXCEPTION 'permission denied: only who published it, or the owner, can retract it';
   END IF;
   FOR i IN 0 .. a.parts - 1 LOOP
@@ -180,6 +245,8 @@ BEGIN
 END $f$
 """
 HUB_FUNCTION_NAMES = ("ledger_can(text, boolean)", "ledger_is_member(text, text)",
+                      "ledger_owns(text)", "ledger_create_project(text, text, text)",
+                      "ledger_grant(text, text, text)", "ledger_revoke(text, text)",
                       "ledger_store_part(text, int, int, text, bytea)",
                       "ledger_read_part(text, int)", "ledger_wipe_artifact(text)")
 
@@ -300,6 +367,13 @@ class Ledger:
                                    parameters)
         except Exception as error:
             text = str(error)
+            if "NO_ACCOUNT" in text:
+                raise ValueError("NO_ACCOUNT: they have no account on this hub yet. The hub's "
+                                 "operator adds one (graph-mind-hub add-user <name>) and gives "
+                                 "them the code; then add them again") from None
+            if "LAST_OWNER" in text:
+                raise ValueError("LAST_OWNER: a project keeps at least one owner; make someone "
+                                 "else owner first") from None
             if "permission denied" in text or "row-level security" in text:
                 raise ValueError("NOT_ALLOWED: your role in this project does not permit "
                                  "that") from None
@@ -360,15 +434,67 @@ class Ledger:
                   (_stamp(), _now(), by, action, str(target)[:200]))
 
     # -- projects ---------------------------------------------------------------------------
-    def create_project(self, name: str, by: str) -> dict:
+    def create_project(self, name: str, by: str, *, at=None) -> dict:
+        """Whoever creates a project owns it: on a hub, an owner row for their own login."""
         name = _project_name(name)
+        if self.postgres:
+            with self._atomic():
+                created = self._sql("SELECT ledger_create_project(?,?,?)",
+                                    (name, by, at or _now())).fetchall()[0][0]
+                if created:
+                    self._audit(by, "create_project", name)
+            if not created and name not in self.names():
+                raise ValueError(f"PROJECT_NAME_TAKEN: someone on this hub already has a "
+                                 f"project called '{name}'; choose another name")
+            return {"project": name, "created": created, "owner": by}
         created = not self._sql("SELECT 1 FROM ledger_projects WHERE name=?", (name,)).fetchall()
         if created:
             with self._atomic():
                 self._sql("INSERT INTO ledger_projects(name, created_by, created_at) "
-                          "VALUES(?,?,?)", (name, by, _now()))
+                          "VALUES(?,?,?)", (name, by, at or _now()))
                 self._audit(by, "create_project", name)
-        return {"project": name, "created": created}
+        return {"project": name, "created": created, "owner": by}
+
+    # -- members (a project's owner manages them) -------------------------------------------
+    def grant(self, project, member, role, by) -> dict:
+        """Add a member who has an account on this hub to `project`, or change their role.
+        Owner only, checked on the hub."""
+        if role not in ROLES:
+            raise ValueError(f"ROLE must be one of {', '.join(ROLES)}")
+        project = self._require(project)
+        self._needs_hub()
+        with self._atomic():
+            name = self._sql("SELECT ledger_grant(?,?,?)",
+                             (project, _member_role(member), role)).fetchall()[0][0]
+            self._audit(by, "invite", f"{project}/{name} {role}")
+        return {"project": project, "member": name, "role": role}
+
+    def revoke(self, project, member, by) -> dict:
+        """Take `project` away from a member (owner only), or leave it yourself."""
+        project = self._require(project)
+        self._needs_hub()
+        with self._atomic():
+            removed = self._sql("SELECT ledger_revoke(?,?)",
+                                (project, _member_role(member))).fetchall()[0][0]
+            self._audit(by, "remove_member", f"{project}/{member}")
+        return {"project": project, "member": member, "removed": bool(removed),
+                "note": "Their access to this project ended now. Files they already "
+                        "downloaded stay on their PC."}
+
+    def _needs_hub(self):
+        if not self.postgres:
+            raise ValueError("NO_HUB: this project is on this PC only; host a hub (or move it "
+                             "to one) before adding people")
+
+    def members(self, project) -> list[dict]:
+        project = self._require(project)
+        if not self.postgres:
+            by = self._sql("SELECT created_by FROM ledger_projects WHERE name=?",
+                           (project,)).fetchall()[0][0]
+            return [{"member": by, "role": "owner"}]
+        rows = self._sql("SELECT member, role FROM ledger_access WHERE project=? "
+                         "ORDER BY role, member", (project,)).fetchall()
+        return [{"member": member, "role": role} for member, role in rows]
 
     def names(self) -> list[str]:
         return [row[0] for row in self._sql("SELECT name FROM ledger_projects").fetchall()]
@@ -494,7 +620,7 @@ class Ledger:
             if getattr(updated, "rowcount", 1) == 0:     # a member's policy hid another's row
                 raise ValueError("NOT_ALLOWED: only the person who published it, or the "
                                  "owner, can retract it")
-            self._audit(by, "retract", checkpoint_id)
+            self._audit(by, "retract", f"{checkpoint['project']}/{checkpoint_id}")
         removed = 0
         for artifact in checkpoint.get("artifacts", []):
             if artifact.get("artifact_id"):
@@ -648,9 +774,9 @@ class Ledger:
     def _reviewer_role(self, project, reviewer) -> str:
         if not self.postgres:
             return ""
-        owner = self._sql("SELECT created_by FROM ledger_projects WHERE name=?",
-                          (project,)).fetchall()
-        return OWNER_ROLE if owner and owner[0][0] == reviewer else _member_role(reviewer)
+        known = self._sql("SELECT member_role FROM ledger_access WHERE project=? AND member=?",
+                          (project, reviewer)).fetchall()
+        return known[0][0] if known else _member_role(reviewer)
 
     def request_review(self, project, reviewer, by, *, checkpoint_id=None, name=None,
                        version=None, focus=None, note=None) -> dict:
@@ -734,7 +860,7 @@ class Ledger:
             if getattr(updated, "rowcount", 1) == 0:
                 raise ValueError("NOT_ALLOWED: only the reviewer (or the requester, to cancel) "
                                  "can change this review")
-            self._audit(by, action, review_id)
+            self._audit(by, action, f"{review['project']}/{review_id}")
 
     def open_review(self, review_id, *, into, by) -> dict:
         """Everything a reviewer's AI needs: the exact version, what changed since the last
@@ -1246,12 +1372,25 @@ def _prepare(owner_url) -> None:
     import psycopg
     password = brain_log._config().get("share_password")
     with psycopg.connect(owner_url, autocommit=True) as owner:
-        # the owner's role owns the tables; what was written before sharing gets sealed now
-        Ledger(owner, postgres=True,
+        Ledger(owner, postgres=True)                     # the hosting role owns the tables
+    with _admin() as admin:                              # what was written before sharing
+        Ledger(admin, postgres=True, create=False,       # gets sealed now, every project's
                key=_fernet(ledger_secret(password)) if password else None).seal_existing()
+        # this hub's accounts: the hosting person's own role, and every teammate invited so far.
+        # Once, on a hub from before owners existed: its projects belong to the hosting person,
+        # the only one who could create them then.
+        first = not admin.execute("SELECT 1 FROM ledger_accounts LIMIT 1").fetchall()
+        admin.execute("INSERT INTO ledger_accounts VALUES(%s,%s) ON CONFLICT DO NOTHING",
+                      (OWNER_ROLE, actor()))
+        if first:
+            admin.execute("INSERT INTO ledger_accounts SELECT DISTINCT ON (member_role) "
+                          "member_role, member FROM ledger_access ON CONFLICT DO NOTHING")
+            admin.execute("INSERT INTO ledger_access SELECT %s, name, 'owner', created_by FROM "
+                          "ledger_projects ON CONFLICT (member_role, project) DO UPDATE SET "
+                          "role = 'owner'", (OWNER_ROLE,))
     root = hub_artifacts().as_posix().replace("'", "''")
     with _admin() as admin:            # the functions before the policies that call them
-        for statement in HUB_FUNCTIONS.format(root=root, owner=OWNER_ROLE).split("$f$;"):
+        for statement in HUB_FUNCTIONS.format(root=root).split("$f$;"):
             if statement.strip():
                 admin.execute(statement + ("$f$" if not statement.rstrip().endswith("$f$") else ""))
         for signature in HUB_FUNCTION_NAMES:
@@ -1264,8 +1403,13 @@ def _prepare(owner_url) -> None:
         admin.execute(f"GRANT USAGE ON SCHEMA public TO {TEAM_GROUP}")
         admin.execute(f"GRANT SELECT ON ledger_projects, ledger_checkpoints, ledger_artifacts, "
                       f"ledger_access TO {TEAM_GROUP}")
-        admin.execute(f"GRANT INSERT ON ledger_audit TO {TEAM_GROUP}")
+        # what a role may do in each project is the policies' business: the editor/viewer and
+        # owner checks are per project there
+        admin.execute(f"GRANT SELECT, INSERT ON ledger_audit TO {TEAM_GROUP}")
         admin.execute(f"GRANT SELECT, INSERT, UPDATE ON ledger_reviews TO {TEAM_GROUP}")
+        admin.execute(f"GRANT INSERT, UPDATE ON ledger_checkpoints TO {TEAM_GROUP}")
+        admin.execute(f"GRANT INSERT ON ledger_artifacts TO {TEAM_GROUP}")
+        admin.execute(f"GRANT UPDATE (instructions) ON ledger_projects TO {TEAM_GROUP}")
         # a hub that hosts only project brains has no personal memory table at all
         if admin.execute("SELECT to_regclass('public.brain_log')").fetchone()[0]:
             admin.execute(f"REVOKE ALL ON brain_log FROM {TEAM_GROUP}")
@@ -1315,8 +1459,7 @@ def _move_local_projects() -> dict:
             if name in hub.names():
                 continue
             with hub._atomic():
-                hub._sql("INSERT INTO ledger_projects(name, created_by, created_at) VALUES(?,?,?)",
-                         (name, by, at))
+                hub.create_project(name, by, at=at)
                 if solo.instructions(name):
                     hub._sql("UPDATE ledger_projects SET instructions=? WHERE name=?",
                              (hub._store({"text": solo.instructions(name)}), name))
@@ -1353,79 +1496,120 @@ def _move_local_projects() -> dict:
     return moved
 
 
-def invite(member: str, role: str, projects: list[str], by: str) -> dict:
-    """On the PC hosting the hub: a login for a teammate, limited to `projects`, and the code to
-    give them. Projects kept on this PC alone are moved into the hub first."""
+def add_account(member: str, by: str = "hub operator", *, reset: bool = False) -> dict:
+    """On the hub's machine: an account for a person, with no project at all, and the code to
+    give them. Owners then add the account to their projects; the operator never does. An
+    existing account keeps its code unless `reset` (a lost code): a new code ends the old one."""
     import brain_log
     import secrets
-    if role not in ROLES:
-        raise ValueError(f"ROLE must be one of {', '.join(ROLES)}")
     member = str(member or "").strip()
     if not member or len(member) > 60:
-        raise ValueError("MEMBER_NAME: the teammate's name, as others will see it")
-    if not projects:
-        raise ValueError("PROJECTS_REQUIRED: which projects this teammate may see")
-    if not _hosts_here():
-        host_projects()
+        raise ValueError("MEMBER_NAME: the person's name, as others will see it")
     opened = brain_log.open_to_network()
     secure_hub()
-    ledger = own_ledger()
-    try:
-        names = [ledger._require(p) for p in projects]
-    finally:
-        ledger.db.close()
-    login, password = _member_role(member), secrets.token_urlsafe(18)
+    login = _member_role(member)
     with _admin() as admin:
-        if admin.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (login,)).fetchall():
+        exists = admin.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (login,)).fetchall()
+        if exists and not reset:
+            return {"member": member, "account": "exists", "team_code": None,
+                    "note": "They already have an account and their code still works. A "
+                            "project's owner adding them is enough. Lost code: reset it."}
+        password = secrets.token_urlsafe(18)
+        if exists:
             admin.execute(f"ALTER ROLE {login} LOGIN PASSWORD '{password}'")
         else:
             admin.execute(f"CREATE ROLE {login} LOGIN PASSWORD '{password}' IN ROLE {TEAM_GROUP}")
-        if role == "editor":
-            admin.execute(f"GRANT INSERT, UPDATE ON ledger_checkpoints TO {login}")
-            admin.execute(f"GRANT INSERT ON ledger_artifacts TO {login}")
-        else:
-            admin.execute(f"REVOKE INSERT, UPDATE ON ledger_checkpoints FROM {login}")
-            admin.execute(f"REVOKE INSERT ON ledger_artifacts FROM {login}")
-        for project in names:
-            admin.execute("INSERT INTO ledger_access VALUES(%s,%s,%s,%s) ON CONFLICT "
-                          "(member_role, project) DO UPDATE SET role = EXCLUDED.role",
-                          (login, project, role, member))
+        admin.execute("INSERT INTO ledger_accounts VALUES(%s,%s) ON CONFLICT (member_role) DO "
+                      "UPDATE SET member = EXCLUDED.member", (login, member))
         admin.execute("INSERT INTO ledger_audit(stamp, at, actor_role, actor, action, target) "
-                      "VALUES(%s,%s,%s,%s,%s,%s)", (_stamp(), _now(), OWNER_ROLE, by, "invite",
-                                                     f"{member} {role} {','.join(names)}"))
+                      "VALUES(%s,%s,%s,%s,%s,%s)", (_stamp(), _now(), "postgres", by,
+                                                     "reset_account" if exists else "add_account",
+                                                     f"account {member}"))
     secret = ledger_secret(brain_log._config()["share_password"])
     code = TEAM_PREFIX + base64.urlsafe_b64encode(json.dumps(
         {"h": opened["addresses"], "p": brain_log.PORT, "u": login, "k": password,
          "l": base64.urlsafe_b64encode(secret).decode(), "n": member}).encode()).decode().rstrip("=")
-    return {"member": member, "role": role, "projects": names, "team_code": code,
+    return {"member": member, "account": "reset" if exists else "created", "team_code": code,
             "firewall": opened["firewall"],
-            "note": "Give this code to the teammate privately (it works like a password). On "
-                    "their PC they paste it to their AI, which joins the team. It shares only "
-                    "these projects: never the gm1. code, which is your personal memory."}
+            "note": "Give this code to them privately (it works like a password). On their PC "
+                    "they paste it to their AI, which joins the hub. They see no project until "
+                    "its owner adds them, and can create their own. Never the gm1. code: that "
+                    "is your personal memory."}
 
 
-def members() -> list[dict]:
+def accounts() -> list[dict]:
+    """The operator's view: who has an account and their role per project. Names only; the
+    operator's tools never read what is in a project."""
     with _admin() as admin:
-        rows = admin.execute("SELECT member, project, role FROM ledger_access "
-                             "ORDER BY member, project").fetchall()
-    grouped = {}
-    for member, project, role in rows:
-        grouped.setdefault(member, {"member": member, "projects": {}})["projects"][project] = role
-    return list(grouped.values())
+        people = admin.execute("SELECT member_role, member FROM ledger_accounts "
+                               "ORDER BY member").fetchall()
+        access = admin.execute("SELECT member_role, project, role FROM ledger_access").fetchall()
+    out = []
+    for login, member in people:
+        out.append({"member": member, "hosting_person": login == OWNER_ROLE,
+                    "projects": {p: r for who, p, r in access if who == login}})
+    return out
 
 
-def remove_member(member: str, by: str) -> dict:
+def remove_account(member: str, by: str = "hub operator", *, transfer_to: str = None) -> dict:
+    """Close a person's account on this hub: their login ends now. A project they alone own
+    needs a new owner first (`transfer_to`, someone with an account)."""
     login = _member_role(member)
     with _admin() as admin:
+        sole = [p for (p,) in admin.execute(
+            "SELECT project FROM ledger_access a WHERE member_role=%s AND role='owner' AND NOT "
+            "EXISTS (SELECT 1 FROM ledger_access b WHERE b.project=a.project AND b.role='owner' "
+            "AND b.member_role<>a.member_role) ORDER BY project", (login,)).fetchall()]
+        if sole and not transfer_to:
+            raise ValueError("LAST_OWNER: they alone own " + ", ".join(sole) + "; name who takes "
+                             "them over (transfer_to), or have them make someone owner first")
+        if sole:
+            heir = _member_role(transfer_to)
+            found = admin.execute("SELECT member FROM ledger_accounts WHERE member_role=%s",
+                                  (heir,)).fetchall()
+            if not found:
+                raise ValueError(f"NO_ACCOUNT: {transfer_to} has no account on this hub")
+            for project in sole:
+                admin.execute("INSERT INTO ledger_access VALUES(%s,%s,'owner',%s) ON CONFLICT "
+                              "(member_role, project) DO UPDATE SET role='owner'",
+                              (heir, project, found[0][0]))
         admin.execute("DELETE FROM ledger_access WHERE member_role=%s", (login,))
+        admin.execute("DELETE FROM ledger_accounts WHERE member_role=%s", (login,))
         if admin.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (login,)).fetchall():
             admin.execute(f"DROP OWNED BY {login}")
             admin.execute(f"DROP ROLE {login}")
         admin.execute("INSERT INTO ledger_audit(stamp, at, actor_role, actor, action, target) "
-                      "VALUES(%s,%s,%s,%s,%s,%s)", (_stamp(), _now(), OWNER_ROLE, by,
-                                                     "remove_member", member))
-    return {"member": member, "removed": True,
+                      "VALUES(%s,%s,%s,%s,%s,%s)", (_stamp(), _now(), "postgres", by,
+                                                     "remove_account", f"account {member}"))
+    return {"member": member, "removed": True, "transferred": {p: transfer_to for p in sole},
             "note": "Their access ended now. Files they already downloaded stay on their PC."}
+
+
+def hub_audit(limit=100) -> list[dict]:
+    with _admin() as admin:
+        rows = admin.execute("SELECT at, actor, action, target FROM ledger_audit ORDER BY stamp "
+                             "DESC LIMIT %s", (limit,)).fetchall()
+    return [{"at": at, "actor": who, "action": action, "target": target}
+            for at, who, action, target in rows]
+
+
+def invite(member: str, role: str, projects: list[str], by: str) -> dict:
+    """The owner, on the PC hosting their hub: an account for the teammate if they have none
+    (with the code to give them), and access to `projects`. Projects kept on this PC alone
+    move into the hub first."""
+    if role not in ROLES:
+        raise ValueError(f"ROLE must be one of {', '.join(ROLES)}")
+    if not projects:
+        raise ValueError("PROJECTS_REQUIRED: which projects this teammate may see")
+    if not _hosts_here():
+        host_projects()
+    result = add_account(member, by)
+    ledger = own_ledger()
+    try:
+        granted = [ledger.grant(p, member, role, by)["project"] for p in projects]
+    finally:
+        ledger.db.close()
+    return {**result, "role": role, "projects": granted}
 
 
 def join_team(code: str) -> dict:
@@ -1532,6 +1716,23 @@ def own_ledger() -> Ledger:
                   where="this PC only (no hub yet: host or join one so others see it)")
 
 
+def home_ledger(hub: str | None = None) -> Ledger:
+    """Where a new project goes: the person's own hub, or this PC alone, unless they work only
+    on team hubs (a company server): then the team hub, or the one `hub` names."""
+    import brain_log
+    settings = brain_log._config()
+    codes = settings.get("team_hubs", [])
+    own = settings.get("hosts_projects") or brain_log.is_database(brain_log.folder())
+    if hub or (codes and not own):
+        label = lambda c: ", ".join(_decode_team(c)["h"])  # noqa: E731
+        matches = [c for c in codes if not hub or hub in label(c)]
+        if len(matches) == 1:
+            return _team_ledger(matches[0])
+        raise ValueError("HUB_REQUIRED: say which hub the project goes on (`hub`): "
+                         + "; ".join(label(c) for c in codes))
+    return own_ledger()
+
+
 def ledgers() -> tuple[list[Ledger], list[str]]:
     """Every project brain this person takes part in, and the hubs that cannot be reached."""
     from brain_log import _config
@@ -1618,3 +1819,40 @@ def open_with_default_app(path: str) -> None:
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path],
                          stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
+
+
+def hub_main(argv=None) -> int:
+    """graph-mind-hub: run a hub on a server or NAS with no AI on it. The operator makes it a
+    hub and manages accounts; owners manage their projects from their own AI."""
+    import argparse
+    parser = argparse.ArgumentParser(prog="graph-mind-hub", description=hub_main.__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("host", help="make this machine a hub (once; it stays one)")
+    add = commands.add_parser("add-user", help="an account for a person, and their code")
+    add.add_argument("name")
+    add.add_argument("--reset", action="store_true", help="a new code (the old one stops)")
+    commands.add_parser("users", help="accounts and their roles per project")
+    remove = commands.add_parser("remove-user", help="close an account now")
+    remove.add_argument("name")
+    remove.add_argument("--transfer-to", help="who takes over projects only they own")
+    log = commands.add_parser("audit", help="who did what, newest first")
+    log.add_argument("limit", nargs="?", type=int, default=50)
+    arguments = parser.parse_args(argv)
+    try:
+        if arguments.command == "host":
+            result = host_projects()
+        elif arguments.command == "add-user":
+            if not _hosts_here():
+                host_projects()
+            result = add_account(arguments.name, reset=arguments.reset)
+        elif arguments.command == "users":
+            result = accounts()
+        elif arguments.command == "remove-user":
+            result = remove_account(arguments.name, transfer_to=arguments.transfer_to)
+        else:
+            result = hub_audit(arguments.limit)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0

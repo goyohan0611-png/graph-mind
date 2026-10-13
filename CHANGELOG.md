@@ -21,6 +21,21 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   measured from the files plus history, decisions only on the person's word and for that
   version, PC notifications delivered once, `compare` between versions, git stages.
 - An unreachable hub is reported as "latest state unknown", never as an empty project.
+- **Owners.** Whoever creates a project owns it: only owners add members (owner, editor, viewer),
+  change roles, set instructions and retract others' checkpoints, and a project always keeps an
+  owner. Running a hub no longer means seeing its projects: row-level security now binds the
+  hosting person's own role too. Teammates can create projects on a team hub. Existing hubs: their
+  projects become the hosting person's, who made them.
+- `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,
+  `remove-user --transfer-to`, `audit`.
+- Hosting works on Python 3.13 and later: pgserver's Postgres (published for 3.9-3.12 only, but
+  holding nothing tied to the Python version) is fetched once on first use and checked against a
+  pinned hash.
+- Postgres no longer opens console windows on Windows: it runs with a hidden console instead of
+  none, so the cmd.exe it starts for its own checks has no window to open either. The random
+  start failures: on the PC where they happened, Windows itself refused to start cmd.exe in
+  10-30% of plain `cmd /c ver` runs (other programs always started); Postgres needs cmd.exe, so
+  the retries stay.
 
 ## 0.6.4 — 2026-10-12
 - Mitigates intermittent Postgres initialization and start failures on Windows with a bounded

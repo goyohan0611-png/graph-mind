@@ -798,9 +798,9 @@ def build_server(db_path=None):
                          checkpoint_id: str | None = None, supersedes: str | None = None,
                          source_refs: list[str] | None = None,
                          instructions: str | None = None, member: str | None = None,
-                         role: Literal["editor", "viewer"] | None = None,
+                         role: Literal["owner", "editor", "viewer"] | None = None,
                          projects: list[str] | None = None,
-                         code: str | None = None,
+                         code: str | None = None, hub: str | None = None,
                          context: dict[str, Any] | None = None,
                          reviewer: str | None = None, review_id: str | None = None,
                          decision: Literal["approved", "changes_requested"] | None = None,
@@ -846,11 +846,16 @@ def build_server(db_path=None):
           요청해"): `respond_review` + `review_id` + `decision` + `note` (+ `version` to make
           sure it is the one reviewed). Opening is never approving, and approving v3 approves
           v3 only. `cancel_review` + `review_id` (requester).
-        - `retract` + `checkpoint_id`; `set_instructions` + `instructions` (owner).
-        - Team, on the PC hosting the hub: `host` (make this PC the home of the user's project
-          brains), `invite` + `member` + `role` + `projects` (returns a gmt1. code for the
-          teammate), `members`, `remove_member` + `member`, `audit`. On a teammate's PC:
-          `join_team` + `code`, `leave_team` + `project`.
+        - `retract` + `checkpoint_id` (the publisher, or the project's owner);
+          `set_instructions` + `instructions` (owner).
+        - Members. Whoever creates a project owns it; the hub's operator only runs the server.
+          `invite` + `member` + `role` (owner / editor / viewer) + `projects`: the owner adds a
+          person (on the PC hosting the hub this also makes their account and returns a gmt1.
+          code to give them; elsewhere they need an account from the hub's operator first).
+          `members` + `project`; `remove_member` + `member` + `project` (owner; or yourself, to
+          leave). `audit` (+ `project`). `host`: make this PC a hub. On a teammate's PC:
+          `join_team` + `code`, `leave_team` + `project`. `create_project` on someone in several
+          team hubs and none of their own: + `hub` (an address of it).
         If the result says UNAVAILABLE, the hub cannot be reached: tell the user the latest
         shared state is unknown right now; never fill in from memory.
         """
@@ -877,16 +882,29 @@ def build_server(db_path=None):
             if action == "join_team":
                 return pl.join_team(code or "")
             if action == "invite":
-                return pl.invite(member, role or "viewer",
-                                 projects or ([project] if project else []), pl.actor())
-            if action == "members":
-                return {"members": pl.members()}
-            if action == "remove_member":
-                return pl.remove_member(member or "", pl.actor())
+                names = projects or ([project] if project else [])
+                if not names:
+                    raise ValueError("PROJECTS_REQUIRED: which projects to add them to")
+                ledger = pl.ledger_for(names[0])
+                if not ledger.postgres or (ledger.role == pl.OWNER_ROLE and pl._hosts_here()):
+                    ledger.db.close()
+                    ledger = None              # the owner on the hub's own PC: account + code
+                    return pl.invite(member, role or "viewer", names, pl.actor())
+                return {"granted": [ledger.grant(p, member, role or "viewer", ledger.by)
+                                    for p in names], "ledger": ledger.where,
+                        "note": "Added: the projects show up for them now."}
+            if action == "members" and not project:
+                if not pl._hosts_here():
+                    raise ValueError("PROJECT_REQUIRED: whose members, in which project")
+                return {"accounts": pl.accounts()}
+            if action == "remove_member" and not project:
+                if not pl._hosts_here():
+                    raise ValueError("PROJECT_REQUIRED: remove them from which project")
+                return pl.remove_account(member or "", pl.actor())
             if action == "leave_team":
                 return pl.leave_team(project or "")
             if action == "audit":
-                ledger = pl.own_ledger()
+                ledger = pl.ledger_for(project) if project else pl.own_ledger()
                 return {"audit": ledger.audit()}
             if action == "reviews":
                 found, unreachable = pl.ledgers()
@@ -915,7 +933,7 @@ def build_server(db_path=None):
                 raise ValueError("PROJECT_REQUIRED: name the project (or bind this folder to "
                                  "one with create_project + path)")
             if action == "create_project":
-                ledger = pl.own_ledger()
+                ledger = pl.home_ledger(hub)
                 result = ledger.create_project(project, ledger.by)
                 if path:
                     result["bound_folder"] = pl.bind_folder(path, project)["folder"]
@@ -944,6 +962,10 @@ def build_server(db_path=None):
                 result = ledger.set_instructions(project, instructions, by)
             elif action == "compare":
                 result = ledger.compare(project, name or "", version=version, against=against)
+            elif action == "members":
+                result = {"project": project, "members": ledger.members(project)}
+            elif action == "remove_member":
+                result = ledger.revoke(project, member or "", by)
             elif action == "request_review":
                 result = ledger.request_review(project, reviewer, by,
                                                checkpoint_id=checkpoint_id, name=name,

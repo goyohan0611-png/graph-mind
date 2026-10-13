@@ -87,13 +87,8 @@ def local_postgres() -> str:
     its brain needs a port that stays put and a password for anyone not on this PC. The memory
     lives in database "graphmind" under role "graphmind", which is not a superuser: that is the
     role other PCs log in as."""
-    try:
-        from pgserver._commands import initdb, pg_ctl
-    except ImportError:
-        raise RuntimeError(
-            "Hosting the shared brain on this PC needs pgserver, which is built for Python "
-            "3.9-3.12 only. Run Graph-MIND on this PC with Python 3.12, or use a synced "
-            "folder instead. Joining a brain another PC hosts works on any Python.") from None
+    import_pgserver()
+    from pgserver._commands import initdb, pg_ctl
     from pgserver.utils import PostmasterInfo
     data = _pg_data()
     running = PostmasterInfo.read_from_pgdata(data) if (data / "PG_VERSION").exists() else None
@@ -130,12 +125,75 @@ def local_postgres() -> str:
     return _LOCAL_URI["uri"]
 
 
+# pgserver is Postgres's own programs plus pure-Python helpers, but it publishes wheels for
+# CPython 3.9-3.12 only. Nothing in it depends on the Python version, so a newer Python fetches
+# the 3.12 wheel for this platform once, checks it against the hash pinned here, and unpacks it
+# under ~/.graph-mind: the same files pip would install, with no version limit on hosting.
+PGSERVER = "pgserver-0.1.4"
+_PGSERVER_WHEELS = {
+    ("Windows", "amd64"): ("85/80/f6304274c1740c283bc7317ababceb3c23c8275ce4995f7379e17b49bc6d/"
+                           "pgserver-0.1.4-cp312-cp312-win_amd64.whl",
+                           "406e9355334e40754160a33d93f18a848720a38cd0b68da50be2ea272c89ed2d"),
+    ("Linux", "x86_64"): ("cf/f1/c9d717f66d2e4a27801577e1ae233c25aa88db875c586ac3ebe7d73b6b75/"
+                          "pgserver-0.1.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+                          "1a5d07c61d51f2abfef4ef61e2ef5cd014b994f7e09de8d3c140d2cf370e84a8"),
+    ("Darwin", "x86_64"): ("92/e3/9f8eea535ab4f2906a9924eccc5fb3a7bcff3e02222fbe338d9c24639750/"
+                           "pgserver-0.1.4-cp312-cp312-macosx_10_9_x86_64.whl",
+                           "dc34f88561b18bc08edd98a84528f99a3720fe713a4e39a4a6210a4d009fe465"),
+    ("Darwin", "arm64"): ("23/57/94b5f05a23d0fa683c01bfc2d785224057a9eaf0eb00cbfd6da19547012f/"
+                          "pgserver-0.1.4-cp312-cp312-macosx_11_0_arm64.whl",
+                          "780fa89f26a960cca0215caf471e70848dd8597bd8ceaeba7faf42170278980c"),
+}
+
+
+def import_pgserver() -> None:
+    import importlib.util
+    import sys
+    from development_paths import graph_mind_home
+    target = graph_mind_home() / PGSERVER
+    if (target / "pgserver").is_dir() and str(target) not in sys.path:
+        sys.path.insert(0, str(target))
+    if importlib.util.find_spec("pgserver"):
+        return
+    wheel = _PGSERVER_WHEELS.get((platform.system(), platform.machine().lower()))
+    if wheel is None:
+        raise RuntimeError(f"Hosting a hub on {platform.system()} {platform.machine()} is not "
+                           "supported yet (Windows, Linux x86-64 and macOS are). Joining a hub "
+                           "another machine hosts works here.")
+    import hashlib
+    import io
+    import shutil
+    import urllib.request
+    import uuid
+    import zipfile
+    with urllib.request.urlopen("https://files.pythonhosted.org/packages/" + wheel[0],
+                                timeout=300) as response:
+        data = response.read()
+    if hashlib.sha256(data).hexdigest() != wheel[1]:
+        raise RuntimeError("The Postgres download did not match its pinned hash; nothing was "
+                           "installed. Try again later.")
+    partial = target.with_name(f"{PGSERVER}.partial-{uuid.uuid4().hex[:8]}")
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for info in archive.infolist():
+            path = archive.extract(info, partial)
+            mode = info.external_attr >> 16                    # zip keeps the programs' x bit
+            if mode and os.name != "nt":
+                os.chmod(path, mode)
+    try:
+        os.replace(partial, target)
+    except OSError:                                            # another process got there first
+        shutil.rmtree(partial, ignore_errors=True)
+    sys.path.insert(0, str(target))
+
+
 def _retry(step, attempts, undo=None):
-    """Postgres's own tools fail at random on some Windows PCs: on one with AhnLab V3 running,
-    initdb succeeded in 3-6 of 10 identical runs ("popen failure: Bad file descriptor" when
-    its pipes to postgres broke), whichever way it was launched, and pg_ctl start failed too.
-    Every attempt is independent, so trying again is the fix: ten attempts at even odds fail
-    together 0.1% of the time."""
+    """Postgres's own tools fail at random on some Windows PCs. initdb, pg_ctl and postgres.exe
+    itself (checking its own version at start) run commands through cmd.exe, and on a PC with
+    AhnLab V3 running Windows refused to start cmd.exe ("Access is denied") in 10-30% of plain
+    `cmd /c ver` runs while other programs always started: Postgres reports it as "popen
+    failure: Bad file descriptor". There is no way around cmd.exe short of patching Postgres,
+    and every attempt is independent, so trying again is the fix: ten attempts at those odds
+    fail together far less than once in a million."""
     import time
     for attempt in range(attempts):
         try:
@@ -158,10 +216,12 @@ def _initdb_with_retries(initdb, data):
 
 # Started from Claude's or Codex's process, the server shared that program's console, and closing
 # it sent Ctrl+C to Postgres too (0xC000013A in its log): the hub went down with an app window.
-# Its own process group, with no console, it outlives whoever happened to start it. Its stdin is
+# Its own process group, with a console of its own that is never shown, it outlives whoever
+# happened to start it. Not DETACHED_PROCESS (no console at all): Postgres runs cmd.exe for its
+# own checks, and each of those then opened a console window on the user's screen. Its stdin is
 # the null device: Postgres must not hold on to the caller's (an MCP server's is the pipe its app
 # talks through), and a caller may have none at all (pythonw).
-_DETACHED = ({"creationflags": 0x00000008 | 0x00000200,     # DETACHED_PROCESS | NEW_PROCESS_GROUP
+_DETACHED = ({"creationflags": 0x08000000 | 0x00000200,     # CREATE_NO_WINDOW | NEW_PROCESS_GROUP
               "stdin": subprocess.DEVNULL}
              if os.name == "nt" else {"start_new_session": True, "stdin": subprocess.DEVNULL})
 

@@ -351,8 +351,11 @@ def uninstall(argv=None):
         else:
             if (data / "postgres" / "postmaster.pid").exists():     # this PC hosts the hub
                 try:
+                    import brain_log
+                    brain_log.import_pgserver()
                     from pgserver._commands import pg_ctl
-                    pg_ctl(["-w", "-m", "fast", "stop"], pgdata=data / "postgres")
+                    pg_ctl(["-w", "-m", "fast", "stop"], pgdata=data / "postgres",
+                           **brain_log._DETACHED)
                 except Exception:
                     pass
             shutil.rmtree(data, ignore_errors=True)

@@ -109,16 +109,36 @@ saves them. Graph-MIND does not.
 
 ## Install
 
-Requires Python 3.10+ (64-bit). Windows, macOS or Linux. Hosting a brain that other PCs join
-needs Python 3.12 or older on that one PC (its Postgres helper, pgserver, has no newer build yet);
-everything else, joining included, works on 3.13 and 3.14 too.
+**One step, no Python needed.** On Windows, download
+[Graph-MIND-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/Graph-MIND-Setup.cmd)
+and double-click it (Windows may ask once whether to run a downloaded file), or paste this in
+PowerShell:
 
-What changed in each release: [CHANGELOG.md](CHANGELOG.md).
+```powershell
+irm https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.ps1 | iex
+```
+
+On macOS or Linux:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.sh | sh
+```
+
+It installs [uv](https://docs.astral.sh/uv/) for your user (no administrator rights), which
+brings its own Python; installs Graph-MIND with it; and connects every AI app it finds. Restart
+your AI apps afterwards. To join another PC's memory or a team, paste the code you were given to
+your AI ("이 코드로 연결해줘"); either kind of code works there.
+
+With Python already set up (3.10+, 64-bit; Windows, macOS or Linux, on x86-64 or 64-bit ARM):
 
 ```bash
 pip install graph-mind-memory
 graph-mind-install
 ```
+
+The first time a machine hosts a brain or a hub, Graph-MIND downloads Postgres 16 for it once (12
+MB, 46 MB on Windows; checked against a pinned hash) and keeps it in the user's cache folder.
+What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 
 If `graph-mind-install` is "not recognized", pip put it in a Scripts folder that is not on your
 PATH (common with the Windows Python install manager). `python -m install` runs the same thing.
@@ -249,14 +269,72 @@ The memory then lives in a Postgres server on the first PC, which Graph-MIND set
 PCs reach it over the local network in the office, or over [Tailscale](https://tailscale.com) from
 anywhere. Each connection tries the addresses in turn and uses the first that answers.
 
-Other PCs log in with a generated password, as a role that can reach only the memory database. The
-Windows firewall rule admits only the local network and Tailscale. Every line of memory is
-encrypted (AES with an HMAC) under a key derived from that password before it leaves a PC, so the
-network and the hub's own database carry only ciphertext. The code contains the password: do not
-post it publicly.
+Other PCs log in with a generated password, as a role that can reach only the memory database,
+over TLS only: the code carries the hub's own certificate, so a PC accepts that hub and nothing
+in between. The Windows firewall rule admits only the local network and Tailscale. Every line of
+memory is also encrypted (AES with an HMAC) under a key derived from that password before it
+leaves a PC, so the hub's own database holds only ciphertext. The code contains the password: do
+not post it publicly.
 
 A synced folder also works. Tell the AI *"use my Google Drive's Graph-MIND folder as my memory"* on
 each PC.
+
+The `gm1.` code is for **your own** PCs: it shares your whole personal memory. Never give it to a
+teammate; invite them to a project brain instead.
+
+## Project brains (optional, for teams)
+
+Graph-MIND is a personal memory first: the sections above work alone, for one person on any
+number of PCs. Teams that want it can add project brains. Everyone keeps a private brain; every
+project they choose to share has a shared one. A person can be in several (a side
+project alone, Graph-MIND with four developers, a company product with six), and each keeps its
+own members, decisions, progress and instructions. Nothing personal moves into a project by
+itself: only what someone publishes. Files and the talk about them stay where teams already keep
+them (Slack, a drive, GitHub); the project brain is what lets another person's AI pick the work
+up.
+
+> A: *"Postgres 문제 수정 끝냈어. 공유해."* → a checkpoint in the Graph-MIND project: what changed
+> and why, files, tests, the commit at the stage it reached, what is left.
+> A: *"제안서 슬랙에 올렸어. 프로젝트에도 남겨줘."* → a checkpoint with the Slack link and what
+> to check.
+> B, next day, in another app: *"어제 Postgres 문제 어떻게 됐고 남은 게 뭐야?"*
+
+- **Checkpoints**: decision, progress, blocker, next action, artifact, release; who, when, the
+  context (what changed, where, why, how it was verified, what is left, what to check), what
+  they supersede. A mistaken one can be retracted.
+- **Links, not files**: a git folder is linked by repository, branch and commit with the stage it
+  really reached (committed, pushed, PR open, merged, released), so a commit on one PC is never
+  reported as done; a Slack message or a drive document is kept as its link.
+- **Instructions**: each project can carry standing guidance for every AI that works on it.
+- **Members, as on GitHub**: whoever creates a project owns it. Only owners add people (owner,
+  editor or viewer), set the instructions or take back someone else's checkpoint; editors
+  publish, viewers read. *"민지를 graph-mind 프로젝트 편집자로 초대해"* gives a code for her; her
+  AI joins with it. Every action, reads included, is in an audit log.
+- **Each project its own brain**: its own key and, on a hub, its own schema and groups in a
+  database apart from anyone's personal memory, so it can be backed up, moved or removed whole.
+  When a project's home cannot be reached, the assistant says the latest state is unknown
+  instead of guessing.
+
+### Where a project lives
+
+- **A Postgres hub.** A PC, server or NAS runs the hub; the database itself enforces each
+  project's permissions, and teammates' logins cannot reach anyone's personal memory. Teammates
+  reach it on the office network, or from anywhere over [Tailscale](https://tailscale.com)
+  (install Tailscale on the hub and on each PC, sign in to the same tailnet; invite codes carry
+  the hub's Tailscale address and use it when the office network is not there). Whoever runs the
+  hub runs the server and sees a project only when its owner adds them. A server needs no AI and
+  no API key, only `pip install graph-mind-memory` (any Python from 3.10; Windows, macOS, or Linux
+  on x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS) and these commands:
+
+  ```bash
+  graph-mind-hub host                # once: this machine becomes a hub (it stays one)
+  graph-mind-hub add-user 민지        # an account and the code to give her (no projects yet)
+  graph-mind-hub users               # accounts and their roles; never what is in a project
+  graph-mind-hub remove-user 민지 --transfer-to 준   # projects only she owned go to 준
+  graph-mind-hub delete-project 이름 --confirm 이름
+  graph-mind-hub audit
+  ```
+- **This PC alone**: without a hub, projects stay in `~/.graph-mind/ledger.sqlite`.
 
 ---
 

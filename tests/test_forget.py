@@ -82,16 +82,11 @@ class ForgetTests(unittest.TestCase):
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
 
     def test_forgotten_from_a_postgres_hub(self):
-        import importlib.util
-        if importlib.util.find_spec("pgserver") is None:
-            self.skipTest("pgserver is built for Python 3.9-3.12 only")
-        import pgserver
         import psycopg
-        from test_shared_brain import plain_directory
-        with plain_directory() as directory:
+        from test_shared_brain import plain_directory, scratch_postgres
+        with plain_directory() as directory, scratch_postgres(Path(directory), 54394) as hub:
             root = Path(directory)
-            server = pgserver.get_server(root / "pg", cleanup_mode="stop")
-            hub, desk, lap = server.get_uri(), root / "desk.sqlite", root / "lap.sqlite"
+            desk, lap = root / "desk.sqlite", root / "lap.sqlite"
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desk"
                 items = [turn(1, "the build is green again"), turn(2, f"password {SECRET}")]
@@ -113,7 +108,6 @@ class ForgetTests(unittest.TestCase):
                 self.assertEqual(words(lap, "build"), ["t1"])
             finally:
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
-                server.cleanup()
 
     def test_short_phrases_are_refused(self):
         import forget as module

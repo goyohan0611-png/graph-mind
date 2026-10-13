@@ -34,7 +34,17 @@ def plain_directory():
         shutil.rmtree(path, ignore_errors=True)
 
 
-HOSTS_POSTGRES = importlib.util.find_spec("pgserver") is not None   # Python 3.9-3.12 only
+@contextmanager
+def scratch_postgres(root: Path, port: int):
+    """A throwaway Postgres on `root` (the hub's own programs), and its admin URL."""
+    import brain_log
+    data = root / "pg"
+    brain_log._initdb_with_retries(data)
+    brain_log._start(data, port)
+    try:
+        yield f"postgresql://postgres@127.0.0.1:{port}/postgres"
+    finally:
+        brain_log.stop_postgres(data)
 
 
 def remember(text, **extra):
@@ -85,14 +95,11 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 os.environ.pop("GRAPH_MIND_FOLDER", None)
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
 
-    @unittest.skipUnless(HOSTS_POSTGRES, "pgserver is built for Python 3.9-3.12 only")
     async def test_two_pcs_share_one_brain_through_postgres(self):
-        """The same, with the log in Postgres (pgserver: a real server, started on a temp dir)."""
-        import pgserver
-        with plain_directory() as directory:
+        """The same, with the log in Postgres (a real server, started on a temp dir)."""
+        with plain_directory() as directory, scratch_postgres(Path(directory), 54392) as url:
             root = Path(directory)
-            server = pgserver.get_server(root / "pg", cleanup_mode="stop")
-            os.environ["GRAPH_MIND_FOLDER"] = server.get_uri()
+            os.environ["GRAPH_MIND_FOLDER"] = url
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
                 async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
@@ -117,15 +124,12 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 wait_for_index()
                 os.environ.pop("GRAPH_MIND_FOLDER", None)
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
-                server.cleanup()
 
-    @unittest.skipUnless(HOSTS_POSTGRES, "pgserver is built for Python 3.9-3.12 only")
     async def test_connection_code_joins_another_pc(self):
         """'다른 PC도 붙게 해줘' on the desktop, the code pasted on the laptop: one brain. The laptop
         comes in over the network address (not 127.0.0.1), so it is the password that lets it in."""
         import brain_log
         import psycopg
-        from pgserver._commands import pg_ctl
         with plain_directory() as directory:
             root = Path(directory)
             port, brain_log.PORT = brain_log.PORT, 54391        # never the real hub's port
@@ -145,9 +149,15 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 value = brain_log._decode(code)
                 self.assertNotIn("127.0.0.1", value["h"])
                 lan = value["h"][0]
-                with psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind") as c:
+                pinned = brain_log.tls_options(value["c"])
+                with psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind"
+                                     + pinned) as c:
                     self.assertFalse(c.execute("SELECT rolsuper FROM pg_roles "
                                                "WHERE rolname = current_user").fetchone()[0])
+                    self.assertTrue(c.info.pgconn.ssl_in_use)          # TLS, this hub's own
+                with self.assertRaises(psycopg.OperationalError):    # never in clear
+                    psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind"
+                                    "?sslmode=disable")
                 with self.assertRaises(psycopg.OperationalError):
                     psycopg.connect(f"postgresql://graphmind:wrong@{lan}:54391/graphmind")
                 with self.assertRaises(psycopg.OperationalError):    # the admin stays local
@@ -177,8 +187,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 for name in ("GRAPH_MIND_DEVICE", "GRAPH_MIND_CONFIG"):
                     os.environ.pop(name, None)
                 os.environ["GRAPH_MIND_HOME"] = home_before
-                if (root / "home" / "postgres" / "postmaster.pid").exists():
-                    pg_ctl(["-w", "-m", "fast", "stop"], pgdata=root / "home" / "postgres")
+                brain_log.stop_postgres(root / "home" / "postgres")
                 brain_log.PORT = port
                 brain_log._LOCAL_URI.clear()
                 brain_log._JOINED.clear()
@@ -260,10 +269,11 @@ class OutboxTests(unittest.TestCase):
 
 
 class NoPgserverTests(unittest.TestCase):
-    def test_hosting_without_pgserver_says_why(self):
-        """Python 3.13+: no pgserver build. Hosting must explain itself, not raise ImportError."""
+    def test_hosting_where_postgres_has_no_build_says_why(self):
+        """A machine Postgres has no build for: a clear reason, and nothing downloaded."""
         import brain_log
-        brain_log._LOCAL_URI.clear()
-        with unittest.mock.patch.dict("sys.modules", {"pgserver": None, "pgserver._commands": None}):
-            with self.assertRaisesRegex(RuntimeError, "Python 3.12"):
-                brain_log.local_postgres()
+        with (unittest.mock.patch("platform.machine", return_value="riscv64"),
+              unittest.mock.patch("urllib.request.urlopen") as download):
+            with self.assertRaisesRegex(RuntimeError, "not supported yet"):
+                brain_log.postgres_bin()
+        download.assert_not_called()

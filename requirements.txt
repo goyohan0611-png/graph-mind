@@ -3,10 +3,10 @@ numpy
 onnxruntime>=1.17
 tokenizers>=0.15
 huggingface_hub>=0.20
-pgserver; python_version < "3.13"
-psycopg[binary]
+psycopg[binary]>=3.2
 cryptography
 psutil
 fasteners
+platformdirs
 # research and benchmark scripts only
 tiktoken

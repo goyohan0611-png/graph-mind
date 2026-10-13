@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.6.4"
+version = "0.7.0"
 description = "Local-first memory for AI coding assistants: verbatim, on your own PC, no LLM calls at write time."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,13 +23,11 @@ dependencies = [
     "onnxruntime>=1.17",
     "tokenizers>=0.15",
     "huggingface_hub>=0.20",
-    # hosts the shared brain's Postgres; built for Python 3.9-3.12 only. Joining another PC's
-    # brain (psycopg) and everything else work on any supported Python.
-    "pgserver; python_version < '3.13'",
-    "psycopg[binary]",
+    "psycopg[binary]>=3.2",
     "cryptography",          # seals lines on a shared hub
     "psutil",
     "fasteners",
+    "platformdirs",          # where the hub's Postgres programs are kept (fetched once)
 ]
 
 [project.urls]
@@ -44,6 +42,7 @@ graph-mind-uninstall = "install:uninstall"
 graph-mind-capture = "automatic_capture_cli:main"
 graph-mind-forget = "forget:main"
 graph-mind-view = "brain_view:main"
+graph-mind-hub = "project_ledger:hub_main"
 
 [tool.setuptools]
 # ponytail: flat modules under src/; a graph_mind/ package is the upgrade path.
@@ -66,6 +65,7 @@ py-modules = [
     "install",
     "local_brain",
     "local_embedder",
+    "project_ledger",
     "semantic_llm_extractor",
     "semantic_memory",
     "semantic_recall",

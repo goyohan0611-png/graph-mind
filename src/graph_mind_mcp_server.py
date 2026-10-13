@@ -478,6 +478,10 @@ CAPTURED_NOTE = (
     "to record a decision. ")
 
 
+def type_name(error) -> str:
+    return type(error).__name__
+
+
 def build_server(db_path=None):
     database = Path(db_path).expanduser() if db_path is not None else configured_db_path()
     server = MCPServer(
@@ -494,7 +498,8 @@ def build_server(db_path=None):
             "project, file or symbol, use code_activity. brain_folder shows or changes where the "
             "memory lives and shares it with the user's other PCs. When the user asks to "
             "delete something from memory, use brain_forget: list first, delete only what the "
-            "user picks. If a result carries capture_warnings, tell the user once, plainly: "
+            "user picks. For shared project progress ('이거 프로젝트에 올려줘', '어디까지 "
+            "했어?', '제안서 띄워봐') use brain_checkpoint; publish only when asked. If a result carries capture_warnings, tell the user once, plainly: "
             "conversations from that app are no longer being saved. Preserve provenance."
         ),
         version=SERVER_VERSION,
@@ -719,9 +724,11 @@ def build_server(db_path=None):
         Other PCs: when the user asks to let their other PCs use this brain ("다른 PC도 붙게 해줘"),
         call it with `path="share"`. It opens this PC's Postgres to the local network and Tailscale
         (Windows may ask the user to approve a firewall rule once) and returns a
-        `connection_code` starting "gm1.". Show the user that code and tell them to paste it to
-        the AI on the other PC; it contains the password, so say not to post it anywhere public.
-        On the other PC, when the user pastes a "gm1." code, call this with `path=<the code>`.
+        `connection_code`. Show the user that code and tell them to paste it to the AI on the
+        other PC; it contains the password, so say not to post it anywhere public.
+        Codes: when the user pastes any Graph-MIND code ("gm1." for their own other PC, "gmt1."
+        for a team invite), call this with `path=<the code>`; it does the right thing for either,
+        so never ask the user which kind it is.
 
         `share_existing=true` sends what this PC remembers and the shared memory lacks (only that:
         it also repairs turns that missed a hub that was down). It uploads
@@ -736,6 +743,8 @@ def build_server(db_path=None):
                 synced = index.sync_sources(limit=1000)
             return {"synced": synced, "vectors_warmed": warm(database, limit=1000),
                     "store": str(database)}
+        if path and path.strip().startswith("gmt1."):        # a team invite, not a brain folder
+            return brain_checkpoint(action="join_team", code=path.strip())
         from brain_log import device_name, devices, export_history, folder, set_folder, share, sync
         shared_out = None
         if path == "share":
@@ -767,6 +776,189 @@ def build_server(db_path=None):
                 "imported_from_other_devices": imported["imported"],
                 "existing_memories_shared": exported or "not shared; ask the user before "
                                                        "setting share_existing=true"}
+
+    NAME_REQUIRED = {"status": "NAME_REQUIRED",
+                     "note": "Teammates would see this PC's name. Ask the user which name they "
+                             "should see (e.g. 고요한), call set_name with it, then do this again."}
+
+    @server.tool(
+        name="brain_checkpoint",
+        structured_output=True,
+        annotations=types.ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=False,
+        ),
+    )
+    def brain_checkpoint(action: Literal["projects", "create_project", "publish", "attach",
+                                         "timeline", "retract", "set_instructions", "host",
+                                         "invite", "members", "remove_member", "join_team",
+                                         "leave_team", "audit", "set_name"],
+                         project: str | None = None,
+                         type: Literal["decision", "progress", "blocker", "next_action",
+                                       "artifact", "release"] | None = None,
+                         summary: str | None = None, details: str | None = None,
+                         path: str | None = None, workspace: str | None = None,
+                         name: str | None = None,
+                         checkpoint_id: str | None = None, supersedes: str | None = None,
+                         source_refs: list[str] | None = None,
+                         instructions: str | None = None, member: str | None = None,
+                         role: Literal["owner", "editor", "viewer"] | None = None,
+                         projects: list[str] | None = None,
+                         code: str | None = None, hub: str | None = None,
+                         context: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Project brains, an optional team feature: what a team's AIs need to know about a
+        project, apart from the user's personal memory and from every other project. Nothing
+        personal is shared through this; only what is published here, when the user asks. Files
+        and notifications stay in Slack, drives and GitHub; a project brain keeps the decisions,
+        the progress, the context and links to where the work is.
+
+        Always pass `workspace` = your current working folder: a folder bound to a project makes
+        it the default `project`.
+
+        Publish only when the user asks ("공유해", "프로젝트에 올려줘", "체크포인트 남겨"): that
+        request is the approval, so do not ask again; ask only if the project is ambiguous.
+        Afterwards say exactly what went where.
+        - `projects`: the project brains the user takes part in, with when each was last shared.
+        - `create_project` + `project` (+ `path` = folder to bind): only when the user names one.
+        - `publish` + `type` + `summary` (one line, user's language) + `details` (a handover
+          note: what changed and why, files and functions, test results, links, what is left).
+          Never paste conversation text. `supersedes`=<id> replaces an earlier decision.
+        - `context` (with publish or attach): what changed, where (pages, sections, files,
+          functions), why, verification (test or check results), remaining, review_focus, and
+          the ids it answers (`addresses`) and its `evidence` (commit, PR, test log, Slack or
+          document links). Write only what you know; what is left out reads "not recorded".
+        - `attach` + `path`: a git folder links its commit at the stage it really reached
+          (committed / pushed / pr_open / merged / released; never call work done when the stage
+          says otherwise); a URL (a Slack message, a drive document) is kept as a link. Files are
+          not stored here: if the user wants a file shared, share it in Slack or a drive (with
+          the tools for those) and attach the link.
+        - `timeline`: "누가 어디까지 했어?" — answer from it only: who, what, what is left, and
+          when it was last shared. Do not guess at anything newer. Follow its `instructions`.
+        - `retract` + `checkpoint_id` (the publisher, or the project's owner);
+          `set_instructions` + `instructions` (owner).
+        - Members. Whoever creates a project owns it. `invite` + `member` + `role` (owner /
+          editor / viewer) + `projects` returns a code to give them. `members` + `project`;
+          `remove_member` + `member` + `project` (owner; or yourself, to leave). `audit`
+          (+ `project`). On a teammate's PC: `join_team` + `code` (+ `name`), `leave_team` +
+          `project`.
+        - Where projects live: on a Postgres hub (`host`: make this PC one; teammates on the
+          office network or over Tailscale), where `invite` on the hub's PC also makes their
+          account (elsewhere they need an account from the hub's operator first); without a
+          hub, on this PC alone. Someone in several team hubs and none of their own:
+          `create_project` + `hub` (an address of it).
+        - `set_name` + `name`: the name teammates see (else this PC's name). If a result says
+          NAME_REQUIRED, ask the user for it (their own name, e.g. 고요한), set it, then retry.
+        If the result says UNAVAILABLE, the hub cannot be reached: tell the user the latest
+        shared state is unknown right now; never fill in from memory.
+        """
+        import project_ledger as pl
+        if not project and action not in ("projects", "members", "join_team", "audit", "host"):
+            project = pl.folder_project(workspace)
+        ledger = None
+        try:
+            if action == "projects":
+                found, unreachable = pl.ledgers()
+                result = {"projects": [{**p, "ledger": book.where} for book in found
+                                       for p in book.projects()]}
+                for book in found:
+                    book.db.close()
+                if unreachable:
+                    result["unreachable"] = unreachable
+                    result["note"] = ("Some project hubs cannot be reached right now; their "
+                                      "projects are missing from this list, not gone.")
+                return result
+            if action == "set_name":
+                return pl.set_display_name(name or member or "")
+            if action in ("invite", "host") and not pl.named():
+                return NAME_REQUIRED
+            if action == "host":
+                return pl.host_projects()
+            if action == "join_team" and (code or "").strip().startswith("gm1."):
+                return brain_folder(path=code.strip())     # the user's own other PC's code
+            if action == "join_team":
+                if not (name or pl.named()):
+                    return {**NAME_REQUIRED, "invite_gives": pl._decode_team(code or "")["n"],
+                            "note": "Ask the user which name teammates should see (the invite "
+                                    "suggests the one in invite_gives), then join_team again "
+                                    "with `name`."}
+                return pl.join_team(code or "", name or pl.actor())
+            if action == "invite":
+                names = projects or ([project] if project else [])
+                if not names:
+                    raise ValueError("PROJECTS_REQUIRED: which projects to add them to")
+                ledger = pl.ledger_for(names[0])
+                if not ledger.postgres or (ledger.role == pl.OWNER_ROLE and pl._hosts_here()):
+                    ledger.db.close()
+                    ledger = None              # the owner on the hub's own PC: account + code
+                    return pl.invite(member, role or "viewer", names, pl.actor())
+                return {"granted": [ledger.grant(p, member, role or "viewer", ledger.by)
+                                    for p in names], "ledger": ledger.where,
+                        "note": "Added: the projects show up for them now."}
+            if action == "members" and not project:
+                if not pl._hosts_here():
+                    raise ValueError("PROJECT_REQUIRED: whose members, in which project")
+                return {"accounts": pl.accounts()}
+            if action == "remove_member" and not project:
+                if not pl._hosts_here():
+                    raise ValueError("PROJECT_REQUIRED: remove them from which project")
+                return pl.remove_account(member or "", pl.actor())
+            if action == "leave_team":
+                return pl.leave_team(project or "")
+            if action == "audit":
+                ledger = pl.ledger_for(project) if project else pl.own_ledger()
+                return {"audit": ledger.audit()}
+            if not project:
+                raise ValueError("PROJECT_REQUIRED: name the project (or bind this folder to "
+                                 "one with create_project + path)")
+            if action == "create_project":
+                ledger = pl.home_ledger(hub)
+                if ledger.role in ("", pl.OWNER_ROLE) and not pl.named():
+                    return NAME_REQUIRED               # a team hub uses the invite's name
+                result = ledger.create_project(project, ledger.by)
+                if path:
+                    result["bound_folder"] = pl.bind_folder(path, project)["folder"]
+                return {**result, "ledger": ledger.where}
+            ledger = pl.ledger_for(project)
+            by = ledger.by
+            if action == "publish":
+                result = ledger.publish(project, type, summary, by, details=details,
+                                        source_refs=source_refs, supersedes=supersedes,
+                                        context=context)
+            elif action == "attach":
+                if not path:
+                    raise ValueError("PATH_REQUIRED: a git folder, or a link")
+                result = ledger.attach(project, path, summary, by, kind=type or "artifact",
+                                       source_refs=source_refs, details=details,
+                                       context=context)
+            elif action == "timeline":
+                result = {"project": project, "instructions": ledger.instructions(project),
+                          "checkpoints": ledger.timeline(project, by=by)}
+            elif action == "set_instructions":
+                result = ledger.set_instructions(project, instructions, by)
+            elif action == "members":
+                result = {"project": project, "members": ledger.members(project)}
+            elif action == "remove_member":
+                result = ledger.revoke(project, member or "", by)
+            else:
+                result = ledger.retract(checkpoint_id, by)
+            return {**result, "ledger": ledger.where}
+        except pl.HubUnavailable as error:
+            return {"status": "UNAVAILABLE", "unreachable": str(error),
+                    "note": "The project hub cannot be reached right now, so its latest shared "
+                            "state is unknown. Tell the user that; do not answer from memory "
+                            "or guess."}
+        except ValueError as error:
+            return {"status": "REFUSED", "reason": str(error),
+                    **({"ledger": ledger.where} if ledger else {})}
+        except Exception as error:                  # a hub that went away mid-call
+            return {"status": "UNAVAILABLE", "reason": f"{type_name(error)}: {error}"[:300],
+                    "note": "The project hub failed during the request; the latest shared "
+                            "state is unknown. Do not guess."}
+        finally:
+            if ledger is not None:
+                ledger.db.close()
 
     @server.tool(
         name="brain_forget",

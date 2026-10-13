@@ -113,5 +113,27 @@ class ReviewFlowTests(unittest.TestCase):
         self.assertTrue(pl.describe_changes("x.bin", b"\0a", b"\0b")["binary"])
 
 
+class NotificationTests(unittest.TestCase):
+    def test_a_notification_that_failed_is_tried_again(self):
+        """Only a notification that was shown counts as delivered."""
+        import brain_log
+        root = Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json"),
+                                          "GRAPH_MIND_HOME": str(root / "home")}):
+            brain_log._save({"user_name": "me"})
+            book = pl.own_ledger()
+            book.create_project("p", "me")
+            (root / "a.txt").write_text("v1", encoding="utf-8")
+            book.attach("p", root / "a.txt", "a v1", "me")
+            asked = book.request_review("p", "me", "me", name="a.txt")
+            book.db.close()
+            with mock.patch.object(pl, "toast", return_value=False):
+                self.assertEqual(pl.notify_new(), [])                  # failed: not recorded
+            with mock.patch.object(pl, "toast", return_value=True):
+                self.assertEqual([e["key"] for e in pl.notify_new()],
+                                 [f"{asked['id']}:requested"])          # tried again, shown
+                self.assertEqual(pl.notify_new(), [])                  # and only once
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -326,6 +326,36 @@ class TeamHubTests(unittest.TestCase):
             self.assertEqual(down["status"], "UNAVAILABLE")
             self.assertIn("unknown", down["note"])
 
+    def test_the_hub_itself_holds_each_side_of_a_review_to_its_part(self):
+        """Straight SQL, past the Python checks: the requester can only cancel, the reviewer
+        can only open and decide, nobody changes who or which version, and a closed review
+        stays closed."""
+        import psycopg
+        owner = pl.own_ledger()
+        owner.create_project("alpha", "yohan")
+        owner.db.close()
+        with mock.patch.object(brain_log, "_firewall", return_value="open"):  # restarts the hub
+            minji = pl._team_ledger(pl.invite("minji", "editor", ["alpha"], "yohan")["team_code"])
+        owner = pl.own_ledger()
+        notes = self.root / "notes.md"
+        notes.write_text("# v1", encoding="utf-8")
+        owner.attach("alpha", notes, "notes v1", "yohan")
+        review = owner.request_review("alpha", "minji", "yohan", name="notes")["id"]
+        change = "UPDATE ledger_reviews SET status=%s WHERE id=%s"
+        with self.assertRaises(psycopg.Error):                       # requester approving
+            owner.db.execute(change, ("approved", review))
+        with self.assertRaises(psycopg.Error):                       # reviewer cancelling
+            minji.db.execute(change, ("cancelled", review))
+        with self.assertRaises(psycopg.Error):                       # another version
+            minji.db.execute("UPDATE ledger_reviews SET target='af-0@v9' WHERE id=%s", (review,))
+        self.assertEqual(minji.db.execute(change, ("approved", review)).rowcount, 1)
+        self.assertEqual(minji.db.execute(change, ("changes_requested", review)).rowcount, 0)
+        self.assertEqual(owner.db.execute(change, ("cancelled", review)).rowcount, 0)
+        self.assertEqual(owner.db.execute("SELECT status FROM ledger_reviews WHERE id=%s",
+                                          (review,)).fetchone()[0], "approved")
+        owner.db.close()
+        minji.db.close()
+
     def test_two_uploads_of_the_same_file_at_once_get_two_versions(self):
         import threading
         owner = pl.own_ledger()

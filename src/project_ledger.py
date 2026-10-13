@@ -106,8 +106,18 @@ CREATE POLICY member_request ON ledger_reviews FOR INSERT WITH CHECK (
     requester_role = current_user AND project IN ({_MEMBER})
     AND ledger_is_member(reviewer_role, project));
 DROP POLICY IF EXISTS member_respond ON ledger_reviews;
-CREATE POLICY member_respond ON ledger_reviews FOR UPDATE
-    USING (reviewer_role = current_user OR requester_role = current_user);
+DROP POLICY IF EXISTS reviewer_answers ON ledger_reviews;
+CREATE POLICY reviewer_answers ON ledger_reviews FOR UPDATE
+    USING (reviewer_role = current_user AND status IN ('requested', 'in_review'))
+    WITH CHECK (reviewer_role = current_user
+                AND status IN ('in_review', 'approved', 'changes_requested'));
+DROP POLICY IF EXISTS requester_cancels ON ledger_reviews;
+CREATE POLICY requester_cancels ON ledger_reviews FOR UPDATE
+    USING (requester_role = current_user AND status IN ('requested', 'in_review'))
+    WITH CHECK (requester_role = current_user AND status = 'cancelled');
+DROP TRIGGER IF EXISTS ledger_review_fixed ON ledger_reviews;
+CREATE TRIGGER ledger_review_fixed BEFORE UPDATE ON ledger_reviews
+    FOR EACH ROW EXECUTE FUNCTION ledger_review_fixed();
 DROP POLICY IF EXISTS member_read ON ledger_projects;
 CREATE POLICY member_read ON ledger_projects FOR SELECT USING (name IN ({_MEMBER}));
 DROP POLICY IF EXISTS owner_update ON ledger_projects;
@@ -198,6 +208,16 @@ BEGIN
     RAISE EXCEPTION 'LAST_OWNER';
   END IF;
   RETURN true;
+END $f$;
+CREATE OR REPLACE FUNCTION ledger_review_fixed() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $f$
+BEGIN
+  IF (NEW.id, NEW.project, NEW.stamp, NEW.requester_role, NEW.reviewer_role, NEW.reviewer,
+      NEW.target) IS DISTINCT FROM (OLD.id, OLD.project, OLD.stamp, OLD.requester_role,
+      OLD.reviewer_role, OLD.reviewer, OLD.target) THEN
+    RAISE EXCEPTION 'permission denied: a review keeps who, what and which version';
+  END IF;
+  RETURN NEW;
 END $f$;
 CREATE OR REPLACE FUNCTION ledger_store_part(aid text, ver int, part int, p text, data bytea)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
@@ -1213,8 +1233,9 @@ def inbox_events(ledger) -> list[dict]:
 
 
 def notify_new(show=True) -> list[dict]:
-    """Deliver what is new since last time, once each: a PC notification per event. A hub that
-    is offline now is simply asked again on the next round, so nothing is lost."""
+    """Deliver what is new since last time, once each: a PC notification per event. Only one
+    that was shown is recorded as delivered: a notification that failed, or a hub offline now,
+    is tried again on the next round, so nothing is lost."""
     state = _home() / "notified.json"
     try:
         seen = set(json.loads(state.read_text(encoding="utf-8")))
@@ -1229,25 +1250,25 @@ def notify_new(show=True) -> list[dict]:
             pass
         finally:
             ledger.db.close()
-    for event in fresh:
-        if show:
-            toast(event["title"], event["body"])
-        seen.add(event["key"])
-    if fresh:
+    delivered = [event for event in fresh if not show or toast(event["title"], event["body"])]
+    seen.update(event["key"] for event in delivered)
+    if delivered:
         state.parent.mkdir(parents=True, exist_ok=True)
         temporary = state.with_suffix(".tmp")
         temporary.write_text(json.dumps(sorted(seen)), encoding="utf-8")
         os.replace(temporary, state)
-    return fresh
+    return delivered
 
 
-def toast(title: str, body: str) -> None:
-    """A desktop notification. Text goes through the environment, never into a command line."""
+def toast(title: str, body: str) -> bool:
+    """A desktop notification, and whether it was shown. Text goes through the environment,
+    never into a command line."""
     environment = {**os.environ, "GM_TITLE": title, "GM_BODY": body}
     quiet = {"capture_output": True, "timeout": 20, "stdin": subprocess.DEVNULL, "env": environment}
     try:
         if os.name == "nt":
             script = (
+                "$ErrorActionPreference = 'Stop';"          # any failure: exit code 1
                 "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, "
                 "ContentType = WindowsRuntime] > $null;"
                 "$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent("
@@ -1256,17 +1277,21 @@ def toast(title: str, body: str) -> None:
                 "$t.Item(0).AppendChild($x.CreateTextNode($env:GM_TITLE)) > $null;"
                 "$t.Item(1).AppendChild($x.CreateTextNode($env:GM_BODY)) > $null;"
                 "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("
-                "'{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe')"
+                "'{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe')"
                 ".Show([Windows.UI.Notifications.ToastNotification]::new($x))")
-            subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-                           creationflags=0x08000000, **quiet)
+            shown = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                                    script], creationflags=0x08000000, **quiet)
         elif sys.platform == "darwin":
-            subprocess.run(["osascript", "-e", "on run argv\ndisplay notification (item 2 of "
-                            "argv) with title (item 1 of argv)\nend run", title, body], **quiet)
+            shown = subprocess.run(["osascript", "-e", "on run argv\ndisplay notification (item "
+                                    "2 of argv) with title (item 1 of argv)\nend run", title,
+                                    body], **quiet)
         elif shutil.which("notify-send"):
-            subprocess.run(["notify-send", title, body], **quiet)
+            shown = subprocess.run(["notify-send", title, body], **quiet)
+        else:
+            return False                         # nothing to show it with: asked again later
+        return shown.returncode == 0
     except (OSError, subprocess.SubprocessError):
-        pass
+        return False
 
 
 # -- secret scan --------------------------------------------------------------------------------

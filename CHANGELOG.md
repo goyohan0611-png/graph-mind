@@ -26,6 +26,11 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   owner. Running a hub no longer means seeing its projects: row-level security now binds the
   hosting person's own role too. Teammates can create projects on a team hub. Existing hubs: their
   projects become the hosting person's, who made them.
+- Reviews are held to their rules on the hub itself, not only in Python: the requester can only
+  cancel, the reviewer can only open and decide, a closed review stays closed, and nobody changes
+  who reviews or which version.
+- A PC notification that failed to show is tried again on the next round instead of being
+  recorded as delivered.
 - `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,
   `remove-user --transfer-to`, `audit`.
 - **Hub connections are TLS.** Every code carries the hub's own certificate (made once,

@@ -788,110 +788,73 @@ def build_server(db_path=None):
         ),
     )
     def brain_checkpoint(action: Literal["projects", "create_project", "publish", "attach",
-                                         "timeline", "open", "retract", "set_instructions",
-                                         "host", "invite", "members", "remove_member",
-                                         "join_team", "leave_team", "audit", "compare",
-                                         "request_review", "reviews", "open_review",
-                                         "respond_review", "cancel_review", "inbox",
-                                         "set_name", "comment", "edit_comment",
-                                         "edit_response", "storage", "purge_versions"],
+                                         "timeline", "retract", "set_instructions", "host",
+                                         "invite", "members", "remove_member", "join_team",
+                                         "leave_team", "audit", "set_name"],
                          project: str | None = None,
                          type: Literal["decision", "progress", "blocker", "next_action",
                                        "artifact", "release"] | None = None,
                          summary: str | None = None, details: str | None = None,
                          path: str | None = None, workspace: str | None = None,
-                         name: str | None = None, version: int | None = None,
+                         name: str | None = None,
                          checkpoint_id: str | None = None, supersedes: str | None = None,
                          source_refs: list[str] | None = None,
                          instructions: str | None = None, member: str | None = None,
                          role: Literal["owner", "editor", "viewer"] | None = None,
                          projects: list[str] | None = None,
                          code: str | None = None, hub: str | None = None,
-                         context: dict[str, Any] | None = None,
-                         reviewer: str | None = None, review_id: str | None = None,
-                         decision: Literal["approved", "changes_requested",
-                                           "withdrawn"] | None = None,
-                         focus: str | None = None, note: str | None = None,
-                         against: int | None = None, files: list[str] | None = None,
-                         comment_id: str | None = None, parent_id: str | None = None,
-                         keep: int | None = None) -> dict[str, Any]:
-        """Project brains: each shared project keeps its own checkpoints, decisions, results and
-        members, apart from the user's personal memory and from every other project. Nothing
-        personal is shared through this; only what is published here, when the user asks.
+                         context: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Project brains: what a team's AIs need to know about a project, apart from the user's
+        personal memory and from every other project. Nothing personal is shared through this;
+        only what is published here, when the user asks. Files and conversations about them
+        stay in Slack, drives and GitHub; a project brain keeps the decisions, the progress, the
+        context and links to where the work is.
 
         Always pass `workspace` = your current working folder: a folder bound to a project makes
         it the default `project`.
 
         Publish only when the user asks ("공유해", "프로젝트에 올려줘", "체크포인트 남겨"): that
-        request is the approval, so do not ask again; ask only if the file or project is
-        ambiguous. Afterwards say exactly what went where (name, version, project).
+        request is the approval, so do not ask again; ask only if the project is ambiguous.
+        Afterwards say exactly what went where.
         - `projects`: the project brains the user takes part in, with when each was last shared.
         - `create_project` + `project` (+ `path` = folder to bind): only when the user names one.
         - `publish` + `type` + `summary` (one line, user's language) + `details` (a handover
-          note: what changed and why, files and functions, test results, PR/commit links, what
-          is left). Never paste conversation text. For code, GitHub keeps the code: attach the
-          repository folder (`attach` + its `path`) so the commit is linked with its real stage
-          (committed / pushed / pr_open / merged / released); never call work done when the
-          stage says otherwise. `supersedes`=<id> replaces an earlier decision.
-        - `attach` + `path` + `summary`: a document, image or PDF as a new version (a copy of the
-          file as it is now, any size; never overwrites; refused if it holds a key or password);
-          a folder with index.html as a demo bundle; a git folder as a commit link.
-        - `timeline`: "누가 어디까지 했어?" — answer from it only: who, what, what is left, and
-          when it was last shared. Do not guess at anything newer. Follow its `instructions`.
-        - `open` (+ `name`, `version`): "제안서 띄워봐" — download that version and open it.
+          note: what changed and why, files and functions, test results, links, what is left).
+          Never paste conversation text. `supersedes`=<id> replaces an earlier decision.
         - `context` (with publish or attach): what changed, where (pages, sections, files,
           functions), why, verification (test or check results), remaining, review_focus, and
-          the ids it answers (`addresses`: earlier decisions, feedback, reviews) and its
-          `evidence` (commit, PR, test log, document ids or links). Write only what you know;
-          leave out what you do not, and it will read "not recorded".
-        - `compare` + `name` (+ `version`, `against`): what changed between two versions,
-          measured from the files (slides, paragraphs, cells, lines).
-        - Reviews. "민지에게 확인받아줘": `request_review` + `reviewer` (+ `name`/`version` or
-          `checkpoint_id`, `focus`, `note`); asking is the approval to notify her. "검토 요청
-          온 거 있어?": `reviews`. "그거 띄워봐, 뭐가 달라?": `open_review` + `review_id` —
-          opens that exact version with the changes, the publisher's account, history and what
-          to check; review it against the actual file and say where the account and the file
-          disagree. Record a decision only on the person's explicit word ("승인해", "수정
-          요청해"): `respond_review` + `review_id` + `decision` + `note` (+ `version` to make
-          sure it is the one reviewed). Opening is never approving, and approving v3 approves
-          v3 only. A decision can be changed later; "승인 취소해" = `decision` withdrawn (the
-          review is open again). `cancel_review` + `review_id` (requester).
-          The thread under a review, like Slack: "민지한테 3번 슬라이드 색 바꾸라고 답글 달아줘"
-          = `comment` + `review_id` + `note` (+ `parent_id` to reply to a comment, + `files`:
-          paths of screenshots or marked-up copies, stored as versions). `edit_comment` +
-          `comment_id` + `note`, `edit_response` + `review_id` + `note`: the author rewords; the
-          earlier wording stays in history. `respond_review` takes `files` too.
-        - Space: `storage` + `project` (each result's versions and sizes); `purge_versions` +
-          `project` + `name` (+ `keep`, default 1): owner frees older versions' space.
+          the ids it answers (`addresses`) and its `evidence` (commit, PR, test log, Slack or
+          document links). Write only what you know; what is left out reads "not recorded".
+        - `attach` + `path`: a git folder links its commit at the stage it really reached
+          (committed / pushed / pr_open / merged / released; never call work done when the stage
+          says otherwise); a URL (a Slack message, a drive document) is kept as a link. Files are
+          not stored here: if the user wants a file shared, share it in Slack or a drive (with
+          the tools for those) and attach the link.
+        - `timeline`: "누가 어디까지 했어?" — answer from it only: who, what, what is left, and
+          when it was last shared. Do not guess at anything newer. Follow its `instructions`.
         - `retract` + `checkpoint_id` (the publisher, or the project's owner);
           `set_instructions` + `instructions` (owner).
-        - Members. Whoever creates a project owns it; the hub's operator only runs the server.
-          `invite` + `member` + `role` (owner / editor / viewer) + `projects`: the owner adds a
-          person (on the PC hosting the hub this also makes their account and returns a gmt1.
-          code to give them; elsewhere they need an account from the hub's operator first).
-          `members` + `project`; `remove_member` + `member` + `project` (owner; or yourself, to
-          leave). `audit` (+ `project`). `host`: make this PC a hub. On a teammate's PC:
-          `join_team` + `code` (+ `name`), `leave_team` + `project`. `create_project` on someone
-          in several team hubs and none of their own: + `hub` (an address of it).
-        - Shared cloud folders (the default without a hub; works from anywhere, no server):
-          `create_project` makes the project in Google Drive / OneDrive / Dropbox's Graph-MIND
-          folder (`hub` = a folder path to choose one). `invite` returns an invite_code (gmp1.)
-          AND the folder to share: tell the user to share that folder with the person in their
-          cloud drive and give them the code. The person's AI: `join_team` + `code` (+ `path`
-          of the folder if it is not found: in Google Drive they first add the shared folder to
-          their drive with "Add shortcut to Drive").
+        - Members. Whoever creates a project owns it. `invite` + `member` + `role` (owner /
+          editor / viewer) + `projects` returns a code to give them. `members` + `project`;
+          `remove_member` + `member` + `project` (owner; or yourself, to leave). `audit`
+          (+ `project`). On a teammate's PC: `join_team` + `code` (+ `name`, + `path` of a
+          shared folder not found), `leave_team` + `project`.
+        - Where projects live. Without a hub (the default), `create_project` makes the project
+          in the Google Drive / OneDrive / Dropbox folder Graph-MIND (`hub` = a folder path to
+          choose another): `invite` then also names the folder; tell the user to share it with
+          the person in their cloud drive and give them the code (in Google Drive the person
+          first adds it to their drive with "Add shortcut to Drive"). With a Postgres hub
+          (`host`: make this PC one; teammates on the office network or over Tailscale),
+          `invite` on the hub's PC also makes their account; elsewhere they need an account
+          from the hub's operator first. Someone in several team hubs and none of their own:
+          `create_project` + `hub` (an address of it).
         - `set_name` + `name`: the name teammates see (else this PC's name). If a result says
           NAME_REQUIRED, ask the user for it (their own name, e.g. 고요한), set it, then retry.
-        - `inbox` (+ `review_id`): "요청함 열어줘" — opens the person's inbox page (reviews to
-          answer, answers to their requests, projects) in the browser.
         If the result says UNAVAILABLE, the hub cannot be reached: tell the user the latest
         shared state is unknown right now; never fill in from memory.
         """
         import project_ledger as pl
-        if not project and action not in ("projects", "members", "join_team", "audit", "host",
-                                          "inbox", "reviews", "open_review", "respond_review",
-                                          "cancel_review", "comment", "edit_comment",
-                                          "edit_response"):
+        if not project and action not in ("projects", "members", "join_team", "audit", "host"):
             project = pl.folder_project(workspace)
         ledger = None
         try:
@@ -910,12 +873,6 @@ def build_server(db_path=None):
                 return pl.set_display_name(name or member or "")
             if action in ("invite", "host") and not pl.named():
                 return NAME_REQUIRED
-            if action == "inbox":
-                import inbox_app
-                if not inbox_app._answering():
-                    inbox_app.serve()                  # the capture service is not running
-                inbox_app.webbrowser.open(inbox_app.url(review_id))
-                return {"opened": "the inbox, in the browser"}
             if action == "host":
                 return pl.host_projects()
             if action == "join_team" and (code or "").strip().startswith("gmp1."):
@@ -959,44 +916,6 @@ def build_server(db_path=None):
             if action == "audit":
                 ledger = pl.ledger_for(project) if project else pl.own_ledger()
                 return {"audit": ledger.audit()}
-            if action == "reviews":
-                found, unreachable = pl.ledgers()
-                result = {"reviews": [r for book in found for r in book.reviews(project, mine=True)
-                                      if not project or r["project"] == project]}
-                for book in found:
-                    book.db.close()
-                if unreachable:
-                    result["unreachable"] = unreachable
-                return result
-            if action == "edit_comment":
-                found, _ = pl.ledgers()
-                for book in found:
-                    if ledger is None and book._locate("ledger_comments", comment_id or ""):
-                        ledger = book
-                    else:
-                        book.db.close()
-                if ledger is None:
-                    raise ValueError(f"COMMENT_NOT_FOUND: {comment_id}")
-                return {**ledger.edit_comment(comment_id, note, ledger.by), "ledger": ledger.where}
-            if action in ("open_review", "respond_review", "cancel_review", "comment",
-                          "edit_response"):
-                ledger = pl.ledger_with_review(review_id or "")
-                by = ledger.by
-                if action == "open_review":
-                    result = ledger.open_review(review_id, into=pl.downloads(), by=by)
-                    path = (result.get("file") or {}).get("path")
-                    if path:
-                        pl.open_with_default_app(path)
-                elif action == "respond_review":
-                    result = ledger.respond_review(review_id, decision, by, note=note,
-                                                   version=version, files=files)
-                elif action == "comment":
-                    result = ledger.comment(review_id, note, by, parent_id=parent_id, files=files)
-                elif action == "edit_response":
-                    result = ledger.edit_response(review_id, note, by)
-                else:
-                    result = ledger.cancel_review(review_id, by)
-                return {**result, "ledger": ledger.where}
             if not project:
                 raise ValueError("PROJECT_REQUIRED: name the project (or bind this folder to "
                                  "one with create_project + path)")
@@ -1026,34 +945,19 @@ def build_server(db_path=None):
                                         context=context)
             elif action == "attach":
                 if not path:
-                    raise ValueError("PATH_REQUIRED: the file or folder to attach")
+                    raise ValueError("PATH_REQUIRED: a git folder, or a link")
                 result = ledger.attach(project, path, summary, by, kind=type or "artifact",
                                        source_refs=source_refs, details=details,
                                        context=context)
             elif action == "timeline":
                 result = {"project": project, "instructions": ledger.instructions(project),
                           "checkpoints": ledger.timeline(project, by=by)}
-            elif action == "open":
-                result = ledger.fetch(project, name=name, version=version,
-                                      into=pl.downloads(), by=by)
-                pl.open_with_default_app(result["path"])
-                result["opened"] = True
             elif action == "set_instructions":
                 result = ledger.set_instructions(project, instructions, by)
-            elif action == "compare":
-                result = ledger.compare(project, name or "", version=version, against=against)
-            elif action == "storage":
-                result = ledger.storage(project)
-            elif action == "purge_versions":
-                result = ledger.purge_versions(project, name or "", by, keep=keep or 1)
             elif action == "members":
                 result = {"project": project, "members": ledger.members(project)}
             elif action == "remove_member":
                 result = ledger.revoke(project, member or "", by)
-            elif action == "request_review":
-                result = ledger.request_review(project, reviewer, by,
-                                               checkpoint_id=checkpoint_id, name=name,
-                                               version=version, focus=focus, note=note)
             else:
                 result = ledger.retract(checkpoint_id, by)
             return {**result, "ledger": ledger.where}

@@ -266,71 +266,32 @@ teammate; invite them to a project brain instead.
 
 Everyone has a private brain; every project has a shared one. A person can be in several (a side
 project alone, Graph-MIND with four developers, a company product with six), and each keeps its
-own members, decisions, results and instructions. Nothing personal moves into a project by itself:
-only what someone publishes.
+own members, decisions, progress and instructions. Nothing personal moves into a project by
+itself: only what someone publishes. Files and the talk about them stay where teams already keep
+them (Slack, a drive, GitHub); the project brain is what lets another person's AI pick the work
+up.
 
 > A: *"Postgres 문제 수정 끝냈어. 공유해."* → a checkpoint in the Graph-MIND project: what changed
-> and why, files, tests, commit, what is left.
-> A: *"제안서 다 만들었어. 프로젝트에 올려줘."* → `제안서.pptx` v1 in the project.
-> B, next day, in another app: *"어제 Postgres 문제 어떻게 됐고 남은 게 뭐야?"*, *"제안서 띄워봐."*
+> and why, files, tests, the commit at the stage it reached, what is left.
+> A: *"제안서 슬랙에 올렸어. 프로젝트에도 남겨줘."* → a checkpoint with the Slack link and what
+> to check.
+> B, next day, in another app: *"어제 Postgres 문제 어떻게 됐고 남은 게 뭐야?"*
 
 - **Checkpoints**: decision, progress, blocker, next action, artifact, release; who, when, the
-  local ids they rest on (never text), what they supersede. A mistaken one can be retracted.
-- **Results**: files are stored on the hub as versions (v1, v2, … never overwritten), checked by
-  SHA-256 when opened, refused if they contain an API key or password (Office files are checked
-  inside), any size (stored and fetched in 8 MB parts). Code is linked by repository, branch
-  and commit, not copied.
-- **Members, as on GitHub**: whoever creates a project owns it. Only owners add people (owner,
-  editor or viewer), change roles, set the project's instructions or take back someone else's
-  checkpoint; editors publish and attach, viewers read. On the PC hosting your hub, *"민지를
-  graph-mind 프로젝트 편집자로 초대해"* also makes her an account and returns a `gmt1.` code for
-  her; her AI joins with it. Her login is limited by Postgres itself: no access at all to anyone's
-  personal memory, only the projects she is a member of, and she can create her own. Every
-  action, reads included, is in an audit log the owner can read; removing her ends access at once.
-- **Running the hub is not owning the projects**: whoever hosts the hub sees a project only when
-  its owner adds them, on their own PC as on a company server. A server needs no AI and no API
-  key, only `pip install graph-mind-memory` (any Python from 3.10; Windows, macOS, or Linux on
-  x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS) and these commands:
-
-  ```bash
-  graph-mind-hub host                # once: this machine becomes a hub (it stays one)
-  graph-mind-hub add-user 민지        # an account and the code to give her (no projects yet)
-  graph-mind-hub users               # accounts and their roles; never what is in a project
-  graph-mind-hub remove-user 민지 --transfer-to 준   # projects only she owned go to 준
-  graph-mind-hub usage               # disk, and what each project takes (sizes only)
-  graph-mind-hub delete-project 이름 --confirm 이름
-  graph-mind-hub audit
-  ```
-
-  Everyone's AI runs on their own PC and reaches the hub with their code. The tools never show
-  the operator a project's content, though whoever administers the machine can reach its disk,
-  as with any server.
+  context (what changed, where, why, how it was verified, what is left, what to check), what
+  they supersede. A mistaken one can be retracted.
+- **Links, not files**: a git folder is linked by repository, branch and commit with the stage it
+  really reached (committed, pushed, PR open, merged, released), so a commit on one PC is never
+  reported as done; a Slack message or a drive document is kept as its link.
 - **Instructions**: each project can carry standing guidance for every AI that works on it.
-- **Reviews**: *"설치파일 완성했어. 프로젝트에 올리고 민지에게 확인받아줘."* publishes the
-  version with its context (what changed, where, why, what it answers, how it was verified,
-  what to check) and asks Minji. Her PC shows a notification within seconds (it listens to the
-  hub); in her own assistant, *"요한이 만든 설치파일 띄워봐. 이전 버전과 뭐가 달라?"* opens that exact version with the changes
-  measured from the files (slide by slide, paragraph by paragraph, cell by cell, line by line),
-  the publisher's account kept apart from the record ("not recorded" where nothing was written)
-  and the decisions and earlier reviews it builds on. *"승인해"* or *"이 부분 수정 요청해"* is
-  recorded on that version only, and the requester is notified. Opening is never approving.
-- **Each project its own brain**: on a hub every project has its own schema, groups and key, in a
+- **Members, as on GitHub**: whoever creates a project owns it. Only owners add people (owner,
+  editor or viewer), set the instructions or take back someone else's checkpoint; editors
+  publish, viewers read. *"민지를 graph-mind 프로젝트 편집자로 초대해"* gives a code for her; her
+  AI joins with it. Every action, reads included, is in an audit log.
+- **Each project its own brain**: its own key and, on a hub, its own schema and groups in a
   database apart from anyone's personal memory, so it can be backed up, moved or removed whole.
-- **Threads**: under each review, comments and replies with files attached; edits keep history.
-- **Space**: owners clear old versions of their results; the operator sees sizes per project
-  (`graph-mind-hub usage`) and removes a project (`graph-mind-hub delete-project`).
-- **Inbox**: *"요청함 열어줘"*, the Start menu entry or `graph-mind-inbox` opens one page with
-  the reviews waiting for you, the answers to your requests and each project's latest work;
-  clicking a notification opens that review there. It runs on your PC only (127.0.0.1, with a
-  token), and opens files in their own apps.
-- **Code stays on GitHub**: a repository is linked by commit with the stage it really reached
-  (committed, pushed, PR open, merged, released), so a commit on one PC is never reported as
-  done.
-- **Storage**: the database holds the ledger; files are stored as versioned copies in
-  `hub/artifacts/` on the hub's PC (encrypted), read and written only through functions that
-  check membership. A hub can be a PC, an always-on server or a NAS, and need not hold anyone's
-  personal memory. When a hub cannot be reached, the assistant says the latest state is
-  unknown instead of guessing.
+  When a project's home cannot be reached, the assistant says the latest state is unknown
+  instead of guessing.
 
 ### Where a project lives
 
@@ -340,15 +301,27 @@ only what someone publishes.
   assistant joins with it. It works the same from the office, from home or abroad, with no server,
   no network setup and nobody's PC having to stay on. Every record is sealed with the project's
   key (the cloud service sees ciphertext) and signed by the PC that wrote it; each PC checks every
-  record itself (only editors publish, only the reviewer decides, only an author edits, only the
-  owner changes members) and skips any that fail. Notifications arrive as fast as the cloud drive
-  syncs, usually within seconds. To remove someone, remove them in Graph-MIND and stop sharing the
-  folder.
-- **A Postgres hub (for companies and developers).** A PC, server or NAS runs the hub
-  (`graph-mind-hub host`): instant notifications, server-side permissions, the operator's space
-  tools. Teammates reach it on the office network, or from anywhere over [Tailscale](https://tailscale.com)
-  (install Tailscale on the hub and on each PC, sign in to the same tailnet; invite codes already
-  carry the hub's Tailscale address and use it when the office network is not there).
+  record itself (only editors publish, only an author or an owner retracts, only the owner
+  changes members and instructions) and skips any that fail. To remove someone, remove them in
+  Graph-MIND and stop sharing the folder.
+- **A Postgres hub (for companies and developers).** A PC, server or NAS runs the hub; the
+  database itself enforces each project's permissions, and teammates' logins cannot reach anyone's
+  personal memory. Teammates reach it on the office network, or from anywhere over
+  [Tailscale](https://tailscale.com) (install Tailscale on the hub and on each PC, sign in to the
+  same tailnet; invite codes carry the hub's Tailscale address and use it when the office network
+  is not there). Whoever runs the hub runs the server and sees a project only when its owner adds
+  them. A server needs no AI and no API key, only `pip install graph-mind-memory` (any Python from
+  3.10; Windows, macOS, or Linux on x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS)
+  and these commands:
+
+  ```bash
+  graph-mind-hub host                # once: this machine becomes a hub (it stays one)
+  graph-mind-hub add-user 민지        # an account and the code to give her (no projects yet)
+  graph-mind-hub users               # accounts and their roles; never what is in a project
+  graph-mind-hub remove-user 민지 --transfer-to 준   # projects only she owned go to 준
+  graph-mind-hub delete-project 이름 --confirm 이름
+  graph-mind-hub audit
+  ```
 - **This PC alone**: without either, projects stay in `~/.graph-mind/ledger.sqlite`.
 
 ---

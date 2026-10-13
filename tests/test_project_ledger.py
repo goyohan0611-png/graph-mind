@@ -1,28 +1,25 @@
-"""Project brains on one PC: checkpoints published on request, results stored as versioned copies
-in a file store apart from the ledger database, secrets refused, nothing personal let in."""
+"""Project brains on one PC: checkpoints published on request, links to where the work is (a git
+commit at its real stage, a Slack or drive link) and never the files, secrets refused, nothing
+personal let in."""
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from unittest import mock
 import base64
-import importlib.util
 import os
 import sqlite3
 import subprocess
 import tempfile
 import unittest
-import zipfile
 
 from mcp import Client
 
-import project_ledger
 from project_ledger import Ledger
 
 KEY = "sk-proj-" + "a" * 40
 
 
-def ledger(path=None, key=None, files=None):
-    return Ledger(sqlite3.connect(path or ":memory:"), key=key,
-                  files=files or Path(tempfile.mkdtemp()) / "artifacts")
+def ledger(path=None, key=None):
+    return Ledger(sqlite3.connect(path or ":memory:"), key=key)
 
 
 class CheckpointTests(unittest.TestCase):
@@ -57,102 +54,23 @@ class CheckpointTests(unittest.TestCase):
             book.publish("p", "progress", "ok", "a", details=f"키는 {KEY}")
 
 
-class ResultTests(unittest.TestCase):
+class LinkTests(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp())
-        self.files = self.dir / "store"
-        self.book = ledger(self.dir / "ledger.sqlite", files=self.files)
+        self.book = ledger()
         self.book.create_project("proposal", "yohan")
 
-    def stored(self):
-        return sorted(p for p in self.files.rglob("*") if p.is_file())
-
-    def test_a_published_version_is_a_copy_kept_as_it_was(self):
-        deck = self.dir / "work" / "제안서.pptx"
-        deck.parent.mkdir()
-        with zipfile.ZipFile(deck, "w") as z:
-            z.writestr("ppt/slides/slide1.xml", "<a:t>Graph-MIND 제안 v1</a:t>")
-        first = deck.read_bytes()
-        v1 = self.book.attach("proposal", deck, "제안서 초안 완료", "yohan")
-        self.assertTrue(deck.exists())                         # the working copy stays put
-        self.assertEqual(self.book.attach("proposal", deck, "again", "yohan")["status"],
-                         "UNCHANGED")
-        with zipfile.ZipFile(deck, "a") as z:                  # edited after publishing
-            z.writestr("ppt/slides/slide2.xml", "<a:t>피드백 반영</a:t>")
-        v2 = self.book.attach("proposal", deck, "피드백 반영", "minji")
-        self.assertEqual((v1["artifacts"][0]["version"], v2["artifacts"][0]["version"]), (1, 2))
-        # stored under stable ids, the original name kept as metadata and file name
-        location = Path(v1["artifacts"][0]["location"])
-        self.assertEqual(location.parts[0], project_ledger.project_id("proposal"))
-        self.assertEqual((location.parts[2], location.name), ("v1", "제안서.pptx"))
-        latest = self.book.fetch("proposal", name="제안서", into=self.dir / "dl")
-        self.assertEqual((latest["version"], latest["by"]), (2, "minji"))
-        self.assertEqual(Path(latest["path"]).read_bytes(), deck.read_bytes())
-        old = self.book.fetch("proposal", name="제안서", version=1, into=self.dir / "dl")
-        self.assertEqual(Path(old["path"]).read_bytes(), first)    # v1 as it was published
-        self.assertEqual(len(self.stored()), 2)
-
-    def test_a_demo_folder_travels_as_one_bundle_and_opens_at_index(self):
-        demo = self.dir / "demo"
-        (demo / "img").mkdir(parents=True)
-        (demo / "index.html").write_text("<link href=style.css><script src=app.js></script>",
-                                         encoding="utf-8")
-        (demo / "style.css").write_text("body{}", encoding="utf-8")
-        (demo / "app.js").write_text("console.log(1)", encoding="utf-8")
-        (demo / "img" / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\0\0")
-        (demo / "node_modules").mkdir()
-        (demo / "node_modules" / "big.js").write_text("x", encoding="utf-8")
-        self.book.attach("proposal", demo, "데모 v1", "yohan")
-        got = self.book.fetch("proposal", name="demo", into=self.dir / "dl")
-        opened = Path(got["path"])
-        self.assertEqual(opened.name, "index.html")
-        for sibling in ("style.css", "app.js", "img/logo.png"):
-            self.assertTrue((opened.parent / sibling).exists(), sibling)
-        self.assertFalse((opened.parent / "node_modules").exists())
-
-    def test_a_key_inside_a_file_or_an_office_document_stops_the_upload(self):
-        code = self.dir / "settings.py"
-        code.write_text(f"OPENAI_API_KEY = '{KEY}'\n", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "SECRET_IN_FILE"):
-            self.book.attach("proposal", code, "settings", "yohan")
-        deck = self.dir / "deck.pptx"
-        with zipfile.ZipFile(deck, "w") as z:
-            z.writestr("ppt/slides/slide1.xml", "<a:t>password: hunter2-very-long</a:t>")
-        with self.assertRaisesRegex(ValueError, "SECRET_IN_FILE"):
-            self.book.attach("proposal", deck, "deck", "yohan")
-        self.assertEqual((self.book.timeline("proposal"), self.stored()), ([], []))
-
-    def test_retract_removes_the_file_from_the_store(self):
-        notes = self.dir / "notes.txt"
-        notes.write_text("회의록", encoding="utf-8")
-        checkpoint = self.book.attach("proposal", notes, "회의록", "yohan")
-        self.book.retract(checkpoint["id"], "yohan")
-        self.assertEqual(self.stored(), [])
-        with self.assertRaisesRegex(ValueError, "ARTIFACT_NOT_FOUND"):
-            self.book.fetch("proposal", name="notes", into=self.dir / "dl")
-
-    def test_a_publish_that_fails_halfway_shows_no_file(self):
-        notes = self.dir / "notes.txt"
-        notes.write_text("회의록", encoding="utf-8")
-        with mock.patch.object(self.book, "_insert_checkpoint",
-                               side_effect=ConnectionError("network gone")), \
-                self.assertRaises(ConnectionError):
-            self.book.attach("proposal", notes, "회의록", "yohan")
-        self.assertEqual(self.book.timeline("proposal"), [])
-        self.assertEqual(self.book.db.execute("SELECT COUNT(*) FROM ledger_artifacts")
-                         .fetchone()[0], 0)
-        with self.assertRaisesRegex(ValueError, "ARTIFACT_NOT_FOUND"):
-            self.book.fetch("proposal", name="notes", into=self.dir / "dl")
-
-    def test_a_copy_cut_off_while_writing_leaves_no_version_folder(self):
-        store = project_ledger.FolderStore(self.dir / "cut")
-
-        def pieces():
-            yield b"first"
-            raise ConnectionError("disk gone")
-        with self.assertRaises(ConnectionError):
-            store.put("proposal", "af-000000000000", 1, "x.bin", pieces())
-        self.assertEqual(list((self.dir / "cut").rglob("v1*")), [])
+    def test_a_link_is_kept_and_a_file_is_not(self):
+        shared = self.book.attach("proposal", "https://lab241.slack.com/archives/C1/p17",
+                                  "제안서 v2 슬랙에 올림", "yohan",
+                                  context={"what": "가격표 수정", "review_focus": "5p 가격"})
+        self.assertEqual(shared["artifacts"], [{"kind": "link",
+                                                "url": "https://lab241.slack.com/archives/C1/p17"}])
+        self.assertEqual(self.book.timeline("proposal")[0]["context"]["what"], "가격표 수정")
+        deck = self.dir / "제안서.pptx"
+        deck.write_bytes(b"PK")
+        with self.assertRaisesRegex(ValueError, "FILES_STAY_WHERE_THEY_ARE"):
+            self.book.attach("proposal", deck, "제안서", "yohan")
 
     def test_a_git_folder_is_linked_with_the_stage_it_reached(self):
         repo = self.dir / "repo"
@@ -167,7 +85,6 @@ class ResultTests(unittest.TestCase):
         link = checkpoint["artifacts"][0]
         self.assertEqual((link["kind"], len(link["commit"]), link["stage"]),
                          ("git", 40, "committed"))              # not pushed: never "done"
-        self.assertEqual(self.stored(), [])
 
 
 class SealedTests(unittest.TestCase):
@@ -184,13 +101,10 @@ class SealedTests(unittest.TestCase):
 
 
 class ToolTests(unittest.IsolatedAsyncioTestCase):
-    async def test_upload_then_open_through_the_assistant_and_personal_memory_stays_out(self):
+    async def test_publish_through_the_assistant_and_personal_memory_stays_out(self):
         from graph_mind_mcp_server import build_server
         root = Path(tempfile.mkdtemp())
-        deck = root / "Graph-MIND_제안서.pptx"
-        with zipfile.ZipFile(deck, "w") as z:
-            z.writestr("ppt/slides/slide1.xml", "<a:t>제안</a:t>")
-        with mock.patch("project_ledger.open_with_default_app") as opened,                 mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
+        with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
             async with Client(build_server(root / "brain.sqlite")) as client:
                 await client.call_tool("brain_remember", {
                     "content": "개인 메모: 연봉 협상 전략", "title": "private",
@@ -205,22 +119,18 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(named["name"], "고요한")
                 await call(action="create_project", project="graph-mind", path=str(root))
                 # no project named: the bound working folder picks it
-                up = (await call(action="attach", workspace=str(root), path=str(deck),
-                                 summary="제안서 v1 완료")).structured_content
-                self.assertEqual(up["artifacts"][0]["version"], 1)
-                shown = (await call(action="open", project="graph-mind",
-                                    name="제안서")).structured_content
-                self.assertTrue(shown["opened"])
-                opened.assert_called_once()
+                await call(action="publish", workspace=str(root), type="progress",
+                           summary="제안서 v1 완료", details="남은 일: 5p 가격표")
+                linked = (await call(action="attach", workspace=str(root),
+                                     path="https://drive.google.com/file/d/abc",
+                                     summary="제안서 v1")).structured_content
+                self.assertEqual(linked["artifacts"][0]["kind"], "link")
                 timeline = (await call(action="timeline",
                                        project="graph-mind")).structured_content
         home = Path(os.environ["GRAPH_MIND_HOME"])
         dump = "\n".join(sqlite3.connect(home / "ledger.sqlite").iterdump())
         self.assertNotIn("연봉", dump)                 # personal memory never reaches it
-        for stored in (home / "hub" / "artifacts").rglob("*"):
-            if stored.is_file():
-                self.assertNotIn("연봉".encode(), stored.read_bytes())
-        self.assertEqual(len(timeline["checkpoints"]), 1)
+        self.assertEqual(len(timeline["checkpoints"]), 2)
 
 
 if __name__ == "__main__":

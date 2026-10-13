@@ -43,7 +43,6 @@ graph-mind-capture = "automatic_capture_cli:main"
 graph-mind-forget = "forget:main"
 graph-mind-view = "brain_view:main"
 graph-mind-hub = "project_ledger:hub_main"
-graph-mind-inbox = "inbox_app:main"
 
 [tool.setuptools]
 # ponytail: flat modules under src/; a graph_mind/ package is the upgrade path.
@@ -63,7 +62,6 @@ py-modules = [
     "entity_timeline",
     "forget",
     "graph_mind_mcp_server",
-    "inbox_app",
     "install",
     "local_brain",
     "local_embedder",

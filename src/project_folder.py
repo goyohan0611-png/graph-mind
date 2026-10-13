@@ -6,13 +6,12 @@ the way people already share folders:
 
     <folder>/project.json        the project's id and its first owner's public key
     <folder>/log/<device>.jsonl   each PC appends only to its own file, so syncing never conflicts
-    <folder>/files/...            each stored version, in parts, written once
 
 Every line of a log is sealed with the project's key (the cloud service sees only ciphertext) and
 signed by the PC that wrote it. Each PC replays every other PC's lines into a local cache and
 checks each one itself, signature and rules alike, as the hub's database does: only an editor
-publishes, only the reviewer decides, only the requester cancels, only an author edits, only an
-owner changes instructions and members. A line that fails is skipped and noted, never applied.
+publishes, only its author or an owner retracts a checkpoint, only an owner changes instructions
+and members. A line that fails is skipped and noted, never applied.
 
 People join with an invite code (gmp1.): it carries the project's key and the owner's public key
 (so a joiner trusts no file in the folder that the owner did not sign) and a one-time secret
@@ -46,15 +45,6 @@ TEMPLATES = {
     "publish": "INSERT INTO ledger_checkpoints(id, project, stamp, created_at, status, payload) "
                "VALUES(?,?,?,?,?,?)",
     "retract": "UPDATE ledger_checkpoints SET status='retracted', payload=? WHERE id=?",
-    "unstore": "UPDATE ledger_artifacts SET status='retracted' WHERE artifact_id=?",
-    "store": "INSERT INTO ledger_artifacts(artifact_id, project, version, parts, size, location, "
-             "status, created_at) VALUES(?,?,?,?,?,?,?,?)",
-    "request": "INSERT INTO ledger_reviews(id, project, stamp, status, reviewer_role, reviewer, "
-               "target, payload) VALUES(?,?,?,?,?,?,?,?)",
-    "answer": "UPDATE ledger_reviews SET status=?, payload=? WHERE id=?",
-    "comment": "INSERT INTO ledger_comments(id, project, review_id, parent_id, stamp, payload) "
-               "VALUES(?,?,?,?,?,?)",
-    "edit": "UPDATE ledger_comments SET payload=? WHERE id=?",
 }
 BY_SQL = {" ".join(sql.split()): name for name, sql in TEMPLATES.items()}
 
@@ -105,39 +95,6 @@ def _device_id(public_b64: str) -> str:
     return hashlib.sha256(public_b64.encode()).hexdigest()[:16]
 
 
-# -- files, sealed --------------------------------------------------------------------------------
-class SealedFolderStore:
-    """Versions in the shared folder: files/<artifact>__v<N>__p<part>.bin, each part sealed with
-    the project's key and written whole (a temporary name first)."""
-
-    def __init__(self, root: Path, key):
-        self.root, self.key = Path(root), key
-
-    def put(self, project, artifact_id, version, name, pieces):
-        location = f"files/{artifact_id}__v{version}"
-        (self.root / "files").mkdir(parents=True, exist_ok=True)
-        parts = 0
-        for part, piece in enumerate(pieces):
-            final = self.root / f"{location}__p{part:04d}.bin"
-            partial = final.with_suffix(".partial")
-            partial.write_bytes(self.key.encrypt(piece))
-            os.replace(partial, final)
-            parts += 1
-        return location, max(parts, 1)
-
-    def get(self, location, parts):
-        for part in range(parts):
-            path = self.root / f"{location}__p{part:04d}.bin"
-            if not path.exists():
-                raise ValueError("NOT_SYNCED_YET: this file has not finished syncing to this PC; "
-                                 "try again in a moment")
-            yield self.key.decrypt(path.read_bytes())
-
-    def wipe(self, location, artifact_id):
-        for path in self.root.glob(f"{location}__p*.bin"):
-            path.unlink(missing_ok=True)
-
-
 # -- the ledger over a folder ---------------------------------------------------------------------
 class FolderLedger(pl.Ledger):
     """One project in a shared folder: the ledger's own code over a local cache, with every write
@@ -156,7 +113,6 @@ class FolderLedger(pl.Ledger):
         super().__init__(sqlite3.connect(cache, timeout=30), where=f"shared folder {self.folder}",
                          by="", role="")
         self.db.executescript(CACHE)
-        self.store = SealedFolderStore(self.folder, self.fernet)
         self._pending, self._depth, self._replaying = [], 0, False
         self.sync()
         self.by = self._me()[0] or code.get("n") or pl.actor()
@@ -255,9 +211,8 @@ class FolderLedger(pl.Ledger):
             self.db.commit()
 
     def _remember(self, name, params, member):
-        """Who wrote each row, for the rules that need it later (retract, edit, unstore)."""
-        row = {"publish": ("ledger_checkpoints", 0), "store": ("ledger_artifacts", 0),
-               "request": ("ledger_reviews", 0), "comment": ("ledger_comments", 0)}.get(name)
+        """Who wrote each checkpoint, for the rule that needs it later (retract)."""
+        row = {"publish": ("ledger_checkpoints", 0)}.get(name)
         if row:
             self.db.execute("INSERT OR IGNORE INTO folder_rows VALUES(?,?,?)",
                             (row[0], params[row[1]], member or ""))
@@ -287,42 +242,6 @@ class FolderLedger(pl.Ledger):
             author = self._author("ledger_checkpoints", params[1])
             return None if author == member or role == "owner" else (
                 "only the person who published it, or the owner, can retract it")
-        if name == "store":
-            if str(params[0]).startswith("at-") or rank >= RANK["editor"]:
-                return None
-            return "a viewer can attach files to a conversation, not publish results"
-        if name == "unstore":
-            author = self._author("ledger_artifacts", params[0])
-            return None if author == member or role == "owner" else (
-                "only who stored it, or the owner, can remove it")
-        if name == "request":
-            payload = json.loads(params[7])
-            if payload.get("requester") != member:
-                return "requested in someone else's name"
-            known = {m["member"] for m in self.members(payload["project"])}
-            return None if params[5] in known else f"{params[5]} is not in this project"
-        if name == "answer":
-            row = self.db.execute("SELECT status, payload FROM ledger_reviews WHERE id=?",
-                                  (params[2],)).fetchone()
-            if not row:
-                return "no such review (yet)"
-            before, after, status = json.loads(row[1]), json.loads(params[1]), params[0]
-            for fixed in ("id", "project", "requester", "reviewer", "target", "artifact"):
-                if before.get(fixed) != after.get(fixed):
-                    return "a review keeps who, what and which version"
-            if member == before["reviewer"] and row[0] != "cancelled" and status in (
-                    "in_review", "approved", "changes_requested"):
-                return None
-            if member == before["requester"] and status == "cancelled" and row[0] in (
-                    "requested", "in_review"):
-                return None
-            return "only the reviewer decides, and only the requester cancels"
-        if name == "comment":
-            return None if json.loads(params[5]).get("by") == member else (
-                "commented in someone else's name")
-        if name == "edit":
-            author = self._author("ledger_comments", params[1])
-            return None if author == member else "only its author edits a comment"
         return "unknown change"
 
     def grant(self, project, member, role, by) -> dict:
@@ -467,11 +386,10 @@ class FolderLedger(pl.Ledger):
         if body.get("t") not in TEMPLATES:
             return "unknown change"
         refused = self._check(body["t"], body["p"], member, role)
-        # it may depend on what another PC's file says and this one has not replayed yet: a
-        # review, a member's joining, or the writer's own joining. An honest PC never writes a
-        # line its own check refuses, so a line that waits for good only holds up its writer.
-        if refused and (not role or refused.endswith("(yet)")
-                        or refused.endswith("is not in this project")):
+        # its writer's joining may be in a line this PC has not replayed yet. An honest PC never
+        # writes a line its own check refuses, so a line that waits for good holds up only its
+        # writer.
+        if refused and not role:
             return "wait"
         if refused:
             return refused
@@ -566,7 +484,6 @@ def create(name: str, by: str, where: Path | None = None) -> dict:
     code = {"i": uuid.uuid4().hex, "k": Fernet.generate_key().decode(), "o": public,
             "p": name, "ow": by}
     (folder / "log").mkdir(parents=True, exist_ok=True)
-    (folder / "files").mkdir(exist_ok=True)
     (folder / "project.json").write_text(json.dumps(
         {"format": FORMAT, "id": code["i"], "name": name, "owner_key": public,
          "note": "Graph-MIND project brain. Share this whole folder with your team; its "

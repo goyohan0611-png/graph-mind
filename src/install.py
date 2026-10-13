@@ -157,14 +157,6 @@ def _login_item() -> Path:
     return config / "autostart" / "graph-mind-capture.desktop"
 
 
-def _inbox_shortcut() -> Path | None:
-    """The Start menu entry for the inbox (Windows; elsewhere `graph-mind-inbox` opens it)."""
-    if platform.system() != "Windows":
-        return None
-    return (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
-            / "Graph-MIND 요청함.lnk")
-
-
 def codex(home: Path) -> str:
     config = home / ".codex" / "config.toml"
     if not config.parent.is_dir():
@@ -203,11 +195,6 @@ def capture_service(start: bool) -> str:
                     f"$s.WorkingDirectory='{HERE}';$s.Save()")
         subprocess.run(["powershell", "-NoProfile", "-Command", shortcut], check=True,
                        capture_output=True)
-        inbox = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:GM_LINK);"
-                 f"$s.TargetPath='{python}';$s.Arguments='\"{HERE / 'inbox_app.py'}\"';"
-                 f"$s.WorkingDirectory='{HERE}';$s.Description='Graph-MIND inbox';$s.Save()")
-        subprocess.run(["powershell", "-NoProfile", "-Command", inbox], capture_output=True,
-                       env={**os.environ, "GM_LINK": str(_inbox_shortcut())})
     elif system == "Darwin":
         import plistlib
         python = Path(sys.executable)
@@ -351,8 +338,6 @@ def uninstall(argv=None):
             subprocess.run(["launchctl", "unload", str(item)], capture_output=True)
         item.unlink()
         step("capture service no longer starts at login")
-    if _inbox_shortcut() and _inbox_shortcut().exists():
-        _inbox_shortcut().unlink()
     from automatic_capture import default_service_state_dir
     try:
         import psutil

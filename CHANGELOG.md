@@ -4,81 +4,37 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased (branch `checkpoints`)
-- **Project brains.** `brain_checkpoint`: shared projects apart from personal memory, with
-  checkpoints (decision, progress, blocker, next action, artifact, release), handover details,
-  supersession and retraction; files as versions (SHA-256, secret scan, 50 MB, sealed chunks);
-  git commits linked, not copied; per-project AI instructions; a folder bound to a project.
-- **Teams.** Invite codes (`gmt1.`) give each teammate their own Postgres login with no right on
-  the owner's personal memory, row-level security per project, editor or viewer roles, a
-  ledger-only key, an audit log and immediate removal. One person can join several team hubs.
-- Uploads and retractions are all-or-nothing; two uploads of the same file at once get two
-  versions.
-- **Storage split**: the ledger in the database, results as versioned copies in a file store
-  (`hub/artifacts/`), reached on a hub only through membership-checking functions; demo folders
-  travel as bundles; a dedicated hub (`host`) holds project brains without personal memory.
-- **Reviews**: work context on checkpoints (publisher's account vs. linked record, "not
-  recorded" when absent), review requests per exact version with dedupe, opening shows changes
-  measured from the files plus history, decisions only on the person's word and for that
-  version, PC notifications delivered once, `compare` between versions, git stages.
+- **Project brains.** `brain_checkpoint`: shared projects apart from personal memory, holding only
+  what someone publishes: checkpoints (decision, progress, blocker, next action, artifact,
+  release) with their context (what changed, where, why, verification, what is left, what to
+  check; "not recorded" where nothing was written), supersession and retraction; per-project AI
+  instructions; a working folder bound to a project. Files and the talk about them stay in
+  Slack, drives and GitHub: a git folder is linked as its commit at the stage it really reached
+  (committed, pushed, PR open, merged, released) and a Slack or drive address as a link.
+- **Projects in a shared cloud folder, the default**: no server, no network setup, the same from
+  anywhere. A project is a folder in Google Drive / OneDrive / Dropbox shared the usual way; each
+  PC appends sealed (project key), signed (its own key) records to its own log file, so syncing
+  never conflicts, and replays the others' after checking signature and rules itself. Invite
+  codes (gmp1.) carry the project key and the owner's public key.
+- **Postgres hubs for companies and developers** (office network or Tailscale): every project its
+  own schema, groups and key in a database apart from personal memory; teammates' logins cannot
+  reach anyone's personal memory; row-level security per project; an audit log. Whoever creates
+  a project owns it; only owners add members (owner, editor, viewer), set instructions or retract
+  others' checkpoints; whoever runs the hub runs the server and sees a project only when added.
+  `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,
+  `remove-user --transfer-to`, `delete-project`, `audit`.
+- **Names people choose**: teammates see a chosen name, not a PC's; the assistant asks for it
+  before creating or sharing a project and when joining (`set_name`, `install --name`).
 - An unreachable hub is reported as "latest state unknown", never as an empty project.
-- **Owners.** Whoever creates a project owns it: only owners add members (owner, editor, viewer),
-  change roles, set instructions and retract others' checkpoints, and a project always keeps an
-  owner. Running a hub no longer means seeing its projects: row-level security now binds the
-  hosting person's own role too. Teammates can create projects on a team hub. Existing hubs: their
-  projects become the hosting person's, who made them.
-- Reviews are held to their rules on the hub itself, not only in Python: the requester can only
-  cancel, the reviewer can only open and decide, a closed review stays closed, and nobody changes
-  who reviews or which version.
-- **Inbox** (`graph-mind-inbox`, Start menu "Graph-MIND 요청함", or "요청함 열어줘"): one page on
-  this PC with the reviews waiting for you, the answers to yours and each project's latest
-  checkpoints. A review opens with the exact version, the changes measured from the files and the
-  publisher's account; the file opens in its own app; approve or ask for changes from there.
-  Clicking a notification opens its review. Served by the capture service on 127.0.0.1 only, with
-  a per-install token.
-- **Projects in a shared cloud folder, the new default**: no server, no network setup, the same
-  from anywhere. A project is a folder in Google Drive / OneDrive / Dropbox shared the usual way;
-  each PC appends sealed, signed records to its own log file (so syncing never conflicts) and
-  replays the others' after checking signature and rules itself. Invite codes (gmp1.) carry the
-  project key and the owner's public key. The Postgres hub stays for companies and developers
-  (office network or Tailscale).
-- **Every project is a brain of its own.** On a hub, each project has its own schema in the hub's
-  database (`gmhub`, apart from personal memory), its own reader/writer/owner groups and its own
-  key; teammates' logins cannot reach the personal memory database at all. A project can be
-  backed up, moved or removed whole. Hubs from before are converted on first start: each project
-  moves into its own schema and is sealed again with its own key, files included.
-- **Review threads like Slack**: comments and replies under each review, with any files attached
-  (screenshots, marked-up copies) kept as versions; the author can edit a comment or an answer and
-  every earlier wording stays in its history. New comments notify the other side.
-- **No file size limit**: files go up and down in 8 MB parts, never whole in memory; a file that
-  changes during its upload is refused. Very large versions are compared by size and hash.
-- **Space**: an owner sees each result's versions and sizes and clears older versions; the hub's
-  operator sees the disk and each project's size (never its file names) and can remove a project
-  whole (`graph-mind-hub usage`, `delete-project`, or the inbox's 용량 관리 tab on the hub's PC).
-- **Names people choose.** Teammates see a name the person chose, not a PC's name: the assistant
-  asks for it before creating or sharing a project and when joining with an invite
-  (`set_name`, `join_team` + `name`, `graph-mind-install --name`). Renaming applies on every hub
-  at once; a name is unique per hub; owners add people by the name they chose.
-- **Notifications in real time**: each PC listens to its hubs (Postgres LISTEN/NOTIFY); a review
-  request or answer shows within seconds instead of at the next 2-minute check, which stays as a
-  fallback. The signal carries nothing; what is new is read with the usual permission checks.
-- A PC notification that failed to show is tried again on the next round instead of being
-  recorded as delivered.
-- `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,
-  `remove-user --transfer-to`, `audit`.
-- **Hub connections are TLS.** Every code carries the hub's own certificate (made once,
-  self-signed) and PCs check it (`verify-ca`); the hub accepts other machines over TLS only.
-  Codes from before still connect, encrypted but unchecked; a new code adds the check.
-- **Postgres from its own builds instead of pgserver**, which has no TLS and no ARM build:
-  Postgres 16.14 (EnterpriseDB's on Windows, theseus-rs elsewhere), fetched once per machine on
-  first hosting, checked against pinned hashes and kept in the user's cache folder. Hosting now
-  works on any Python and on 64-bit ARM Linux (a NAS, a Raspberry Pi); `pip install` no longer
-  carries a Postgres for people who never host. A hub running on the old programs is restarted on
-  the new ones once; its data is kept (same major version).
-- Postgres no longer opens console windows on Windows: it runs with a hidden console instead of
-  none, so the cmd.exe it starts for its own checks has no window to open either. The random
-  start failures: on the PC where they happened, Windows itself refused to start cmd.exe in
-  10-30% of plain `cmd /c ver` runs (other programs always started); Postgres needs cmd.exe, so
-  the retries stay.
+- **Hub connections are TLS**: every code carries the hub's own certificate and PCs check it.
+- **Postgres from its own builds instead of pgserver** (no TLS, no ARM): Postgres 16.14 fetched
+  once per machine on first hosting, checked against pinned hashes. Hosting works on any Python
+  and on 64-bit ARM Linux; `pip install` no longer carries a Postgres for people who never host.
+  A hub on the old programs is restarted on the new ones once, data kept. Hubs from before this
+  branch are converted on first start (each project into its own schema, sealed again).
+- Postgres no longer opens console windows on Windows (a hidden console instead of none). The
+  random start failures: on the PC where they happened, Windows refused to start cmd.exe in
+  10-30% of plain `cmd /c ver` runs; Postgres needs cmd.exe, so the retries stay.
 
 ## 0.6.4 — 2026-10-12
 - Mitigates intermittent Postgres initialization and start failures on Windows with a bounded

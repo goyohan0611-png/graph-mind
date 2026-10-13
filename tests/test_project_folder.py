@@ -33,7 +33,7 @@ class FolderProjectTests(unittest.TestCase):
     def book(self, folder, code):
         return pf.FolderLedger(folder, code)
 
-    def test_a_review_round_trip_through_a_shared_folder(self):
+    def test_a_handover_through_a_shared_folder(self):
         self.pc("yohan")
         made = pf.create("alpha", "yohan", where=self.cloud)
         folder = Path(made["folder"])
@@ -43,36 +43,30 @@ class FolderProjectTests(unittest.TestCase):
         self.assertEqual(owner._me(), ("yohan", "owner"))
         minji_code = owner.grant("alpha", "minji", "editor", "yohan")["invite_code"]
         jun_code = owner.grant("alpha", "jun", "viewer", "yohan")["invite_code"]
-        deck = self.root / "plan.md"
-        deck.write_text("# 계획\n- 1단계\n", encoding="utf-8")
-        owner.attach("alpha", deck, "plan v1", "yohan")
+        owner.set_instructions("alpha", "테스트 결과를 꼭 적을 것", "yohan")
+        decision = owner.publish("alpha", "decision", "허브 대신 공유 폴더", "yohan",
+                                 details="밖에서도 똑같이 되게. 남은 일: 설치 파일",
+                                 context={"evidence": ["https://lab241.slack.com/p/1"]})
         owner.db.close()
         # what the cloud sees: sealed lines only
         stored = "".join(p.read_text("utf-8") for p in (folder / "log").glob("*.jsonl"))
-        self.assertNotIn("계획", stored)
-        self.assertNotIn("plan v1", stored)
+        self.assertNotIn("공유 폴더", stored)
+        self.assertNotIn("slack", stored)
 
         self.pc("minji")
         joined = pf.join(minji_code, str(folder))
         self.assertEqual((joined["joined_as"], joined["role"]), ("minji", "editor"))
         minji = self.book(folder, pf.decode(minji_code))
-        self.assertEqual(minji.timeline("alpha")[0]["summary"], "plan v1")
-        opened = minji.fetch("alpha", name="plan", into=self.root / "minji-dl")
-        self.assertEqual(Path(opened["path"]).read_text("utf-8"), deck.read_text("utf-8"))
-        minji.db.close()
-
-        self.pc("yohan")
-        owner = self.book(folder, code)
-        review = owner.request_review("alpha", "minji", "yohan", name="plan")["id"]
-        owner.db.close()
-
-        self.pc("minji")
-        minji = self.book(folder, pf.decode(minji_code))
-        self.assertEqual([e["key"] for e in pl.inbox_events(minji)], [f"{review}:requested"])
-        minji.comment(review, "2단계가 빠졌어요", "minji", files=[("memo.txt", b"step 2?")])
-        minji.respond_review(review, "changes_requested", "minji", note="2단계 추가해 주세요")
+        picked = minji.timeline("alpha")[0]
+        self.assertEqual((picked["summary"], picked["actor"]), ("허브 대신 공유 폴더", "yohan"))
+        self.assertEqual(minji.instructions("alpha"), "테스트 결과를 꼭 적을 것")
+        minji.publish("alpha", "progress", "설치 파일 초안", "minji", supersedes=None)
         with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):     # not in her name
             minji.publish("alpha", "decision", "요한이 결정함", "yohan")
+        with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):     # not hers to take back
+            minji.retract(decision["id"], "minji")
+        with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):     # the owner's
+            minji.set_instructions("alpha", "바꿔치기", "minji")
         minji.db.close()
 
         self.pc("jun")
@@ -80,14 +74,13 @@ class FolderProjectTests(unittest.TestCase):
         jun = self.book(folder, pf.decode(jun_code))
         with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):     # a viewer
             jun.publish("alpha", "progress", "읽기만 가능", "jun")
-        jun.comment(review, "저도 봤어요", "jun")                   # a viewer may comment
+        self.assertEqual([c["summary"] for c in jun.timeline("alpha")],
+                         ["설치 파일 초안", "허브 대신 공유 폴더"])
         jun.db.close()
 
         self.pc("yohan")
         owner = self.book(folder, code)
-        events = [e["key"] for e in pl.inbox_events(owner)]
-        self.assertIn(f"{review}:changes_requested", events)
-        self.assertEqual([c["by"] for c in owner.comments(review)], ["minji", "jun"])
+        self.assertEqual(owner.timeline("alpha")[0]["actor"], "minji")
         self.assertEqual(owner.members("alpha"), [{"member": "yohan", "role": "owner"},
                                                   {"member": "minji", "role": "editor"},
                                                   {"member": "jun", "role": "viewer"}])
@@ -147,7 +140,7 @@ class FolderProjectTests(unittest.TestCase):
 class FolderToolTests(unittest.IsolatedAsyncioTestCase):
     async def test_two_people_through_their_assistants_with_no_hub(self):
         """No hub anywhere: '프로젝트 만들어줘' lands in the cloud drive's folder; '민지 초대해'
-        gives a code and the folder to share; her assistant joins with the code and opens it."""
+        gives a code and the folder to share; her assistant joins with the code and reads it."""
         from mcp import Client
         from graph_mind_mcp_server import build_server
         root = Path(tempfile.mkdtemp())
@@ -164,9 +157,8 @@ class FolderToolTests(unittest.IsolatedAsyncioTestCase):
                 await call(action="set_name", name="요한")
                 made = (await call(action="create_project", project="제안서")).structured_content
                 self.assertTrue(made["folder"].startswith(str(cloud)))
-                note = root / "안.md"
-                note.write_text("# 제안 v1", encoding="utf-8")
-                await call(action="attach", project="제안서", path=str(note), summary="v1")
+                await call(action="publish", project="제안서", type="progress", summary="v1",
+                           details="슬랙에 v1 올림")
                 invited = (await call(action="invite", member="민지", role="editor",
                                       projects=["제안서"])).structured_content
             code = invited["granted"][0]["invite_code"]

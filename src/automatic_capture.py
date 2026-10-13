@@ -6,7 +6,6 @@ from pathlib import Path
 import hashlib
 import json
 import os
-import threading
 import time
 
 from associative_memory import AssociativeMemoryIndex
@@ -290,17 +289,6 @@ class AutomaticCaptureService:
         iteration = 0
         last_code_scan = None
         last_llm_scan = None
-        # project reviews waiting for this person, answers to theirs: a PC notification each,
-        # once, the moment the hub signals (and every inbox_poll_seconds regardless)
-        inbox_stop = threading.Event()
-        from project_ledger import watch_inbox
-        threading.Thread(target=watch_inbox, daemon=True, name="graph-mind-inbox",
-                         args=(inbox_stop, self.config.get("inbox_poll_seconds", 120))).start()
-        try:                                    # the inbox page notifications link to
-            import inbox_app
-            inbox_server = inbox_app.serve()
-        except Exception:
-            inbox_server = None
         try:
             while max_iterations is None or iteration < max_iterations:
                 monotonic_now = time.monotonic()
@@ -319,9 +307,6 @@ class AutomaticCaptureService:
                 if max_iterations is None or iteration < max_iterations:
                     time.sleep(self.config["poll_seconds"])
         finally:
-            inbox_stop.set()
-            if inbox_server is not None:
-                inbox_server.shutdown()
             try:
                 if self.pid_path.read_text(encoding="ascii").strip() == str(os.getpid()):
                     self.pid_path.unlink()

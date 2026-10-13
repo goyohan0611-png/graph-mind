@@ -118,6 +118,9 @@ CREATE POLICY requester_cancels ON ledger_reviews FOR UPDATE
 DROP TRIGGER IF EXISTS ledger_review_fixed ON ledger_reviews;
 CREATE TRIGGER ledger_review_fixed BEFORE UPDATE ON ledger_reviews
     FOR EACH ROW EXECUTE FUNCTION ledger_review_fixed();
+DROP TRIGGER IF EXISTS ledger_inbox_ping ON ledger_reviews;
+CREATE TRIGGER ledger_inbox_ping AFTER INSERT OR UPDATE ON ledger_reviews
+    FOR EACH STATEMENT EXECUTE FUNCTION ledger_inbox_ping();
 DROP POLICY IF EXISTS member_read ON ledger_projects;
 CREATE POLICY member_read ON ledger_projects FOR SELECT USING (name IN ({_MEMBER}));
 DROP POLICY IF EXISTS owner_update ON ledger_projects;
@@ -218,6 +221,12 @@ BEGIN
     RAISE EXCEPTION 'permission denied: a review keeps who, what and which version';
   END IF;
   RETURN NEW;
+END $f$;
+CREATE OR REPLACE FUNCTION ledger_inbox_ping() RETURNS trigger
+LANGUAGE plpgsql AS $f$
+BEGIN
+  PERFORM pg_notify('gm_inbox', '');
+  RETURN NULL;
 END $f$;
 CREATE OR REPLACE FUNCTION ledger_store_part(aid text, ver int, part int, p text, data bytea)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
@@ -1258,6 +1267,62 @@ def notify_new(show=True) -> list[dict]:
         temporary.write_text(json.dumps(sorted(seen)), encoding="utf-8")
         os.replace(temporary, state)
     return delivered
+
+
+def watch_inbox(stop, fallback: float = 120.0) -> None:
+    """Notifications in real time. One listening connection per hub: the hub signals the moment
+    a review is requested or answered (an empty NOTIFY: no content, so nobody learns anything
+    from it), and notify_new then reads what is new through the usual permission checks. It
+    reads every `fallback` seconds anyway, and a dropped hub is listened to again (catching up
+    first), so nothing waits on a signal that never came. Runs until `stop` is set."""
+    import threading
+    wake, listening = threading.Event(), {}
+
+    def listen(url):
+        import psycopg
+        while not stop.is_set():
+            try:
+                with psycopg.connect(url, autocommit=True, connect_timeout=5) as connection:
+                    connection.execute("LISTEN gm_inbox")
+                    wake.set()                       # (re)connected: catch up on what was missed
+                    while not stop.is_set():
+                        for _ in connection.notifies(timeout=30, stop_after=1):
+                            wake.set()
+                        connection.execute("SELECT 1")   # a dropped connection raises here
+            except Exception:
+                stop.wait(30)
+
+    while not stop.is_set():
+        for key, url in _hub_urls().items():
+            if key not in listening or not listening[key].is_alive():
+                listening[key] = threading.Thread(target=listen, args=(url,), daemon=True,
+                                                  name="graph-mind-inbox")
+                listening[key].start()
+        try:
+            notify_new()
+        except Exception:
+            pass
+        wake.wait(fallback)
+        wake.clear()
+
+
+def _hub_urls() -> dict:
+    """Every hub holding this person's project brains: their own, and each team hub."""
+    import brain_log
+    settings, urls = brain_log._config(), {}
+    try:
+        if settings.get("hosts_projects"):
+            urls["own"] = brain_log.local_postgres()
+        elif brain_log.is_database(brain_log.folder()):
+            urls["own"] = brain_log.folder()
+    except Exception:
+        pass                                     # down now: the fallback round finds it later
+    for code in settings.get("team_hubs", []):
+        try:
+            urls[code] = _team_url(_decode_team(code))
+        except Exception:
+            pass
+    return urls
 
 
 def toast(title: str, body: str) -> bool:

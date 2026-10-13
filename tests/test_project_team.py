@@ -356,6 +356,36 @@ class TeamHubTests(unittest.TestCase):
         owner.db.close()
         minji.db.close()
 
+    def test_a_review_request_reaches_the_reviewer_in_real_time(self):
+        """The reviewer's PC listens to the hub: the notification comes within seconds of the
+        request, not at the next round (set to ten minutes here)."""
+        import threading
+        owner = pl.own_ledger()
+        owner.create_project("alpha", "yohan")
+        owner.db.close()
+        with mock.patch.object(brain_log, "_firewall", return_value="open"):
+            code = pl.invite("minji", "editor", ["alpha"], "yohan")["team_code"]
+        owner = pl.own_ledger()
+        notes = self.root / "notes.md"
+        notes.write_text("# v1", encoding="utf-8")
+        owner.attach("alpha", notes, "notes v1", "yohan")
+
+        os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "minji.json")
+        pl.join_team(code)
+        shown, stop = threading.Event(), threading.Event()
+        with mock.patch.object(pl, "toast", side_effect=lambda *a: shown.set() or True) as toast:
+            watcher = threading.Thread(target=pl.watch_inbox, args=(stop, 600), daemon=True)
+            watcher.start()
+            time.sleep(8)                                     # listening, first round done
+            self.assertFalse(shown.is_set())
+            started = time.monotonic()
+            owner.request_review("alpha", "minji", "yohan", name="notes")
+            self.assertTrue(shown.wait(10))
+            self.assertLess(time.monotonic() - started, 10)
+            stop.set()
+        self.assertIn("검토 요청", toast.call_args[0][0])
+        owner.db.close()
+
     def test_two_uploads_of_the_same_file_at_once_get_two_versions(self):
         import threading
         owner = pl.own_ledger()

@@ -29,6 +29,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 - Reviews are held to their rules on the hub itself, not only in Python: the requester can only
   cancel, the reviewer can only open and decide, a closed review stays closed, and nobody changes
   who reviews or which version.
+- **Notifications in real time**: each PC listens to its hubs (Postgres LISTEN/NOTIFY); a review
+  request or answer shows within seconds instead of at the next 2-minute check, which stays as a
+  fallback. The signal carries nothing; what is new is read with the usual permission checks.
 - A PC notification that failed to show is tried again on the next round instead of being
   recorded as delivered.
 - `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,

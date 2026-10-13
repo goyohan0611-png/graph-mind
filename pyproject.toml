@@ -23,7 +23,7 @@ dependencies = [
     "onnxruntime>=1.17",
     "tokenizers>=0.15",
     "huggingface_hub>=0.20",
-    "psycopg[binary]",
+    "psycopg[binary]>=3.2",
     "cryptography",          # seals lines on a shared hub
     "psutil",
     "fasteners",

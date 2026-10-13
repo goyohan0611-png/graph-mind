@@ -305,8 +305,8 @@ only what someone publishes.
 - **Instructions**: each project can carry standing guidance for every AI that works on it.
 - **Reviews**: *"설치파일 완성했어. 프로젝트에 올리고 민지에게 확인받아줘."* publishes the
   version with its context (what changed, where, why, what it answers, how it was verified,
-  what to check) and asks Minji. Her PC shows a notification; in her own assistant, *"요한이
-  만든 설치파일 띄워봐. 이전 버전과 뭐가 달라?"* opens that exact version with the changes
+  what to check) and asks Minji. Her PC shows a notification within seconds (it listens to the
+  hub); in her own assistant, *"요한이 만든 설치파일 띄워봐. 이전 버전과 뭐가 달라?"* opens that exact version with the changes
   measured from the files (slide by slide, paragraph by paragraph, cell by cell, line by line),
   the publisher's account kept apart from the record ("not recorded" where nothing was written)
   and the decisions and earlier reviews it builds on. *"승인해"* or *"이 부분 수정 요청해"* is

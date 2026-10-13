@@ -6,6 +6,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import threading
 import time
 
 from associative_memory import AssociativeMemoryIndex
@@ -289,20 +290,15 @@ class AutomaticCaptureService:
         iteration = 0
         last_code_scan = None
         last_llm_scan = None
-        last_inbox = None
+        # project reviews waiting for this person, answers to theirs: a PC notification each,
+        # once, the moment the hub signals (and every inbox_poll_seconds regardless)
+        inbox_stop = threading.Event()
+        from project_ledger import watch_inbox
+        threading.Thread(target=watch_inbox, daemon=True, name="graph-mind-inbox",
+                         args=(inbox_stop, self.config.get("inbox_poll_seconds", 120))).start()
         try:
             while max_iterations is None or iteration < max_iterations:
                 monotonic_now = time.monotonic()
-                # project reviews waiting for this person, answers to theirs: a PC notification
-                # each, once; a hub that is offline is asked again next round
-                if last_inbox is None or monotonic_now - last_inbox >= self.config.get(
-                        "inbox_poll_seconds", 120):
-                    last_inbox = monotonic_now
-                    try:
-                        from project_ledger import notify_new
-                        notify_new()
-                    except Exception:
-                        pass
                 code_due = (last_code_scan is None or monotonic_now - last_code_scan
                             >= self.config.get("code_poll_seconds", 120))
                 llm_config = self.config.get("semantic_llm", {})
@@ -318,6 +314,7 @@ class AutomaticCaptureService:
                 if max_iterations is None or iteration < max_iterations:
                     time.sleep(self.config["poll_seconds"])
         finally:
+            inbox_stop.set()
             try:
                 if self.pid_path.read_text(encoding="ascii").strip() == str(os.getpid()):
                     self.pid_path.unlink()

@@ -3,7 +3,7 @@ numpy
 onnxruntime>=1.17
 tokenizers>=0.15
 huggingface_hub>=0.20
-psycopg[binary]
+psycopg[binary]>=3.2
 cryptography
 psutil
 fasteners

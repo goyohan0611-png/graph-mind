@@ -5,7 +5,7 @@
 #
 # It installs uv (Astral's installer, to your home folder, no sudo), which brings its own
 # Python 3.12; installs Graph-MIND with it; then connects your AI apps (graph-mind-install).
-# Arguments go to graph-mind-install (... | sh -s -- --name 고요한). GRAPH_MIND_VERSION pins one.
+# Arguments go to graph-mind-install (... | sh -s -- --name "Your Name"). GRAPH_MIND_VERSION pins one.
 set -eu
 
 if ! command -v uv >/dev/null 2>&1; then

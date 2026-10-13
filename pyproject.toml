@@ -69,7 +69,6 @@ py-modules = [
     "semantic_llm_extractor",
     "semantic_memory",
     "semantic_recall",
-    "temporal_resolver",
     "universal_personal_memory",
     "vector_cache",
 ]

@@ -46,7 +46,7 @@ python src/install.py
   autostart entry on Linux);
 - downloads the embedding model (about 470 MB, once).
 
-Running it again is safe; run it again if you move the folder. Options: `--name 고요한` (the name
+Running it again is safe; run it again if you move the folder. Options: `--name "Your Name"` (the name
 teammates see), `--join <code>` (another PC's memory or a team invite). The server is also listed
 in the [MCP Registry](https://registry.modelcontextprotocol.io) as
 `io.github.goyohan0611-png/graph-mind`.

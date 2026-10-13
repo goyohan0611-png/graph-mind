@@ -5,10 +5,10 @@ private brain, and every project they choose to share has a shared one. Nothing 
 a project by itself, only what someone publishes. Files and the talk about them stay in Slack, a
 drive or GitHub; the project brain is what lets another person's AI pick the work up.
 
-> A: *"Postgres 문제 수정 끝냈어. 공유해."* → a checkpoint: what changed and why, files, tests, the
-> commit at the stage it reached, what is left.
-> A: *"제안서 슬랙에 올렸어. 프로젝트에도 남겨줘."* → a checkpoint with the Slack link.
-> B, next day, in another app: *"어제 Postgres 문제 어떻게 됐고 남은 게 뭐야?"*
+> A: *"I fixed the Postgres issue. Share it."* → a checkpoint: what changed and why, files, tests,
+> the commit at the stage it reached, what is left.
+> A: *"I posted the proposal in Slack. Note it in the project."* → a checkpoint with the Slack link.
+> B, next day, in another app: *"What happened with the Postgres issue, and what is left?"*
 
 - **Checkpoints**: decision, progress, blocker, next action, artifact, release, with their context
   (what changed, where, why, how it was verified, what is left). Later ones can supersede them; a
@@ -19,8 +19,8 @@ drive or GitHub; the project brain is what lets another person's AI pick the wor
 - **Instructions**: standing guidance for every AI that works on the project.
 - **Members, as on GitHub**: whoever creates a project owns it. Owners add people (owner, editor or
   viewer), set the instructions and can retract anyone's checkpoint; editors publish; viewers read.
-  *"민지를 graph-mind 프로젝트 편집자로 초대해"* gives a code for her; her AI joins with it. Every
-  action, reads included, is audited.
+  *"Invite Mina to the graph-mind project as an editor"* gives a code for her; her AI joins with
+  it. Every action, reads included, is audited.
 - When a project's hub cannot be reached, the assistant says the latest state is unknown instead of
   guessing.
 
@@ -39,10 +39,10 @@ Linux on x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS):
 
 ```bash
 graph-mind-hub host                # once: this machine becomes a hub (it stays one)
-graph-mind-hub add-user 민지        # an account and the code to give her (no projects yet)
+graph-mind-hub add-user Mina       # an account and the code to give her (no projects yet)
 graph-mind-hub users               # accounts and their roles; never what is in a project
-graph-mind-hub remove-user 민지 --transfer-to 준   # projects only she owned go to 준
-graph-mind-hub delete-project 이름 --confirm 이름
+graph-mind-hub remove-user Mina --transfer-to Jun   # projects only she owned go to Jun
+graph-mind-hub delete-project NAME --confirm NAME
 graph-mind-hub audit
 ```
 

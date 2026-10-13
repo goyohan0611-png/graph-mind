@@ -4,7 +4,7 @@
 #
 # It installs uv (Astral's installer, to your user folder, no administrator rights), which
 # brings its own Python 3.12; installs Graph-MIND with it; then connects your AI apps
-# (graph-mind-install). Arguments after the script go to graph-mind-install, e.g. --name 고요한
+# (graph-mind-install). Arguments after the script go to graph-mind-install, e.g. --name "Your Name"
 # or --join <code>. Set GRAPH_MIND_VERSION to install one version (CI does).
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8

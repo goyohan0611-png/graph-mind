@@ -44,11 +44,11 @@ No Python needed; nothing else to set up. Restart your AI apps afterwards. Alrea
   your own PC. Saving is a database write: no model call, no tokens.
 - **Any AI picks up where another left off.** When a question depends on the past, the model calls
   Graph-MIND over MCP and gets back the few thousand tokens that answer it. Korean and English.
-- **One memory across your PCs.** Tell the AI *"다른 PC도 붙게 해줘"*, paste the code it gives you
+- **One memory across your PCs.** Tell the AI *"let my other PCs use this memory"*, paste the code it gives you
   to the AI on the other PC. Office network or [Tailscale](https://tailscale.com); TLS and
   encrypted end to end.
 - **Yours.** No account, no cloud of its own, no telemetry. Secrets are masked before anything is
-  stored, and *"아까 입력한 비밀번호 지워줘"* deletes it everywhere. [docs/privacy.md](docs/privacy.md)
+  stored, and *"delete the password I typed earlier"* deletes it everywhere. [docs/privacy.md](docs/privacy.md)
 - **Teams, if you want them.** Share a project's decisions and progress with teammates' AIs, never
   your personal memory; files stay in Slack and GitHub. [docs/teams.md](docs/teams.md)
 

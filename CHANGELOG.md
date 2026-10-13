@@ -35,6 +35,19 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   publisher's account; the file opens in its own app; approve or ask for changes from there.
   Clicking a notification opens its review. Served by the capture service on 127.0.0.1 only, with
   a per-install token.
+- **Every project is a brain of its own.** On a hub, each project has its own schema in the hub's
+  database (`gmhub`, apart from personal memory), its own reader/writer/owner groups and its own
+  key; teammates' logins cannot reach the personal memory database at all. A project can be
+  backed up, moved or removed whole. Hubs from before are converted on first start: each project
+  moves into its own schema and is sealed again with its own key, files included.
+- **Review threads like Slack**: comments and replies under each review, with any files attached
+  (screenshots, marked-up copies) kept as versions; the author can edit a comment or an answer and
+  every earlier wording stays in its history. New comments notify the other side.
+- **No file size limit**: files go up and down in 8 MB parts, never whole in memory; a file that
+  changes during its upload is refused. Very large versions are compared by size and hash.
+- **Space**: an owner sees each result's versions and sizes and clears older versions; the hub's
+  operator sees the disk and each project's size (never its file names) and can remove a project
+  whole (`graph-mind-hub usage`, `delete-project`, or the inbox's 용량 관리 tab on the hub's PC).
 - **Names people choose.** Teammates see a name the person chose, not a PC's name: the assistant
   asks for it before creating or sharing a project and when joining with an invite
   (`set_name`, `join_team` + `name`, `graph-mind-install --name`). Renaming applies on every hub

@@ -94,8 +94,13 @@ class TeamHubTests(unittest.TestCase):
         self.assertEqual(minji.timeline("alpha", by="minji")[0]["summary"], "허브는 PC 한 대")
         with self.assertRaisesRegex(ValueError, "PROJECT_NOT_FOUND"):
             minji.timeline("beta")
-        with self.assertRaises(Exception) as denied:                     # personal memory
-            minji.db.execute("SELECT line FROM brain_log").fetchall()
+        import psycopg
+        with self.assertRaises(psycopg.OperationalError):               # personal memory: her
+            psycopg.connect(pl._team_url(pl._decode_team(editor)).replace(  # login cannot even
+                f"/{pl.HUB_DATABASE}", "/graphmind"), connect_timeout=5)    # reach its database
+        beta = minji.db.execute("SELECT hub_schema('beta')").fetchone()[0]
+        with self.assertRaises(psycopg.Error) as denied:                 # nor another project's
+            minji.db.execute(f'SELECT * FROM "{beta}".ledger_checkpoints').fetchall()
         self.assertIn("permission denied", str(denied.exception))
         mine = minji.publish("alpha", "progress", "허브 재시도 추가", "minji")
         with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):
@@ -147,7 +152,7 @@ class TeamHubTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "PROJECT_NOT_FOUND"):
             host.grant("gamma", "yohan", "owner", "yohan")
         with self.assertRaisesRegex(ValueError, "ARTIFACT_NOT_FOUND"):
-            host._sql("SELECT ledger_read_part(?,0)", (attached["artifact_id"],)).fetchall()
+            host._sql("SELECT hub_read_part(?,?,0)", ("gamma", attached["artifact_id"])).fetchall()
         host.db.close()
 
         self.assertEqual(jun.names(), ["gamma"])
@@ -341,6 +346,7 @@ class TeamHubTests(unittest.TestCase):
         notes.write_text("# v1", encoding="utf-8")
         owner.attach("alpha", notes, "notes v1", "yohan")
         review = owner.request_review("alpha", "minji", "yohan", name="notes")["id"]
+        minji._require("alpha")                                     # her session: alpha's schema
         change = "UPDATE ledger_reviews SET status=%s WHERE id=%s"
         with self.assertRaises(psycopg.Error):                       # requester approving
             owner.db.execute(change, ("approved", review))
@@ -420,6 +426,105 @@ class TeamHubTests(unittest.TestCase):
         owner = pl.own_ledger()
         self.assertEqual(owner.by, "고요한")
         self.assertIn({"member": "고요한", "role": "owner"}, owner.members("alpha"))
+        owner.db.close()
+
+    def test_projects_from_one_shared_set_of_tables_become_brains_of_their_own(self):
+        """A hub from before: every project in one set of tables beside personal memory, all
+        sealed with one hub key. Each moves into its own schema under its own key, file and
+        history included, and reads back the same."""
+        import hashlib
+        import json
+        brain_log._save({"share_password": "pw-before"})
+        old_key = pl._fernet(pl.ledger_secret("pw-before"))
+        brain_log.local_postgres()
+        content = "옛 허브의 파일\n".encode("utf-8")
+        location = f"{pl.hub_artifacts().as_posix()}/{hashlib.md5(b'legacy').hexdigest()}" \
+                   "__af-0123456789ab__v1"
+        Path(location + "__p0000.bin").write_bytes(old_key.encrypt(content))
+        artifact = {"kind": "file", "artifact_id": "af-0123456789ab", "name": "a.txt",
+                    "version": 1, "sha256": hashlib.sha256(content).hexdigest(),
+                    "size": len(content), "parts": 1, "location": location, "created_by": "yohan"}
+        checkpoint = {"id": "cp-0123456789ab", "project": "legacy", "type": "artifact",
+                      "summary": "옛 결과물", "details": "", "actor": "yohan",
+                      "created_at": "2026-10-01T10:00:00+09:00", "artifacts": [artifact],
+                      "source_refs": [], "supersedes": None, "context": {}}
+        with pl._admin("graphmind") as old:
+            old.execute("CREATE TABLE ledger_projects(name TEXT PRIMARY KEY, created_by TEXT, "
+                        "created_at TEXT, instructions TEXT NOT NULL DEFAULT '')")
+            old.execute("CREATE TABLE ledger_checkpoints(id TEXT PRIMARY KEY, project TEXT, "
+                        "stamp TEXT, created_at TEXT, status TEXT, actor_role TEXT, payload TEXT)")
+            old.execute("CREATE TABLE ledger_artifacts(artifact_id TEXT PRIMARY KEY, project TEXT, "
+                        "version INT, parts INT, size BIGINT, location TEXT, status TEXT, "
+                        "actor_role TEXT, created_at TEXT)")
+            old.execute("CREATE TABLE ledger_access(member_role TEXT, project TEXT, role TEXT, "
+                        "member TEXT)")
+            old.execute("CREATE TABLE ledger_audit(stamp TEXT, at TEXT, actor_role TEXT, "
+                        "actor TEXT, action TEXT, target TEXT)")
+            old.execute("INSERT INTO ledger_projects VALUES('legacy', 'yohan', '2026-10-01', '')")
+            old.execute("INSERT INTO ledger_checkpoints VALUES(%s, 'legacy', '1', %s, "
+                        "'published', 'graphmind', %s)",
+                        (checkpoint["id"], checkpoint["created_at"],
+                         old_key.encrypt(json.dumps(checkpoint).encode()).decode()))
+            old.execute("INSERT INTO ledger_artifacts VALUES('af-0123456789ab', 'legacy', 1, 1, "
+                        "%s, %s, 'published', 'graphmind', '2026-10-01')", (len(content), location))
+            old.execute("INSERT INTO ledger_access VALUES('graphmind', 'legacy', 'owner', 'yohan')")
+            old.execute("INSERT INTO ledger_audit VALUES('1', 'x', 'graphmind', 'yohan', "
+                        "'publish', 'legacy/cp-0123456789ab')")
+        pl._PREPARED.clear()
+        pl.prepare_hub()
+
+        book = pl.own_ledger()
+        self.assertEqual(book.timeline("legacy")[0]["summary"], "옛 결과물")
+        opened = book.fetch("legacy", name="a.txt", into=self.root / "out")
+        self.assertEqual(Path(opened["path"]).read_bytes(), content)
+        self.assertEqual(book.members("legacy"), [{"member": "yohan", "role": "owner"}])
+        schema = book.db.execute("SELECT hub_schema('legacy')").fetchone()[0]
+        book.db.close()
+        self.assertFalse(Path(location + "__p0000.bin").exists())          # moved, not copied
+        with pl._admin() as hub:                                           # under its own key
+            stored = hub.execute(f'SELECT payload FROM "{schema}".ledger_checkpoints').fetchone()[0]
+        with self.assertRaises(Exception):
+            old_key.decrypt(stored.encode())
+        with pl._admin("graphmind") as old:
+            self.assertIsNotNone(old.execute(
+                "SELECT to_regclass('public.old_ledger_projects')").fetchone()[0])
+
+    def test_a_thread_on_the_hub_and_the_operators_space_tools(self):
+        """Any member comments (a viewer too, with a file); only the author edits; the operator
+        sees sizes per project and removes a project whole."""
+        owner = pl.own_ledger()
+        owner.create_project("alpha", "yohan")
+        owner.db.close()
+        with mock.patch.object(brain_log, "_firewall", return_value="open"):
+            minji = pl._team_ledger(pl.invite("minji", "editor", ["alpha"], "yohan")["team_code"])
+            jun = pl._team_ledger(pl.invite("jun", "viewer", ["alpha"], "yohan")["team_code"])
+        owner = pl.own_ledger()
+        notes = self.root / "notes.md"
+        notes.write_text("# v1", encoding="utf-8")
+        owner.attach("alpha", notes, "notes v1", "yohan")
+        review = owner.request_review("alpha", "minji", "yohan", name="notes")["id"]
+        said = minji.comment(review, "2번 문단 확인", "minji")
+        looked = jun.comment(review, "스크린샷 첨부", "jun", parent_id=said["id"],
+                             files=[("shot.png", b"PNG" + bytes(range(200)))])
+        self.assertEqual(looked["attachments"][0]["name"], "shot.png")
+        with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):
+            owner.edit_comment(said["id"], "바꿔치기", "yohan")
+        minji.edit_comment(said["id"], "2번 문단 숫자 확인", "minji")
+        thread = owner.comments(review)
+        self.assertEqual([c["text"] for c in thread], ["2번 문단 숫자 확인", "스크린샷 첨부"])
+        got = owner.attachment(review, looked["attachments"][0]["artifact_id"], self.root / "s.png")
+        self.assertEqual(Path(got["path"]).read_bytes(), b"PNG" + bytes(range(200)))
+        for book in (owner, minji, jun):
+            book.db.close()
+
+        used = pl.hub_usage()
+        self.assertEqual([(p["project"], p["files"]) for p in used["projects"]], [("alpha", 2)])
+        self.assertGreater(used["disk"]["free"], 0)
+        with self.assertRaisesRegex(ValueError, "CONFIRM"):
+            pl.delete_project("alpha", confirm="alph")
+        self.assertGreater(pl.delete_project("alpha", confirm="alpha")["freed_bytes"], 0)
+        owner = pl.own_ledger()
+        self.assertEqual(owner.names(), [])
         owner.db.close()
 
     def test_two_uploads_of_the_same_file_at_once_get_two_versions(self):

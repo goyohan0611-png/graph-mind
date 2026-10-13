@@ -353,6 +353,20 @@ def allow_from_network(database_and_role: str, why: str) -> None:
     time.sleep(0.3)                          # ponytail: the rules have no "loaded" flag to read
 
 
+def forbid_from_network(database_and_role: str) -> None:
+    """Take back a rule allow_from_network wrote (teammates once reached the personal memory
+    database's server entry; now only the hub's)."""
+    import psycopg
+    hba = _pg_data() / "pg_hba.conf"
+    gone = {f"{kind} {database_and_role} all scram-sha-256" for kind in ("host", "hostssl")}
+    before = hba.read_text(encoding="utf-8").splitlines()
+    lines = [line for line in before if line.strip() not in gone]
+    if lines != before:
+        hba.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        with psycopg.connect(_admin_uri(), autocommit=True) as admin:
+            admin.execute("SELECT pg_reload_conf()")
+
+
 def _certificate(data: Path) -> str:
     """This hub's TLS certificate (DER, base64url), made once: self-signed, and carried by every
     code for this hub, so a PC accepts this hub and nothing in between (sslmode=verify-ca)."""

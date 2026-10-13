@@ -278,7 +278,8 @@ only what someone publishes.
   local ids they rest on (never text), what they supersede. A mistaken one can be retracted.
 - **Results**: files are stored on the hub as versions (v1, v2, … never overwritten), checked by
   SHA-256 when opened, refused if they contain an API key or password (Office files are checked
-  inside), up to 50 MB. Code is linked by repository, branch and commit, not copied.
+  inside), any size (stored and fetched in 8 MB parts). Code is linked by repository, branch
+  and commit, not copied.
 - **Members, as on GitHub**: whoever creates a project owns it. Only owners add people (owner,
   editor or viewer), change roles, set the project's instructions or take back someone else's
   checkpoint; editors publish and attach, viewers read. On the PC hosting your hub, *"민지를
@@ -296,6 +297,8 @@ only what someone publishes.
   graph-mind-hub add-user 민지        # an account and the code to give her (no projects yet)
   graph-mind-hub users               # accounts and their roles; never what is in a project
   graph-mind-hub remove-user 민지 --transfer-to 준   # projects only she owned go to 준
+  graph-mind-hub usage               # disk, and what each project takes (sizes only)
+  graph-mind-hub delete-project 이름 --confirm 이름
   graph-mind-hub audit
   ```
 
@@ -311,6 +314,11 @@ only what someone publishes.
   the publisher's account kept apart from the record ("not recorded" where nothing was written)
   and the decisions and earlier reviews it builds on. *"승인해"* or *"이 부분 수정 요청해"* is
   recorded on that version only, and the requester is notified. Opening is never approving.
+- **Each project its own brain**: on a hub every project has its own schema, groups and key, in a
+  database apart from anyone's personal memory, so it can be backed up, moved or removed whole.
+- **Threads**: under each review, comments and replies with files attached; edits keep history.
+- **Space**: owners clear old versions of their results; the operator sees sizes per project
+  (`graph-mind-hub usage`) and removes a project (`graph-mind-hub delete-project`).
 - **Inbox**: *"요청함 열어줘"*, the Start menu entry or `graph-mind-inbox` opens one page with
   the reviews waiting for you, the answers to your requests and each project's latest work;
   clicking a notification opens that review there. It runs on your PC only (127.0.0.1, with a

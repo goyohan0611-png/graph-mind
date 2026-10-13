@@ -76,7 +76,7 @@ class InboxAppTests(unittest.TestCase):
         self.assertEqual([r["id"] for r in listed["received"]], [self.review])
         self.assertEqual(listed["received"][0]["version"], 2)
         self.assertTrue(listed["received"][0]["unread"])
-        self.assertEqual(listed["projects"], ["p"])
+        self.assertEqual(listed["projects"], [{"name": "p", "role": "owner"}])
 
         opened = json.loads(self.call(f"/api/review/{self.review}")[1])
         self.assertEqual(opened["review"]["status"], "in_review")
@@ -113,6 +113,35 @@ class InboxAppTests(unittest.TestCase):
         book.db.close()
         self.call("/api/mark", {"review_id": self.review, "hidden": False})
         self.assertFalse(json.loads(self.call("/api/inbox")[1])["received"][0]["hidden"])
+
+    def test_a_comment_with_a_file_its_reply_and_an_edit(self):
+        request = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/upload?name=shot.png",
+                                         data=b"PNG-image-bytes", method="POST",
+                                         headers={"X-Graph-Mind-Token": self.token})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            sent = json.loads(response.read())
+        status, body = self.call("/api/comment", {"review_id": self.review, "text": "여기 잘려요",
+                                                  "uploads": [sent["upload"]]})
+        said = json.loads(body)
+        self.assertEqual((status, said["attachments"][0]["name"]), (200, "shot.png"))
+        reply = json.loads(self.call("/api/comment", {"review_id": self.review, "text": "고쳤어요",
+                                                      "parent_id": said["id"]})[1])
+        self.assertEqual(reply["parent_id"], said["id"])
+        self.call("/api/edit", {"review_id": self.review, "comment_id": said["id"],
+                                "text": "여기 제목이 잘려요"})
+        thread = json.loads(self.call(f"/api/review/{self.review}")[1])["comments"]
+        self.assertEqual(thread[0]["text"], "여기 제목이 잘려요")
+        self.assertEqual(thread[0]["edits"][0]["text"], "여기 잘려요")
+        status, body = self.call(f"/api/attachment/{self.review}/{said['attachments'][0]['artifact_id']}")
+        self.assertEqual(status, 200)
+        self.assertEqual(self.call("/api/comment", {"review_id": self.review, "text": "x",
+                                                    "uploads": ["../../etc"]})[0], 400)
+
+    def test_space_for_owners_and_the_operator_tab_only_where_the_hub_runs(self):
+        used = json.loads(self.call("/api/storage/p")[1])
+        self.assertEqual([f["name"] for f in used["files"]], ["plan.md"])
+        self.assertEqual(self.call("/api/hub/usage")[0], 400)       # this PC runs no hub
+        self.assertFalse(json.loads(self.call("/api/inbox")[1])["hosting"])
 
     def test_a_notification_links_to_its_review(self):
         self.assertTrue(inbox_app.url(self.review).endswith(f"#review/{self.review}"))

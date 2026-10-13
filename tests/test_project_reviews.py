@@ -112,6 +112,58 @@ class ReviewFlowTests(unittest.TestCase):
         self.assertEqual((changes["lines_added"], changes["lines_removed"]), (1, 1))
         self.assertTrue(pl.describe_changes("x.bin", b"\0a", b"\0b")["binary"])
 
+    def test_a_thread_under_the_review_with_files_and_edits_kept(self):
+        a = self.act_as("yohan")
+        self.book.attach("graph-mind", deck(self.dir / "안.pptx", {1: "초안"}), "안 v1", a)
+        review = self.book.request_review("graph-mind", "minji", a, name="안")["id"]
+        b = self.act_as("minji")
+        shot = self.dir / "screen.png"
+        shot.write_bytes(bytes([0x89]) + b"PNG" + bytes(range(256)) * 40)
+        first = self.book.comment(review, "1번 슬라이드 제목이 잘려요", b, files=[shot])
+        self.assertEqual(first["attachments"][0]["name"], "screen.png")
+        a = self.act_as("yohan")
+        self.assertEqual([e["key"] for e in pl.inbox_events(self.book)
+                          if e["key"].startswith("cm-")], [first["id"]])   # he hears of it
+        reply = self.book.comment(review, "폰트 줄였습니다", a, parent_id=first["id"],
+                                  files=[("fixed.txt", "제목 18pt".encode())])
+        with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):
+            self.book.edit_comment(first["id"], "바꿔치기", a)               # not his
+        b = self.act_as("minji")
+        edited = self.book.edit_comment(first["id"], "1번 슬라이드 제목이 잘립니다", b)
+        self.assertEqual(edited["edits"][0]["text"], "1번 슬라이드 제목이 잘려요")  # history kept
+        self.book.respond_review(review, "changes_requested", b, note="제목만 고쳐 주세요")
+        answered = self.book.edit_response(review, "제목 크기만 고쳐 주세요", b)
+        self.assertEqual(answered["response"]["edits"][0]["note"], "제목만 고쳐 주세요")
+        thread = self.book.open_review(review, into=self.dir / "dl", by=b)["comments"]
+        self.assertEqual([c["id"] for c in thread], [first["id"], reply["id"]])
+        self.assertEqual(thread[1]["parent_id"], first["id"])
+        saved = self.book.attachment(review, first["attachments"][0]["artifact_id"],
+                                     self.dir / "got.png")
+        self.assertEqual(Path(saved["path"]).read_bytes(), shot.read_bytes())
+        with self.assertRaisesRegex(ValueError, "SECRET_IN_FILE"):
+            self.book.comment(review, "", b, files=[("key.txt", b"sk-ant-api03-" + b"x" * 90)])
+
+    def test_any_size_goes_up_and_old_versions_can_be_cleared(self):
+        a = self.act_as("yohan")
+        big = self.dir / "video.bin"
+        with big.open("wb") as stream:                          # bigger than one 8 MB part
+            for n in range(5):
+                stream.write(bytes([n]) * (4 * 2**20))
+        v1 = self.book.attach("graph-mind", big, "영상 v1", a)["artifacts"][0]
+        self.assertEqual((v1["size"], v1["parts"]), (20 * 2**20, 3))
+        opened = self.book.fetch("graph-mind", name="video", into=self.dir / "dl")
+        self.assertEqual(Path(opened["path"]).read_bytes(), big.read_bytes())
+        with big.open("ab") as stream:
+            stream.write(b"more")
+        self.book.attach("graph-mind", big, "영상 v2", a)
+        used = self.book.storage("graph-mind")
+        self.assertEqual([v["version"] for v in used["files"][0]["versions"]], [2, 1])
+        freed = self.book.purge_versions("graph-mind", "video.bin", a, keep=1)
+        self.assertEqual(freed["freed_bytes"], 20 * 2**20)
+        with self.assertRaisesRegex(ValueError, "ARTIFACT_NOT_FOUND"):
+            self.book.fetch("graph-mind", name="video", version=1, into=self.dir / "dl")
+        self.assertEqual(self.book.storage("graph-mind")["total"], 20 * 2**20 + 4)
+
 
 class NotificationTests(unittest.TestCase):
     def test_a_notification_that_failed_is_tried_again(self):

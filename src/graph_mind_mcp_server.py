@@ -793,7 +793,8 @@ def build_server(db_path=None):
                                          "join_team", "leave_team", "audit", "compare",
                                          "request_review", "reviews", "open_review",
                                          "respond_review", "cancel_review", "inbox",
-                                         "set_name"],
+                                         "set_name", "comment", "edit_comment",
+                                         "edit_response", "storage", "purge_versions"],
                          project: str | None = None,
                          type: Literal["decision", "progress", "blocker", "next_action",
                                        "artifact", "release"] | None = None,
@@ -811,7 +812,9 @@ def build_server(db_path=None):
                          decision: Literal["approved", "changes_requested",
                                            "withdrawn"] | None = None,
                          focus: str | None = None, note: str | None = None,
-                         against: int | None = None) -> dict[str, Any]:
+                         against: int | None = None, files: list[str] | None = None,
+                         comment_id: str | None = None, parent_id: str | None = None,
+                         keep: int | None = None) -> dict[str, Any]:
         """Project brains: each shared project keeps its own checkpoints, decisions, results and
         members, apart from the user's personal memory and from every other project. Nothing
         personal is shared through this; only what is published here, when the user asks.
@@ -831,8 +834,8 @@ def build_server(db_path=None):
           (committed / pushed / pr_open / merged / released); never call work done when the
           stage says otherwise. `supersedes`=<id> replaces an earlier decision.
         - `attach` + `path` + `summary`: a document, image or PDF as a new version (a copy of the
-          file as it is now; never overwrites; refused if it holds a key or password, or exceeds
-          50 MB); a folder with index.html as a demo bundle; a git folder as a commit link.
+          file as it is now, any size; never overwrites; refused if it holds a key or password);
+          a folder with index.html as a demo bundle; a git folder as a commit link.
         - `timeline`: "누가 어디까지 했어?" — answer from it only: who, what, what is left, and
           when it was last shared. Do not guess at anything newer. Follow its `instructions`.
         - `open` (+ `name`, `version`): "제안서 띄워봐" — download that version and open it.
@@ -853,6 +856,13 @@ def build_server(db_path=None):
           sure it is the one reviewed). Opening is never approving, and approving v3 approves
           v3 only. A decision can be changed later; "승인 취소해" = `decision` withdrawn (the
           review is open again). `cancel_review` + `review_id` (requester).
+          The thread under a review, like Slack: "민지한테 3번 슬라이드 색 바꾸라고 답글 달아줘"
+          = `comment` + `review_id` + `note` (+ `parent_id` to reply to a comment, + `files`:
+          paths of screenshots or marked-up copies, stored as versions). `edit_comment` +
+          `comment_id` + `note`, `edit_response` + `review_id` + `note`: the author rewords; the
+          earlier wording stays in history. `respond_review` takes `files` too.
+        - Space: `storage` + `project` (each result's versions and sizes); `purge_versions` +
+          `project` + `name` (+ `keep`, default 1): owner frees older versions' space.
         - `retract` + `checkpoint_id` (the publisher, or the project's owner);
           `set_instructions` + `instructions` (owner).
         - Members. Whoever creates a project owns it; the hub's operator only runs the server.
@@ -873,7 +883,8 @@ def build_server(db_path=None):
         import project_ledger as pl
         if not project and action not in ("projects", "members", "join_team", "audit", "host",
                                           "inbox", "reviews", "open_review", "respond_review",
-                                          "cancel_review"):
+                                          "cancel_review", "comment", "edit_comment",
+                                          "edit_response"):
             project = pl.folder_project(workspace)
         ledger = None
         try:
@@ -941,7 +952,18 @@ def build_server(db_path=None):
                 if unreachable:
                     result["unreachable"] = unreachable
                 return result
-            if action in ("open_review", "respond_review", "cancel_review"):
+            if action == "edit_comment":
+                found, _ = pl.ledgers()
+                for book in found:
+                    if ledger is None and book._locate("ledger_comments", comment_id or ""):
+                        ledger = book
+                    else:
+                        book.db.close()
+                if ledger is None:
+                    raise ValueError(f"COMMENT_NOT_FOUND: {comment_id}")
+                return {**ledger.edit_comment(comment_id, note, ledger.by), "ledger": ledger.where}
+            if action in ("open_review", "respond_review", "cancel_review", "comment",
+                          "edit_response"):
                 ledger = pl.ledger_with_review(review_id or "")
                 by = ledger.by
                 if action == "open_review":
@@ -951,7 +973,11 @@ def build_server(db_path=None):
                         pl.open_with_default_app(path)
                 elif action == "respond_review":
                     result = ledger.respond_review(review_id, decision, by, note=note,
-                                                   version=version)
+                                                   version=version, files=files)
+                elif action == "comment":
+                    result = ledger.comment(review_id, note, by, parent_id=parent_id, files=files)
+                elif action == "edit_response":
+                    result = ledger.edit_response(review_id, note, by)
                 else:
                     result = ledger.cancel_review(review_id, by)
                 return {**result, "ledger": ledger.where}
@@ -990,6 +1016,10 @@ def build_server(db_path=None):
                 result = ledger.set_instructions(project, instructions, by)
             elif action == "compare":
                 result = ledger.compare(project, name or "", version=version, against=against)
+            elif action == "storage":
+                result = ledger.storage(project)
+            elif action == "purge_versions":
+                result = ledger.purge_versions(project, name or "", by, keep=keep or 1)
             elif action == "members":
                 result = {"project": project, "members": ledger.members(project)}
             elif action == "remove_member":

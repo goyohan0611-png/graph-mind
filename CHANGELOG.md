@@ -4,21 +4,16 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased (branch `checkpoints`)
-- **Project brains.** `brain_checkpoint`: shared projects apart from personal memory, holding only
-  what someone publishes: checkpoints (decision, progress, blocker, next action, artifact,
-  release) with their context (what changed, where, why, verification, what is left, what to
+- **Project brains (optional, for teams).** `brain_checkpoint`: shared projects apart from
+  personal memory, which stays the product, holding only what someone publishes: checkpoints
+  (decision, progress, blocker, next action, artifact, release) with their context (what changed, where, why, verification, what is left, what to
   check; "not recorded" where nothing was written), supersession and retraction; per-project AI
   instructions; a working folder bound to a project. Files and the talk about them stay in
   Slack, drives and GitHub: a git folder is linked as its commit at the stage it really reached
   (committed, pushed, PR open, merged, released) and a Slack or drive address as a link.
-- **Projects in a shared cloud folder, the default**: no server, no network setup, the same from
-  anywhere. A project is a folder in Google Drive / OneDrive / Dropbox shared the usual way; each
-  PC appends sealed (project key), signed (its own key) records to its own log file, so syncing
-  never conflicts, and replays the others' after checking signature and rules itself. Invite
-  codes (gmp1.) carry the project key and the owner's public key.
-- **Postgres hubs for companies and developers** (office network or Tailscale): every project its
-  own schema, groups and key in a database apart from personal memory; teammates' logins cannot
-  reach anyone's personal memory; row-level security per project; an audit log. Whoever creates
+- **Postgres hubs** (office network or Tailscale): every project its own schema, groups and
+  key in a database apart from personal memory; teammates' logins cannot reach anyone's
+  personal memory; row-level security per project; an audit log. Whoever creates
   a project owns it; only owners add members (owner, editor, viewer), set instructions or retract
   others' checkpoints; whoever runs the hub runs the server and sees a project only when added.
   `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,

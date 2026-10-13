@@ -262,9 +262,11 @@ each PC.
 The `gm1.` code is for **your own** PCs: it shares your whole personal memory. Never give it to a
 teammate; invite them to a project brain instead.
 
-## Project brains (teams)
+## Project brains (optional, for teams)
 
-Everyone has a private brain; every project has a shared one. A person can be in several (a side
+Graph-MIND is a personal memory first: the sections above work alone, for one person on any
+number of PCs. Teams that want it can add project brains. Everyone keeps a private brain; every
+project they choose to share has a shared one. A person can be in several (a side
 project alone, Graph-MIND with four developers, a company product with six), and each keeps its
 own members, decisions, progress and instructions. Nothing personal moves into a project by
 itself: only what someone publishes. Files and the talk about them stay where teams already keep
@@ -295,24 +297,14 @@ up.
 
 ### Where a project lives
 
-- **A shared cloud folder (the default).** *"제안서 프로젝트 만들어줘"* makes it in your Google Drive,
-  OneDrive or Dropbox (`Graph-MIND/제안서`). *"민지 초대해"* gives you an invite code and the folder:
-  share the folder with her in your cloud drive the usual way, and give her the code; her
-  assistant joins with it. It works the same from the office, from home or abroad, with no server,
-  no network setup and nobody's PC having to stay on. Every record is sealed with the project's
-  key (the cloud service sees ciphertext) and signed by the PC that wrote it; each PC checks every
-  record itself (only editors publish, only an author or an owner retracts, only the owner
-  changes members and instructions) and skips any that fail. To remove someone, remove them in
-  Graph-MIND and stop sharing the folder.
-- **A Postgres hub (for companies and developers).** A PC, server or NAS runs the hub; the
-  database itself enforces each project's permissions, and teammates' logins cannot reach anyone's
-  personal memory. Teammates reach it on the office network, or from anywhere over
-  [Tailscale](https://tailscale.com) (install Tailscale on the hub and on each PC, sign in to the
-  same tailnet; invite codes carry the hub's Tailscale address and use it when the office network
-  is not there). Whoever runs the hub runs the server and sees a project only when its owner adds
-  them. A server needs no AI and no API key, only `pip install graph-mind-memory` (any Python from
-  3.10; Windows, macOS, or Linux on x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS)
-  and these commands:
+- **A Postgres hub.** A PC, server or NAS runs the hub; the database itself enforces each
+  project's permissions, and teammates' logins cannot reach anyone's personal memory. Teammates
+  reach it on the office network, or from anywhere over [Tailscale](https://tailscale.com)
+  (install Tailscale on the hub and on each PC, sign in to the same tailnet; invite codes carry
+  the hub's Tailscale address and use it when the office network is not there). Whoever runs the
+  hub runs the server and sees a project only when its owner adds them. A server needs no AI and
+  no API key, only `pip install graph-mind-memory` (any Python from 3.10; Windows, macOS, or Linux
+  on x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS) and these commands:
 
   ```bash
   graph-mind-hub host                # once: this machine becomes a hub (it stays one)
@@ -322,7 +314,7 @@ up.
   graph-mind-hub delete-project 이름 --confirm 이름
   graph-mind-hub audit
   ```
-- **This PC alone**: without either, projects stay in `~/.graph-mind/ledger.sqlite`.
+- **This PC alone**: without a hub, projects stay in `~/.graph-mind/ledger.sqlite`.
 
 ---
 

@@ -804,11 +804,11 @@ def build_server(db_path=None):
                          projects: list[str] | None = None,
                          code: str | None = None, hub: str | None = None,
                          context: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Project brains: what a team's AIs need to know about a project, apart from the user's
-        personal memory and from every other project. Nothing personal is shared through this;
-        only what is published here, when the user asks. Files and conversations about them
-        stay in Slack, drives and GitHub; a project brain keeps the decisions, the progress, the
-        context and links to where the work is.
+        """Project brains, an optional team feature: what a team's AIs need to know about a
+        project, apart from the user's personal memory and from every other project. Nothing
+        personal is shared through this; only what is published here, when the user asks. Files
+        and notifications stay in Slack, drives and GitHub; a project brain keeps the decisions,
+        the progress, the context and links to where the work is.
 
         Always pass `workspace` = your current working folder: a folder bound to a project makes
         it the default `project`.
@@ -837,16 +837,12 @@ def build_server(db_path=None):
         - Members. Whoever creates a project owns it. `invite` + `member` + `role` (owner /
           editor / viewer) + `projects` returns a code to give them. `members` + `project`;
           `remove_member` + `member` + `project` (owner; or yourself, to leave). `audit`
-          (+ `project`). On a teammate's PC: `join_team` + `code` (+ `name`, + `path` of a
-          shared folder not found), `leave_team` + `project`.
-        - Where projects live. Without a hub (the default), `create_project` makes the project
-          in the Google Drive / OneDrive / Dropbox folder Graph-MIND (`hub` = a folder path to
-          choose another): `invite` then also names the folder; tell the user to share it with
-          the person in their cloud drive and give them the code (in Google Drive the person
-          first adds it to their drive with "Add shortcut to Drive"). With a Postgres hub
-          (`host`: make this PC one; teammates on the office network or over Tailscale),
-          `invite` on the hub's PC also makes their account; elsewhere they need an account
-          from the hub's operator first. Someone in several team hubs and none of their own:
+          (+ `project`). On a teammate's PC: `join_team` + `code` (+ `name`), `leave_team` +
+          `project`.
+        - Where projects live: on a Postgres hub (`host`: make this PC one; teammates on the
+          office network or over Tailscale), where `invite` on the hub's PC also makes their
+          account (elsewhere they need an account from the hub's operator first); without a
+          hub, on this PC alone. Someone in several team hubs and none of their own:
           `create_project` + `hub` (an address of it).
         - `set_name` + `name`: the name teammates see (else this PC's name). If a result says
           NAME_REQUIRED, ask the user for it (their own name, e.g. 고요한), set it, then retry.
@@ -875,9 +871,6 @@ def build_server(db_path=None):
                 return NAME_REQUIRED
             if action == "host":
                 return pl.host_projects()
-            if action == "join_team" and (code or "").strip().startswith("gmp1."):
-                import project_folder           # a project in a shared cloud folder
-                return project_folder.join(code, path)
             if action == "join_team":
                 if not (name or pl.named()):
                     return {**NAME_REQUIRED, "invite_gives": pl._decode_team(code or "")["n"],
@@ -890,12 +883,6 @@ def build_server(db_path=None):
                 if not names:
                     raise ValueError("PROJECTS_REQUIRED: which projects to add them to")
                 ledger = pl.ledger_for(names[0])
-                import project_folder
-                if isinstance(ledger, project_folder.FolderLedger):
-                    return {"granted": [ledger.grant(p, member, role or "viewer", ledger.by)
-                                        for p in names], "ledger": ledger.where,
-                            "note": "Give them the invite_code privately and share the folder "
-                                    "with them in your cloud drive (both are needed)."}
                 if not ledger.postgres or (ledger.role == pl.OWNER_ROLE and pl._hosts_here()):
                     ledger.db.close()
                     ledger = None              # the owner on the hub's own PC: account + code
@@ -920,16 +907,6 @@ def build_server(db_path=None):
                 raise ValueError("PROJECT_REQUIRED: name the project (or bind this folder to "
                                  "one with create_project + path)")
             if action == "create_project":
-                import project_folder
-                folder = Path(hub).expanduser() if hub and Path(hub).expanduser().is_dir() else None
-                if folder or hub in ("cloud", "folder") or (
-                        not hub and not pl.has_hub() and project_folder.cloud_roots()):
-                    if not pl.named():
-                        return NAME_REQUIRED
-                    result = project_folder.create(project, pl.actor(), where=folder)
-                    if path:
-                        result["bound_folder"] = pl.bind_folder(path, project)["folder"]
-                    return result
                 ledger = pl.home_ledger(hub)
                 if ledger.role in ("", pl.OWNER_ROLE) and not pl.named():
                     return NAME_REQUIRED               # a team hub uses the invite's name

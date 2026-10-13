@@ -13,10 +13,11 @@ Code is not copied: a git folder is linked by repository, branch and commit, and
 the stage it really reached (committed, pushed, pr_open, merged, released), so "done" is never
 claimed for a commit that only exists on one PC.
 
-Where a project lives: a shared cloud folder (project_folder, the default), a Postgres hub (a PC,
-server or NAS; office network or Tailscale), or this PC alone. On a hub, whoever runs it runs the
-server: they give a person an account (`graph-mind-hub add-user`), a login that cannot reach
-anyone's personal memory and sees only the projects it is a member of. Each project is its own
+Project brains are optional: personal memory is the product, and a team shares only what it
+chooses to. A project lives on a Postgres hub (a PC, server or NAS; office network or Tailscale),
+or on this PC alone. On a hub, whoever runs it runs the server: they give a person an account
+(`graph-mind-hub add-user`), a login that cannot reach anyone's personal memory and sees only the
+projects it is a member of. Each project is its own
 schema with its own groups and key. Whoever creates a project owns it; only owners add members
 (owner, editor or viewer), set the instructions or take others' checkpoints back. Every action,
 reads included, is audited.
@@ -1288,17 +1289,7 @@ def ledgers() -> tuple[list[Ledger], list[str]]:
             found.append(_team_ledger(code))
         except HubUnavailable as error:
             unreachable.append(str(error))
-    import project_folder                                # shared cloud folders, one per project
-    folders, missing = project_folder.ledgers()
-    return found + folders, unreachable + missing
-
-
-def has_hub() -> bool:
-    """Whether this person's projects live on a Postgres hub (their own, or a team's)."""
-    import brain_log
-    settings = brain_log._config()
-    return bool(settings.get("hosts_projects") or settings.get("team_hubs")
-                or brain_log.is_database(brain_log.folder()))
+    return found, unreachable
 
 
 def ledger_for(project: str) -> Ledger:

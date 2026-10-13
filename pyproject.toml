@@ -65,7 +65,6 @@ py-modules = [
     "install",
     "local_brain",
     "local_embedder",
-    "project_folder",
     "project_ledger",
     "semantic_llm_extractor",
     "semantic_memory",

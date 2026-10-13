@@ -258,7 +258,8 @@ def embedding_model():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Install Graph-MIND on this PC.")
-    parser.add_argument("--join", metavar="CODE", help="a gm1. code from `share` on another PC")
+    parser.add_argument("--join", metavar="CODE",
+                        help="a code to join with: your other PC's (gm1.) or a team invite (gmt1.)")
     parser.add_argument("--name", help="the name teammates see on shared projects (e.g. 고요한)")
     parser.add_argument("--skip-packages", action="store_true")
     parser.add_argument("--skip-model", action="store_true")
@@ -268,8 +269,12 @@ def main(argv=None):
         sys.exit("Graph-MIND needs Python 3.10 or newer.")
     if args.join:                            # a typo in the code should fail before anything else
         sys.path.insert(0, str(HERE))
-        from brain_log import _decode
-        _decode(args.join)
+        if args.join.strip().startswith("gmt1."):
+            from project_ledger import _decode_team
+            _decode_team(args.join)
+        else:
+            from brain_log import _decode
+            _decode(args.join)
     if not args.skip_packages and (HERE.parent / "requirements.txt").exists():   # pip: already done
         step("installing packages (the first time takes a few minutes)")
         packages()
@@ -287,7 +292,11 @@ def main(argv=None):
     if not args.skip_model:
         step("downloading the local embedding model")
         embedding_model()
-    if args.join:
+    if args.join and args.join.strip().startswith("gmt1."):
+        from project_ledger import join_team
+        joined = join_team(args.join.strip(), args.name)
+        step(f"joined the team as {joined['joined_as']}: {', '.join(joined['projects']) or 'no projects yet'}")
+    elif args.join:
         from brain_log import folder, set_folder
         set_folder(args.join)
         where = folder().rsplit("@", 1)[1].split("/")[0]

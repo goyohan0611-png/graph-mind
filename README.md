@@ -109,16 +109,36 @@ saves them. Graph-MIND does not.
 
 ## Install
 
-Requires Python 3.10+ (64-bit). Windows, macOS or Linux, on x86-64 or 64-bit ARM. The first
-time a machine hosts a brain or a hub, Graph-MIND downloads Postgres 16 for it once (12 MB, 46 MB
-on Windows; checked against a pinned hash) and keeps it in the user's cache folder.
+**One step, no Python needed.** On Windows, download
+[Graph-MIND-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/Graph-MIND-Setup.cmd)
+and double-click it (Windows may ask once whether to run a downloaded file), or paste this in
+PowerShell:
 
-What changed in each release: [CHANGELOG.md](CHANGELOG.md).
+```powershell
+irm https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.ps1 | iex
+```
+
+On macOS or Linux:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.sh | sh
+```
+
+It installs [uv](https://docs.astral.sh/uv/) for your user (no administrator rights), which
+brings its own Python; installs Graph-MIND with it; and connects every AI app it finds. Restart
+your AI apps afterwards. To join another PC's memory or a team, paste the code you were given to
+your AI ("이 코드로 연결해줘"); either kind of code works there.
+
+With Python already set up (3.10+, 64-bit; Windows, macOS or Linux, on x86-64 or 64-bit ARM):
 
 ```bash
 pip install graph-mind-memory
 graph-mind-install
 ```
+
+The first time a machine hosts a brain or a hub, Graph-MIND downloads Postgres 16 for it once (12
+MB, 46 MB on Windows; checked against a pinned hash) and keeps it in the user's cache folder.
+What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 
 If `graph-mind-install` is "not recognized", pip put it in a Scripts folder that is not on your
 PATH (common with the Windows Python install manager). `python -m install` runs the same thing.

@@ -3,7 +3,9 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased (branch `checkpoints`)
+## 0.7.0 — 2026-10-13
+Run `graph-mind-install` after upgrading. Every PC that shares a hub should upgrade: the hub moves
+to its own Postgres build with TLS, and team logins reach a new hub database. Your memory is kept.
 - **Project brains (optional, for teams).** `brain_checkpoint`: shared projects apart from
   personal memory, which stays the product, holding only what someone publishes: checkpoints
   (decision, progress, blocker, next action, artifact, release) with their context (what changed, where, why, verification, what is left, what to
@@ -18,6 +20,13 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   others' checkpoints; whoever runs the hub runs the server and sees a project only when added.
   `graph-mind-hub` for a server or NAS with no AI on it: `host`, `add-user`, `users`,
   `remove-user --transfer-to`, `delete-project`, `audit`.
+- **One-step install, no Python needed**: `scripts/install.ps1` (or double-click
+  `Graph-MIND-Setup.cmd`) on Windows, `scripts/install.sh` on macOS and Linux. They install uv,
+  which brings its own Python, then Graph-MIND, then connect the AI apps. Checked in CI on all
+  three systems against each release.
+- **One kind of code for the user**: a code pasted to the AI works whichever tool receives it,
+  whether it is for the user's own other PC or a team invite; `graph-mind-install --join` takes
+  either too.
 - **Names people choose**: teammates see a chosen name, not a PC's; the assistant asks for it
   before creating or sharing a project and when joining (`set_name`, `install --name`).
 - An unreachable hub is reported as "latest state unknown", never as an empty project.

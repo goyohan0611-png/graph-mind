@@ -133,5 +133,26 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(timeline["checkpoints"]), 2)
 
 
+class CodeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_any_code_goes_where_it_belongs_whichever_tool_gets_it(self):
+        """The user pastes 'a code'; a team invite given to the brain-folder tool joins the team,
+        and the user's own-PC code given to the team tool joins the brain."""
+        from graph_mind_mcp_server import build_server
+        root = Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}), \
+                mock.patch("project_ledger.join_team",
+                           return_value={"joined_as": "민지", "projects": ["p"]}) as team, \
+                mock.patch("brain_log.set_folder", side_effect=ValueError("INVALID_CONNECTION_CODE")) as own:
+            async with Client(build_server(root / "brain.sqlite")) as client:
+                await client.call_tool("brain_checkpoint", {"action": "set_name", "name": "민지"})
+                joined = (await client.call_tool("brain_folder", {"path": "gmt1.e30"})).structured_content
+                self.assertEqual(joined["joined_as"], "민지")
+                team.assert_called_once()
+                mine = (await client.call_tool("brain_checkpoint", {
+                    "action": "join_team", "code": "gm1.e30"})).structured_content
+                self.assertEqual(mine["status"], "REFUSED")      # the bad own-PC code, from
+                own.assert_called_once_with("gm1.e30")           # where own-PC codes go
+
+
 if __name__ == "__main__":
     unittest.main()

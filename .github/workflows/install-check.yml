@@ -67,6 +67,41 @@ jobs:
       - name: The memory saved before the upgrade is still there
         run: python .github/smoke_install.py recall
 
+  one-step:
+    # a new user's way in: the install script on a machine with no Python of its own set up
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"
+      GRAPH_MIND_RELEASE: ${{ inputs.version || github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: scripts/install.ps1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:GRAPH_MIND_VERSION = $env:GRAPH_MIND_RELEASE.TrimStart('v')
+          ./scripts/install.ps1 --no-start
+          (uv tool dir --bin).Trim() | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: scripts/install.sh
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          GRAPH_MIND_VERSION="${GRAPH_MIND_RELEASE#v}" sh scripts/install.sh --no-start
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool dir --bin >> "$GITHUB_PATH"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Server works
+        run: |
+          python -m pip install "mcp>=2,<3"
+          python .github/smoke_install.py
+
   install:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     strategy:

@@ -724,9 +724,11 @@ def build_server(db_path=None):
         Other PCs: when the user asks to let their other PCs use this brain ("다른 PC도 붙게 해줘"),
         call it with `path="share"`. It opens this PC's Postgres to the local network and Tailscale
         (Windows may ask the user to approve a firewall rule once) and returns a
-        `connection_code` starting "gm1.". Show the user that code and tell them to paste it to
-        the AI on the other PC; it contains the password, so say not to post it anywhere public.
-        On the other PC, when the user pastes a "gm1." code, call this with `path=<the code>`.
+        `connection_code`. Show the user that code and tell them to paste it to the AI on the
+        other PC; it contains the password, so say not to post it anywhere public.
+        Codes: when the user pastes any Graph-MIND code ("gm1." for their own other PC, "gmt1."
+        for a team invite), call this with `path=<the code>`; it does the right thing for either,
+        so never ask the user which kind it is.
 
         `share_existing=true` sends what this PC remembers and the shared memory lacks (only that:
         it also repairs turns that missed a hub that was down). It uploads
@@ -741,6 +743,8 @@ def build_server(db_path=None):
                 synced = index.sync_sources(limit=1000)
             return {"synced": synced, "vectors_warmed": warm(database, limit=1000),
                     "store": str(database)}
+        if path and path.strip().startswith("gmt1."):        # a team invite, not a brain folder
+            return brain_checkpoint(action="join_team", code=path.strip())
         from brain_log import device_name, devices, export_history, folder, set_folder, share, sync
         shared_out = None
         if path == "share":
@@ -871,6 +875,8 @@ def build_server(db_path=None):
                 return NAME_REQUIRED
             if action == "host":
                 return pl.host_projects()
+            if action == "join_team" and (code or "").strip().startswith("gm1."):
+                return brain_folder(path=code.strip())     # the user's own other PC's code
             if action == "join_team":
                 if not (name or pl.named()):
                     return {**NAME_REQUIRED, "invite_gives": pl._decode_team(code or "")["n"],

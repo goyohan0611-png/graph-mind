@@ -29,6 +29,16 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 - Reviews are held to their rules on the hub itself, not only in Python: the requester can only
   cancel, the reviewer can only open and decide, a closed review stays closed, and nobody changes
   who reviews or which version.
+- **Inbox** (`graph-mind-inbox`, Start menu "Graph-MIND 요청함", or "요청함 열어줘"): one page on
+  this PC with the reviews waiting for you, the answers to yours and each project's latest
+  checkpoints. A review opens with the exact version, the changes measured from the files and the
+  publisher's account; the file opens in its own app; approve or ask for changes from there.
+  Clicking a notification opens its review. Served by the capture service on 127.0.0.1 only, with
+  a per-install token.
+- **Names people choose.** Teammates see a name the person chose, not a PC's name: the assistant
+  asks for it before creating or sharing a project and when joining with an invite
+  (`set_name`, `join_team` + `name`, `graph-mind-install --name`). Renaming applies on every hub
+  at once; a name is unique per hub; owners add people by the name they chose.
 - **Notifications in real time**: each PC listens to its hubs (Postgres LISTEN/NOTIFY); a review
   request or answer shows within seconds instead of at the next 2-minute check, which stays as a
   fallback. The signal carries nothing; what is new is read with the usual permission checks.

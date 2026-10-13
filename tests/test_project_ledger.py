@@ -190,7 +190,7 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
         deck = root / "Graph-MIND_제안서.pptx"
         with zipfile.ZipFile(deck, "w") as z:
             z.writestr("ppt/slides/slide1.xml", "<a:t>제안</a:t>")
-        with mock.patch("project_ledger.open_with_default_app") as opened:
+        with mock.patch("project_ledger.open_with_default_app") as opened,                 mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
             async with Client(build_server(root / "brain.sqlite")) as client:
                 await client.call_tool("brain_remember", {
                     "content": "개인 메모: 연봉 협상 전략", "title": "private",
@@ -199,6 +199,10 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
                 refused = (await call(action="publish", project="graph-mind", type="progress",
                                       summary="x")).structured_content
                 self.assertEqual(refused["status"], "REFUSED")
+                unnamed = (await call(action="create_project", project="graph-mind")).structured_content
+                self.assertEqual(unnamed["status"], "NAME_REQUIRED")       # not this PC's name
+                named = (await call(action="set_name", name="고요한")).structured_content
+                self.assertEqual(named["name"], "고요한")
                 await call(action="create_project", project="graph-mind", path=str(root))
                 # no project named: the bound working folder picks it
                 up = (await call(action="attach", workspace=str(root), path=str(deck),

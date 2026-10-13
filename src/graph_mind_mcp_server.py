@@ -773,6 +773,10 @@ def build_server(db_path=None):
                 "existing_memories_shared": exported or "not shared; ask the user before "
                                                        "setting share_existing=true"}
 
+    NAME_REQUIRED = {"status": "NAME_REQUIRED",
+                     "note": "Teammates would see this PC's name. Ask the user which name they "
+                             "should see (e.g. 고요한), call set_name with it, then do this again."}
+
     @server.tool(
         name="brain_checkpoint",
         structured_output=True,
@@ -788,7 +792,8 @@ def build_server(db_path=None):
                                          "host", "invite", "members", "remove_member",
                                          "join_team", "leave_team", "audit", "compare",
                                          "request_review", "reviews", "open_review",
-                                         "respond_review", "cancel_review"],
+                                         "respond_review", "cancel_review", "inbox",
+                                         "set_name"],
                          project: str | None = None,
                          type: Literal["decision", "progress", "blocker", "next_action",
                                        "artifact", "release"] | None = None,
@@ -803,7 +808,8 @@ def build_server(db_path=None):
                          code: str | None = None, hub: str | None = None,
                          context: dict[str, Any] | None = None,
                          reviewer: str | None = None, review_id: str | None = None,
-                         decision: Literal["approved", "changes_requested"] | None = None,
+                         decision: Literal["approved", "changes_requested",
+                                           "withdrawn"] | None = None,
                          focus: str | None = None, note: str | None = None,
                          against: int | None = None) -> dict[str, Any]:
         """Project brains: each shared project keeps its own checkpoints, decisions, results and
@@ -845,7 +851,8 @@ def build_server(db_path=None):
           disagree. Record a decision only on the person's explicit word ("승인해", "수정
           요청해"): `respond_review` + `review_id` + `decision` + `note` (+ `version` to make
           sure it is the one reviewed). Opening is never approving, and approving v3 approves
-          v3 only. `cancel_review` + `review_id` (requester).
+          v3 only. A decision can be changed later; "승인 취소해" = `decision` withdrawn (the
+          review is open again). `cancel_review` + `review_id` (requester).
         - `retract` + `checkpoint_id` (the publisher, or the project's owner);
           `set_instructions` + `instructions` (owner).
         - Members. Whoever creates a project owns it; the hub's operator only runs the server.
@@ -854,14 +861,18 @@ def build_server(db_path=None):
           code to give them; elsewhere they need an account from the hub's operator first).
           `members` + `project`; `remove_member` + `member` + `project` (owner; or yourself, to
           leave). `audit` (+ `project`). `host`: make this PC a hub. On a teammate's PC:
-          `join_team` + `code`, `leave_team` + `project`. `create_project` on someone in several
-          team hubs and none of their own: + `hub` (an address of it).
+          `join_team` + `code` (+ `name`), `leave_team` + `project`. `create_project` on someone
+          in several team hubs and none of their own: + `hub` (an address of it).
+        - `set_name` + `name`: the name teammates see (else this PC's name). If a result says
+          NAME_REQUIRED, ask the user for it (their own name, e.g. 고요한), set it, then retry.
+        - `inbox` (+ `review_id`): "요청함 열어줘" — opens the person's inbox page (reviews to
+          answer, answers to their requests, projects) in the browser.
         If the result says UNAVAILABLE, the hub cannot be reached: tell the user the latest
         shared state is unknown right now; never fill in from memory.
         """
         import project_ledger as pl
         if not project and action not in ("projects", "members", "join_team", "audit", "host",
-                                          "reviews", "open_review", "respond_review",
+                                          "inbox", "reviews", "open_review", "respond_review",
                                           "cancel_review"):
             project = pl.folder_project(workspace)
         ledger = None
@@ -877,10 +888,25 @@ def build_server(db_path=None):
                     result["note"] = ("Some project hubs cannot be reached right now; their "
                                       "projects are missing from this list, not gone.")
                 return result
+            if action == "set_name":
+                return pl.set_display_name(name or member or "")
+            if action in ("invite", "host") and not pl.named():
+                return NAME_REQUIRED
+            if action == "inbox":
+                import inbox_app
+                if not inbox_app._answering():
+                    inbox_app.serve()                  # the capture service is not running
+                inbox_app.webbrowser.open(inbox_app.url(review_id))
+                return {"opened": "the inbox, in the browser"}
             if action == "host":
                 return pl.host_projects()
             if action == "join_team":
-                return pl.join_team(code or "")
+                if not (name or pl.named()):
+                    return {**NAME_REQUIRED, "invite_gives": pl._decode_team(code or "")["n"],
+                            "note": "Ask the user which name teammates should see (the invite "
+                                    "suggests the one in invite_gives), then join_team again "
+                                    "with `name`."}
+                return pl.join_team(code or "", name or pl.actor())
             if action == "invite":
                 names = projects or ([project] if project else [])
                 if not names:
@@ -934,6 +960,8 @@ def build_server(db_path=None):
                                  "one with create_project + path)")
             if action == "create_project":
                 ledger = pl.home_ledger(hub)
+                if ledger.role in ("", pl.OWNER_ROLE) and not pl.named():
+                    return NAME_REQUIRED               # a team hub uses the invite's name
                 result = ledger.create_project(project, ledger.by)
                 if path:
                     result["bound_folder"] = pl.bind_folder(path, project)["folder"]

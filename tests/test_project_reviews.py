@@ -75,7 +75,7 @@ class ReviewFlowTests(unittest.TestCase):
             self.book.respond_review(second["id"], "approved", b, version=1)
         approved = self.book.respond_review(second["id"], "approved", b, version=2, note="확인")
         self.assertIn("only", approved["applies_to"])
-        with self.assertRaisesRegex(ValueError, "REVIEW_CLOSED"):
+        with self.assertRaisesRegex(ValueError, "ALREADY_DECIDED"):
             self.book.respond_review(second["id"], "approved", b)
 
         a = self.act_as("yohan")

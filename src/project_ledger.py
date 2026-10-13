@@ -108,7 +108,7 @@ CREATE POLICY member_request ON ledger_reviews FOR INSERT WITH CHECK (
 DROP POLICY IF EXISTS member_respond ON ledger_reviews;
 DROP POLICY IF EXISTS reviewer_answers ON ledger_reviews;
 CREATE POLICY reviewer_answers ON ledger_reviews FOR UPDATE
-    USING (reviewer_role = current_user AND status IN ('requested', 'in_review'))
+    USING (reviewer_role = current_user AND status <> 'cancelled')
     WITH CHECK (reviewer_role = current_user
                 AND status IN ('in_review', 'approved', 'changes_requested'));
 DROP POLICY IF EXISTS requester_cancels ON ledger_reviews;
@@ -143,6 +143,8 @@ DROP POLICY IF EXISTS member_own ON ledger_access;
 DROP POLICY IF EXISTS member_read ON ledger_access;
 CREATE POLICY member_read ON ledger_access FOR SELECT
     USING (ledger_is_member(current_user::text, project));
+DROP POLICY IF EXISTS own_name ON ledger_accounts;
+CREATE POLICY own_name ON ledger_accounts FOR SELECT USING (member_role = current_user);
 DROP POLICY IF EXISTS member_log ON ledger_audit;
 CREATE POLICY member_log ON ledger_audit FOR INSERT WITH CHECK (actor_role = current_user);
 DROP POLICY IF EXISTS member_read ON ledger_audit;
@@ -198,6 +200,25 @@ BEGIN
     RAISE EXCEPTION 'LAST_OWNER';
   END IF;
   RETURN m;
+END $f$;
+CREATE OR REPLACE FUNCTION ledger_role_of(who text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+  SELECT member_role FROM ledger_accounts WHERE member = who LIMIT 1
+$f$;
+CREATE OR REPLACE FUNCTION ledger_rename(who text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM ledger_accounts WHERE member_role = session_user) THEN
+    RAISE EXCEPTION 'permission denied: no account on this hub';
+  END IF;
+  IF length(who) < 1 OR length(who) > 40 THEN RAISE EXCEPTION 'invalid name'; END IF;
+  IF EXISTS (SELECT 1 FROM ledger_accounts WHERE member = who AND member_role <> session_user)
+  THEN
+    RAISE EXCEPTION 'NAME_TAKEN';
+  END IF;
+  UPDATE ledger_accounts SET member = who WHERE member_role = session_user;
+  UPDATE ledger_access SET member = who WHERE member_role = session_user;
+  RETURN who;
 END $f$;
 CREATE OR REPLACE FUNCTION ledger_revoke(p text, r text) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
@@ -276,6 +297,7 @@ END $f$
 HUB_FUNCTION_NAMES = ("ledger_can(text, boolean)", "ledger_is_member(text, text)",
                       "ledger_owns(text)", "ledger_create_project(text, text, text)",
                       "ledger_grant(text, text, text)", "ledger_revoke(text, text)",
+                      "ledger_role_of(text)", "ledger_rename(text)",
                       "ledger_store_part(text, int, int, text, bytea)",
                       "ledger_read_part(text, int)", "ledger_wipe_artifact(text)")
 
@@ -293,6 +315,42 @@ _LAST = 0
 
 def _now() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def named() -> bool:
+    """Whether this person chose the name others see (else it is this PC's name)."""
+    from brain_log import _config
+    return bool(_config().get("user_name"))
+
+
+def set_display_name(name: str) -> dict:
+    """The name others see on checkpoints, reviews and member lists, instead of this PC's name:
+    kept on this PC and set on the account of every hub this person is in (their own and each
+    team hub), so all their PCs and teammates show it. Names are unique per hub."""
+    import brain_log
+    name = " ".join(str(name or "").split())
+    if not name or len(name) > 40:
+        raise ValueError("NAME: 1 to 40 characters, as teammates should see it (e.g. 고요한)")
+    was = actor()
+    brain_log._save({"user_name": name})
+    renamed, taken = [], []
+    found, unreachable = ledgers()
+    for book in found:
+        try:
+            if book.postgres:
+                book._sql("SELECT ledger_rename(?)", (name,))
+                renamed.append(book.where)
+        except ValueError as error:
+            if "NAME_TAKEN" not in str(error):
+                raise
+            taken.append(book.where)
+        finally:
+            book.db.close()
+    return {"name": name, "was": was, "renamed_on": renamed, "taken_on": taken,
+            "unreachable": unreachable,
+            "note": "Checkpoints and reviews already written keep the name they were written "
+                    "with." + (" On the hubs in taken_on someone already has this name: choose "
+                               "another." if taken else "")}
 
 
 def actor() -> str:
@@ -400,6 +458,9 @@ class Ledger:
                 raise ValueError("NO_ACCOUNT: they have no account on this hub yet. The hub's "
                                  "operator adds one (graph-mind-hub add-user <name>) and gives "
                                  "them the code; then add them again") from None
+            if "NAME_TAKEN" in text:
+                raise ValueError("NAME_TAKEN: someone on this hub already goes by that name; "
+                                 "add something to tell you apart") from None
             if "LAST_OWNER" in text:
                 raise ValueError("LAST_OWNER: a project keeps at least one owner; make someone "
                                  "else owner first") from None
@@ -494,7 +555,7 @@ class Ledger:
         self._needs_hub()
         with self._atomic():
             name = self._sql("SELECT ledger_grant(?,?,?)",
-                             (project, _member_role(member), role)).fetchall()[0][0]
+                             (project, self._role_of(member), role)).fetchall()[0][0]
             self._audit(by, "invite", f"{project}/{name} {role}")
         return {"project": project, "member": name, "role": role}
 
@@ -504,11 +565,16 @@ class Ledger:
         self._needs_hub()
         with self._atomic():
             removed = self._sql("SELECT ledger_revoke(?,?)",
-                                (project, _member_role(member))).fetchall()[0][0]
+                                (project, self._role_of(member))).fetchall()[0][0]
             self._audit(by, "remove_member", f"{project}/{member}")
         return {"project": project, "member": member, "removed": bool(removed),
                 "note": "Their access to this project ended now. Files they already "
                         "downloaded stay on their PC."}
+
+    def _role_of(self, member) -> str:
+        """The login of the account shown as `member` (names can change; logins do not)."""
+        found = self._sql("SELECT ledger_role_of(?)", (str(member).strip(),)).fetchall()
+        return found[0][0] if found and found[0][0] else _member_role(member)
 
     def _needs_hub(self):
         if not self.postgres:
@@ -923,14 +989,20 @@ class Ledger:
 
     def respond_review(self, review_id, decision, by, *, note=None, version=None) -> dict:
         """Record the reviewer's own decision on the exact version asked about. Only on the
-        person's explicit word ("승인해", "수정 요청해"): never because a file was opened."""
-        if decision not in ("approved", "changes_requested"):
-            raise ValueError("DECISION must be approved or changes_requested")
+        person's explicit word ("승인해", "수정 요청해", "승인 취소해"): never because a file was
+        opened. A decision can be changed later, and an approval withdrawn (the review is then
+        open again); every earlier decision stays in the review's history."""
+        if decision not in ("approved", "changes_requested", "withdrawn"):
+            raise ValueError("DECISION must be approved, changes_requested or withdrawn")
         review, status, reviewer_role, _ = self._review(review_id)
         if not self._is_reviewer(review, reviewer_role):
             raise ValueError("NOT_ALLOWED: only the requested reviewer can answer it")
-        if status not in OPEN_REVIEW:
-            raise ValueError(f"REVIEW_CLOSED: it is already {status}")
+        if status == "cancelled":
+            raise ValueError("REVIEW_CLOSED: the requester cancelled it")
+        if decision == "withdrawn" and status != "approved":
+            raise ValueError("NOT_APPROVED: only an approval can be withdrawn")
+        if decision == status:
+            raise ValueError(f"ALREADY_DECIDED: it is already {status}")
         asked = review["artifact"].get("version")
         if version is not None and asked is not None and int(version) != asked:
             raise ValueError(f"WRONG_VERSION: this review is for v{asked}; v{version} needs its "
@@ -939,11 +1011,15 @@ class Ledger:
         found = scan_text(text)
         if found:
             raise ValueError("SECRET_IN_REVIEW: " + ", ".join(found))
+        if review.get("response"):
+            review.setdefault("earlier_responses", []).append(
+                {**review["response"], "at": review.get("responded_at")})
         review["responded_at"] = _now()
         review["response"] = {"decision": decision, "note": text, "by": by,
                               "target": review["target"], "version": asked}
-        self._save_review(review_id, review, decision, by, decision)
-        return {**review, "status": decision,
+        status = "in_review" if decision == "withdrawn" else decision
+        self._save_review(review_id, review, status, by, decision)
+        return {**review, "status": status,
                 "applies_to": f"{review['target']} only: a later version needs its own review"}
 
     def cancel_review(self, review_id, by) -> dict:
@@ -991,8 +1067,10 @@ class Ledger:
             elif any((a.get("name") or a.get("repo")) == label for a in c.get("artifacts", [])):
                 earlier.append(brief(c))
         reviews = [{"id": r["id"], "target": r["target"], "status": r["status"],
-                    "reviewer": r["reviewer"], "focus": r.get("focus"),
-                    "response": r.get("response")}
+                    "requester": r["requester"], "reviewer": r["reviewer"],
+                    "version": r["artifact"].get("version"), "focus": r.get("focus"),
+                    "note": r.get("note"), "requested_at": r.get("requested_at"),
+                    "responded_at": r.get("responded_at"), "response": r.get("response")}
                    for r in self.reviews(project)
                    if r["id"] in addressed
                    or (r["artifact"].get("name") or r["artifact"].get("repo")) == label]
@@ -1230,12 +1308,15 @@ def inbox_events(ledger) -> list[dict]:
             events.append({"key": f"{review['id']}:requested", "review_id": review["id"],
                            "project": review["project"], "title": f"[{review['project']}] 검토 요청",
                            "body": f"{review['requester']}님이 {what} 검토를 요청했습니다."})
-        elif review["for_me"] == "my request" and review["status"] in ("approved",
-                                                                         "changes_requested"):
-            word = "승인" if review["status"] == "approved" else "수정 요청"
-            note = (review.get("response") or {}).get("note") or ""
-            events.append({"key": f"{review['id']}:{review['status']}", "review_id": review["id"],
-                           "project": review["project"], "title": f"[{review['project']}] {word}",
+        elif review["for_me"] == "my request" and review.get("response"):
+            decision = review["response"]["decision"]           # a changed decision is news too
+            word = {"approved": "승인", "changes_requested": "수정 요청",
+                    "withdrawn": "승인 취소"}.get(decision, decision)
+            note = review["response"].get("note") or ""
+            earlier = len(review.get("earlier_responses") or [])
+            events.append({"key": f"{review['id']}:{decision}" + (f":{earlier}" if earlier else ""),
+                           "review_id": review["id"], "project": review["project"],
+                           "title": f"[{review['project']}] {word}",
                            "body": f"{review['reviewer']}님이 {what}을(를) {word}했습니다."
                                    + (f" {note[:80]}" if note else "")})
     return events
@@ -1259,7 +1340,8 @@ def notify_new(show=True) -> list[dict]:
             pass
         finally:
             ledger.db.close()
-    delivered = [event for event in fresh if not show or toast(event["title"], event["body"])]
+    delivered = [event for event in fresh
+                 if not show or toast(event["title"], event["body"], _inbox_url(event))]
     seen.update(event["key"] for event in delivered)
     if delivered:
         state.parent.mkdir(parents=True, exist_ok=True)
@@ -1325,10 +1407,18 @@ def _hub_urls() -> dict:
     return urls
 
 
-def toast(title: str, body: str) -> bool:
-    """A desktop notification, and whether it was shown. Text goes through the environment,
-    never into a command line."""
-    environment = {**os.environ, "GM_TITLE": title, "GM_BODY": body}
+def _inbox_url(event) -> str:
+    try:
+        import inbox_app
+        return inbox_app.url(event["review_id"])
+    except Exception:
+        return ""
+
+
+def toast(title: str, body: str, link: str = "") -> bool:
+    """A desktop notification, and whether it was shown; clicking it opens `link` (the inbox,
+    at this review) on Windows. Text goes through the environment, never into a command line."""
+    environment = {**os.environ, "GM_TITLE": title, "GM_BODY": body, "GM_LINK": link}
     quiet = {"capture_output": True, "timeout": 20, "stdin": subprocess.DEVNULL, "env": environment}
     try:
         if os.name == "nt":
@@ -1341,8 +1431,10 @@ def toast(title: str, body: str) -> bool:
                 "$t = $x.GetElementsByTagName('text');"
                 "$t.Item(0).AppendChild($x.CreateTextNode($env:GM_TITLE)) > $null;"
                 "$t.Item(1).AppendChild($x.CreateTextNode($env:GM_BODY)) > $null;"
+                "if ($env:GM_LINK) { $x.DocumentElement.SetAttribute('activationType', 'protocol');"
+                "$x.DocumentElement.SetAttribute('launch', $env:GM_LINK) };"
                 "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("
-                "'{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe')"
+                "'{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe')"
                 ".Show([Windows.UI.Notifications.ToastNotification]::new($x))")
             shown = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
                                     script], creationflags=0x08000000, **quiet)
@@ -1497,6 +1589,7 @@ def _prepare(owner_url) -> None:
         # what a role may do in each project is the policies' business: the editor/viewer and
         # owner checks are per project there
         admin.execute(f"GRANT SELECT, INSERT ON ledger_audit TO {TEAM_GROUP}")
+        admin.execute(f"GRANT SELECT ON ledger_accounts TO {TEAM_GROUP}")
         admin.execute(f"GRANT SELECT, INSERT, UPDATE ON ledger_reviews TO {TEAM_GROUP}")
         admin.execute(f"GRANT INSERT, UPDATE ON ledger_checkpoints TO {TEAM_GROUP}")
         admin.execute(f"GRANT INSERT ON ledger_artifacts TO {TEAM_GROUP}")
@@ -1639,8 +1732,10 @@ def accounts() -> list[dict]:
 def remove_account(member: str, by: str = "hub operator", *, transfer_to: str = None) -> dict:
     """Close a person's account on this hub: their login ends now. A project they alone own
     needs a new owner first (`transfer_to`, someone with an account)."""
-    login = _member_role(member)
     with _admin() as admin:
+        found = admin.execute("SELECT member_role FROM ledger_accounts WHERE member=%s",
+                              (member,)).fetchall()
+        login = found[0][0] if found else _member_role(member)        # names can change
         sole = [p for (p,) in admin.execute(
             "SELECT project FROM ledger_access a WHERE member_role=%s AND role='owner' AND NOT "
             "EXISTS (SELECT 1 FROM ledger_access b WHERE b.project=a.project AND b.role='owner' "
@@ -1649,7 +1744,8 @@ def remove_account(member: str, by: str = "hub operator", *, transfer_to: str = 
             raise ValueError("LAST_OWNER: they alone own " + ", ".join(sole) + "; name who takes "
                              "them over (transfer_to), or have them make someone owner first")
         if sole:
-            heir = _member_role(transfer_to)
+            heir = (admin.execute("SELECT member_role FROM ledger_accounts WHERE member=%s",
+                                  (transfer_to,)).fetchall() or [[_member_role(transfer_to)]])[0][0]
             found = admin.execute("SELECT member FROM ledger_accounts WHERE member_role=%s",
                                   (heir,)).fetchall()
             if not found:
@@ -1697,21 +1793,27 @@ def invite(member: str, role: str, projects: list[str], by: str) -> dict:
     return {**result, "role": role, "projects": granted}
 
 
-def join_team(code: str) -> dict:
-    """On a teammate's PC: add a team hub to the ones it takes part in. It changes nothing about
-    this PC's personal memory or where that memory syncs: no conversation is sent anywhere."""
+def join_team(code: str, name: str | None = None) -> dict:
+    """On a teammate's PC: add a team hub to the ones it takes part in, shown there as `name`
+    (else the name the invite gave). It changes nothing about this PC's personal memory or
+    where that memory syncs: no conversation is sent anywhere."""
     import brain_log
     value = _decode_team(code)
     key = (tuple(value["h"]), value["p"], value["u"])
     hubs = [c for c in brain_log._config().get("team_hubs", [])
             if (lambda v: (tuple(v["h"]), v["p"], v["u"]))(_decode_team(c)) != key]
-    brain_log._save({"team_hubs": hubs + [code.strip()]})
     ledger = _team_ledger(code.strip())
     try:
+        if name and name.strip() != ledger.by:           # refused (taken): not joined at all
+            ledger.by = ledger._sql("SELECT ledger_rename(?)",
+                                    (" ".join(name.split())[:40],)).fetchall()[0][0]
         visible = ledger.names()
     finally:
         ledger.db.close()
-    return {"joined_as": value["n"], "projects": visible, "ledger": ledger.where,
+    brain_log._save({"team_hubs": hubs + [code.strip()]})
+    if not named():
+        brain_log._save({"user_name": ledger.by})
+    return {"joined_as": ledger.by, "projects": visible, "ledger": ledger.where,
             "personal_memory": "unchanged: still only on your own PCs"}
 
 
@@ -1759,8 +1861,11 @@ def _team_ledger(code: str) -> Ledger:
         connection = psycopg.connect(_team_url(value), autocommit=True, connect_timeout=5)
     except psycopg.OperationalError as error:
         raise HubUnavailable(f"team hub at {host}") from error
+    named = connection.execute("SELECT member FROM ledger_accounts WHERE member_role = "
+                               "current_user").fetchall()
+    name = named[0][0] if named else value["n"]
     return Ledger(connection, postgres=True, key=_fernet(base64.urlsafe_b64decode(value["l"])),
-                  create=False, where=f"team hub at {host} (as {value['n']})", by=value["n"],
+                  create=False, where=f"team hub at {host} (as {name})", by=name,
                   role=value["u"])
 
 
@@ -1794,8 +1899,11 @@ def own_ledger() -> Ledger:
         password = urllib.parse.urlsplit(url).password
         password = urllib.parse.unquote(password) if password else settings.get("share_password")
         key = _fernet(ledger_secret(password)) if password else None
-        return Ledger(connection, postgres=True, key=key, where="your project hub", by=actor(),
-                      role=OWNER_ROLE)
+        # the account's name, the same on every PC of this person (set_display_name sets it)
+        named = connection.execute("SELECT member FROM ledger_accounts WHERE member_role = "
+                                   "current_user").fetchall()
+        return Ledger(connection, postgres=True, key=key, where="your project hub",
+                      by=named[0][0] if named else actor(), role=OWNER_ROLE)
     path = _home() / "ledger.sqlite"
     path.parent.mkdir(parents=True, exist_ok=True)
     return Ledger(sqlite3.connect(path), by=actor(),

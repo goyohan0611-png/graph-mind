@@ -311,6 +311,10 @@ only what someone publishes.
   the publisher's account kept apart from the record ("not recorded" where nothing was written)
   and the decisions and earlier reviews it builds on. *"승인해"* or *"이 부분 수정 요청해"* is
   recorded on that version only, and the requester is notified. Opening is never approving.
+- **Inbox**: *"요청함 열어줘"*, the Start menu entry or `graph-mind-inbox` opens one page with
+  the reviews waiting for you, the answers to your requests and each project's latest work;
+  clicking a notification opens that review there. It runs on your PC only (127.0.0.1, with a
+  token), and opens files in their own apps.
 - **Code stays on GitHub**: a repository is linked by commit with the stage it really reached
   (committed, pushed, PR open, merged, released), so a commit on one PC is never reported as
   done.

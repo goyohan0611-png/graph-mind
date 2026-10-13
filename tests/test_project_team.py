@@ -206,7 +206,7 @@ class TeamHubTests(unittest.TestCase):
             with mock.patch("project_ledger.open_with_default_app") as opened:
                 async with Client(build_server(self.root / "b.sqlite")) as b:
                     call = lambda **k: b.call_tool("brain_checkpoint", k)  # noqa: E731
-                    joined = (await call(action="join_team", code=code)).structured_content
+                    joined = (await call(action="join_team", code=code, name="minji")).structured_content
                     where = (await call(action="timeline", project="graph-mind")).structured_content
                     shown = (await call(action="open", project="graph-mind",
                                         name="제안서")).structured_content
@@ -265,7 +265,7 @@ class TeamHubTests(unittest.TestCase):
             self.assertTrue(again["duplicate"])
 
             minji = str(self.root / "minji.json")
-            run(minji, "b.sqlite", {"action": "join_team", "code": minji_code})
+            run(minji, "b.sqlite", {"action": "join_team", "code": minji_code, "name": "minji"})
             os.environ["GRAPH_MIND_CONFIG"] = minji
             self.assertEqual([e["key"] for e in pl.notify_new()], [f"{request['id']}:requested"])
             self.assertEqual(pl.notify_new(), [])                     # once only
@@ -313,7 +313,7 @@ class TeamHubTests(unittest.TestCase):
             self.assertEqual([e["key"] for e in pl.notify_new()], [f"{second['id']}:approved"])
 
             jun = str(self.root / "jun.json")
-            joined, seen, peek = run(jun, "c.sqlite", {"action": "join_team", "code": jun_code},
+            joined, seen, peek = run(jun, "c.sqlite", {"action": "join_team", "code": jun_code, "name": "jun"},
                                      {"action": "reviews"},
                                      {"action": "open_review", "review_id": second["id"]})
             self.assertEqual(joined["projects"], ["beta"])
@@ -327,9 +327,9 @@ class TeamHubTests(unittest.TestCase):
             self.assertIn("unknown", down["note"])
 
     def test_the_hub_itself_holds_each_side_of_a_review_to_its_part(self):
-        """Straight SQL, past the Python checks: the requester can only cancel, the reviewer
-        can only open and decide, nobody changes who or which version, and a closed review
-        stays closed."""
+        """Straight SQL, past the Python checks: the requester can only cancel an open review,
+        the reviewer can only open and decide (and change the decision), nobody changes who or
+        which version, and a cancelled review stays closed."""
         import psycopg
         owner = pl.own_ledger()
         owner.create_project("alpha", "yohan")
@@ -349,10 +349,14 @@ class TeamHubTests(unittest.TestCase):
         with self.assertRaises(psycopg.Error):                       # another version
             minji.db.execute("UPDATE ledger_reviews SET target='af-0@v9' WHERE id=%s", (review,))
         self.assertEqual(minji.db.execute(change, ("approved", review)).rowcount, 1)
-        self.assertEqual(minji.db.execute(change, ("changes_requested", review)).rowcount, 0)
-        self.assertEqual(owner.db.execute(change, ("cancelled", review)).rowcount, 0)
+        self.assertEqual(owner.db.execute(change, ("cancelled", review)).rowcount, 0)  # decided
+        self.assertEqual(minji.db.execute(change, ("changes_requested", review)).rowcount, 1)
+        other = owner.request_review("alpha", "minji", "yohan", name="notes",
+                                     note="another look")["id"]
+        self.assertEqual(owner.db.execute(change, ("cancelled", other)).rowcount, 1)
+        self.assertEqual(minji.db.execute(change, ("approved", other)).rowcount, 0)  # closed
         self.assertEqual(owner.db.execute("SELECT status FROM ledger_reviews WHERE id=%s",
-                                          (review,)).fetchone()[0], "approved")
+                                          (review,)).fetchone()[0], "changes_requested")
         owner.db.close()
         minji.db.close()
 
@@ -384,6 +388,38 @@ class TeamHubTests(unittest.TestCase):
             self.assertLess(time.monotonic() - started, 10)
             stop.set()
         self.assertIn("검토 요청", toast.call_args[0][0])
+        owner.db.close()
+
+    def test_people_choose_the_names_others_see(self):
+        """Joining with a name, renaming everywhere at once, one name per person per hub, and
+        owners finding people by the name they chose."""
+        owner = pl.own_ledger()
+        owner.create_project("alpha", "yohan")
+        owner.create_project("beta", "yohan")
+        owner.db.close()
+        with mock.patch.object(brain_log, "_firewall", return_value="open"):
+            minji = pl.invite("mini", "editor", ["alpha"], "yohan")["team_code"]
+            jun = pl.add_account("jun")["team_code"]
+        owner_config = os.environ["GRAPH_MIND_CONFIG"]
+
+        os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "minji.json")
+        self.assertEqual(pl.join_team(minji, "김민지")["joined_as"], "김민지")
+        self.assertEqual(brain_log._config()["user_name"], "김민지")
+        os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "jun.json")
+        with self.assertRaisesRegex(ValueError, "NAME_TAKEN"):
+            pl.join_team(jun, "김민지")
+        self.assertEqual(brain_log._config().get("team_hubs", []), [])   # not half joined
+
+        os.environ["GRAPH_MIND_CONFIG"] = owner_config
+        owner = pl.own_ledger()
+        owner.grant("beta", "김민지", "viewer", "yohan")                  # by her chosen name
+        self.assertEqual({m["member"]: m["role"] for m in owner.members("beta")},
+                         {"yohan": "owner", "김민지": "viewer"})
+        owner.db.close()
+        self.assertEqual(pl.set_display_name("고요한")["renamed_on"], ["your project hub"])
+        owner = pl.own_ledger()
+        self.assertEqual(owner.by, "고요한")
+        self.assertIn({"member": "고요한", "role": "owner"}, owner.members("alpha"))
         owner.db.close()
 
     def test_two_uploads_of_the_same_file_at_once_get_two_versions(self):

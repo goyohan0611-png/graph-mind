@@ -157,6 +157,14 @@ def _login_item() -> Path:
     return config / "autostart" / "graph-mind-capture.desktop"
 
 
+def _inbox_shortcut() -> Path | None:
+    """The Start menu entry for the inbox (Windows; elsewhere `graph-mind-inbox` opens it)."""
+    if platform.system() != "Windows":
+        return None
+    return (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+            / "Graph-MIND 요청함.lnk")
+
+
 def codex(home: Path) -> str:
     config = home / ".codex" / "config.toml"
     if not config.parent.is_dir():
@@ -195,6 +203,11 @@ def capture_service(start: bool) -> str:
                     f"$s.WorkingDirectory='{HERE}';$s.Save()")
         subprocess.run(["powershell", "-NoProfile", "-Command", shortcut], check=True,
                        capture_output=True)
+        inbox = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:GM_LINK);"
+                 f"$s.TargetPath='{python}';$s.Arguments='\"{HERE / 'inbox_app.py'}\"';"
+                 f"$s.WorkingDirectory='{HERE}';$s.Description='Graph-MIND inbox';$s.Save()")
+        subprocess.run(["powershell", "-NoProfile", "-Command", inbox], capture_output=True,
+                       env={**os.environ, "GM_LINK": str(_inbox_shortcut())})
     elif system == "Darwin":
         import plistlib
         python = Path(sys.executable)
@@ -259,6 +272,7 @@ def embedding_model():
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Install Graph-MIND on this PC.")
     parser.add_argument("--join", metavar="CODE", help="a gm1. code from `share` on another PC")
+    parser.add_argument("--name", help="the name teammates see on shared projects (e.g. 고요한)")
     parser.add_argument("--skip-packages", action="store_true")
     parser.add_argument("--skip-model", action="store_true")
     parser.add_argument("--no-start", action="store_true", help="register, but start nothing now")
@@ -277,6 +291,11 @@ def main(argv=None):
                               *other_apps(home)] if name]
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
+    if args.name:
+        sys.path.insert(0, str(HERE))
+        from brain_log import _save
+        _save({"user_name": " ".join(args.name.split())[:40]})
+        step(f"teammates will see you as {args.name}")
     step(capture_service(start=not args.no_start))
     if not args.skip_model:
         step("downloading the local embedding model")
@@ -332,6 +351,8 @@ def uninstall(argv=None):
             subprocess.run(["launchctl", "unload", str(item)], capture_output=True)
         item.unlink()
         step("capture service no longer starts at login")
+    if _inbox_shortcut() and _inbox_shortcut().exists():
+        _inbox_shortcut().unlink()
     from automatic_capture import default_service_state_dir
     try:
         import psutil

@@ -35,6 +35,12 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   publisher's account; the file opens in its own app; approve or ask for changes from there.
   Clicking a notification opens its review. Served by the capture service on 127.0.0.1 only, with
   a per-install token.
+- **Projects in a shared cloud folder, the new default**: no server, no network setup, the same
+  from anywhere. A project is a folder in Google Drive / OneDrive / Dropbox shared the usual way;
+  each PC appends sealed, signed records to its own log file (so syncing never conflicts) and
+  replays the others' after checking signature and rules itself. Invite codes (gmp1.) carry the
+  project key and the owner's public key. The Postgres hub stays for companies and developers
+  (office network or Tailscale).
 - **Every project is a brain of its own.** On a hub, each project has its own schema in the hub's
   database (`gmhub`, apart from personal memory), its own reader/writer/owner groups and its own
   key; teammates' logins cannot reach the personal memory database at all. A project can be

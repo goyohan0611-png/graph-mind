@@ -1702,6 +1702,20 @@ def watch_inbox(stop, fallback: float = 120.0) -> None:
             except Exception:
                 stop.wait(30)
 
+    def watch_folders():                     # shared folders: no server to signal, so look
+        import project_folder                # at their logs every few seconds (cheap stats)
+        seen = None
+        while not stop.is_set():
+            try:
+                now = project_folder.signature()
+                if seen is not None and now != seen:
+                    wake.set()
+                seen = now
+            except Exception:
+                pass
+            stop.wait(3)
+
+    threading.Thread(target=watch_folders, daemon=True, name="graph-mind-folders").start()
     while not stop.is_set():
         for key, url in _hub_urls().items():
             if key not in listening or not listening[key].is_alive():
@@ -2434,7 +2448,17 @@ def ledgers() -> tuple[list[Ledger], list[str]]:
             found.append(_team_ledger(code))
         except HubUnavailable as error:
             unreachable.append(str(error))
-    return found, unreachable
+    import project_folder                                # shared cloud folders, one per project
+    folders, missing = project_folder.ledgers()
+    return found + folders, unreachable + missing
+
+
+def has_hub() -> bool:
+    """Whether this person's projects live on a Postgres hub (their own, or a team's)."""
+    import brain_log
+    settings = brain_log._config()
+    return bool(settings.get("hosts_projects") or settings.get("team_hubs")
+                or brain_log.is_database(brain_log.folder()))
 
 
 def ledger_for(project: str) -> Ledger:

@@ -332,7 +332,24 @@ only what someone publishes.
   personal memory. When a hub cannot be reached, the assistant says the latest state is
   unknown instead of guessing.
 
-Without a hub, project brains live in `~/.graph-mind/ledger.sqlite` on your PC alone.
+### Where a project lives
+
+- **A shared cloud folder (the default).** *"제안서 프로젝트 만들어줘"* makes it in your Google Drive,
+  OneDrive or Dropbox (`Graph-MIND/제안서`). *"민지 초대해"* gives you an invite code and the folder:
+  share the folder with her in your cloud drive the usual way, and give her the code; her
+  assistant joins with it. It works the same from the office, from home or abroad, with no server,
+  no network setup and nobody's PC having to stay on. Every record is sealed with the project's
+  key (the cloud service sees ciphertext) and signed by the PC that wrote it; each PC checks every
+  record itself (only editors publish, only the reviewer decides, only an author edits, only the
+  owner changes members) and skips any that fail. Notifications arrive as fast as the cloud drive
+  syncs, usually within seconds. To remove someone, remove them in Graph-MIND and stop sharing the
+  folder.
+- **A Postgres hub (for companies and developers).** A PC, server or NAS runs the hub
+  (`graph-mind-hub host`): instant notifications, server-side permissions, the operator's space
+  tools. Teammates reach it on the office network, or from anywhere over [Tailscale](https://tailscale.com)
+  (install Tailscale on the hub and on each PC, sign in to the same tailnet; invite codes already
+  carry the hub's Tailscale address and use it when the office network is not there).
+- **This PC alone**: without either, projects stay in `~/.graph-mind/ledger.sqlite`.
 
 ---
 

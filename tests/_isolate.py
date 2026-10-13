@@ -16,3 +16,5 @@ for _folder in ("research", "src"):          # src first on the path
 os.environ["GRAPH_MIND_HOME"] = tempfile.mkdtemp(prefix="graph-mind-test-home-")
 for _name in ("GRAPH_MIND_CONFIG", "GRAPH_MIND_FOLDER", "GRAPH_MIND_DB"):
     os.environ.pop(_name, None)
+# nor finds a developer's own Google Drive / OneDrive: new projects would land in it
+os.environ["GRAPH_MIND_CLOUD_ROOTS"] = ""

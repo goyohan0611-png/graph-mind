@@ -1,0 +1,56 @@
+name: bench
+
+# The measurements the structure research is judged by (bench/): whether the answer reaches the
+# packet on all of LongMemEval_S, how fast the server answers, and which faults heal by
+# themselves. Weekly and on demand; the embedding vectors are cached between runs, so a run after
+# the first only embeds what changed. Results: the job summary and the "bench" artifact.
+on:
+  schedule:
+    - cron: "17 22 * * 2"          # Wednesdays 07:17 in Korea
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: LongMemEval_S (pinned)
+        run: |
+          mkdir -p research/external/longmemeval
+          curl -fsSL -o research/external/longmemeval/longmemeval_s_cleaned.json \
+            https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json
+          echo "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442  research/external/longmemeval/longmemeval_s_cleaned.json" | sha256sum -c
+      - uses: actions/cache@v4
+        with:
+          path: bench/.cache
+          key: bench-${{ github.sha }}
+          restore-keys: bench-
+      - name: Recovery
+        run: python bench/recovery.py | tee -a recovery.txt
+      - name: Latency
+        run: python bench/latency.py | tee -a latency.txt
+      - name: Evidence
+        run: python bench/evidence.py | tee -a evidence.txt
+      - name: Summary
+        if: always()
+        run: |
+          for part in recovery latency evidence; do
+            [ -f $part.txt ] && { echo "### $part"; echo '```'; tail -40 $part.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench
+          path: |
+            *.txt
+            bench/.cache/*.json

@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **Measurements** (`bench/`), the yardstick for the structure work ahead: `evidence.py` (does
+  the answer reach the packet, all of LongMemEval_S, offline), `latency.py` (server start, first
+  answer, when search by meaning works, steady p50/p95, memory), `recovery.py` (every fault meant
+  to heal, run and timed, and the ones not handled yet). Weekly in CI (`bench` workflow).
+- A hub Postgres that was killed comes back on the next use: its log now lives outside its data
+  folder (the crash recovery's disk sync waited 30 s on it) and a start may take up to 5 minutes
+  (that sync alone took 25-55 s on a laptop with antivirus).
+
 ## 0.8.0 — 2026-10-14
 Run `graph-mind-install` after upgrading: it registers the server at its new place. Apps set up
 by an earlier version keep working until then. Your memory is kept.

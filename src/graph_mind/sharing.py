@@ -229,10 +229,13 @@ def _current(exe: str | None) -> bool:
 
 
 def _start(data: Path, port: int) -> None:
+    """After a crash Postgres first syncs its whole folder to disk (measured 25-55 s on a laptop
+    with antivirus), so the start may wait minutes. The log stays outside that folder: in it, the
+    sync met the log the server was writing ("sharing violation") and waited 30 s more."""
     def start():
         if not _current(_server_exe(data)):                # a failed try may have started it
-            _pg_tool("pg_ctl", ["-D", data, "-w", "-t", "60", "-o", f"-p {port}",
-                                "-l", data / "log", "start"], timeout=90)
+            _pg_tool("pg_ctl", ["-D", data, "-w", "-t", "300", "-o", f"-p {port}",
+                                "-l", data.parent / "postgres.log", "start"], timeout=330)
     _retry(start, attempts=10)
 
 

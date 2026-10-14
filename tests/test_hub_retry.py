@@ -31,8 +31,11 @@ class HubRetryTests(unittest.TestCase):
     def test_a_start_that_failed_after_initdb_still_gets_the_memory_database(self):
         """The first start fails (as cmd.exe denials do) after initdb made the cluster: the next
         call starts it and still creates the role and database the memory lives in."""
+        from pathlib import Path
         import os
         import tempfile
+        import time
+
         import psycopg
         real, tries = sharing._start, []
 
@@ -41,8 +44,11 @@ class HubRetryTests(unittest.TestCase):
             if len(tries) == 1:
                 raise subprocess.CalledProcessError(1, "pg_ctl")
             real(data, port)
-        home = tempfile.mkdtemp()
-        with mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": home}), \
+        # not mkdtemp: on Windows its folder is the owner's alone, and initdb run by an
+        # administrator (CI) drops to a restricted token that cannot enter it
+        home = Path(tempfile.gettempdir()) / f"graph-mind-retry-{os.getpid()}-{time.time_ns()}"
+        home.mkdir()
+        with mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": str(home)}), \
                 mock.patch.object(sharing, "PORT", 54395), \
                 mock.patch.object(sharing, "_start", first_fails):
             try:

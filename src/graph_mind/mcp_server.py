@@ -124,6 +124,8 @@ def shared_sync(database):
 # (product_recall_eval.py: evidence reaching the packet 48.5% -> 66.7% without it), and deciding
 # what a question is about is a language judgement this engine leaves to the model anyway.
 DEFAULT_CONTEXT_POLICY = "always"
+CONTEXT_LIMIT = 30          # brain_context defaults; bench/ measures with these
+CONTEXT_CHARS = 15000
 
 
 # Retrieval over conversation turns, ported from the benchmark pipeline where it was measured:
@@ -639,8 +641,8 @@ def build_server(db_path=None):
                       as_of: str | None = None,
                       knowledge_cutoff: str | None = None,
                       policy: Literal["auto", "always", "never"] = DEFAULT_CONTEXT_POLICY,
-                      max_chars: int = 15000,
-                      limit: int = 30, recent: bool = False,
+                      max_chars: int = CONTEXT_CHARS,
+                      limit: int = CONTEXT_LIMIT, recent: bool = False,
                       since: str | None = None,
                       about_assistant: bool = False,
                       around: str | None = None) -> dict[str, Any]:

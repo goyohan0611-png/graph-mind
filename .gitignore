@@ -10,3 +10,4 @@ embed-cache*.json
 dist/
 build/
 *.egg-info/
+bench/.cache/

@@ -237,10 +237,10 @@ def _start(data: Path, port: int) -> None:
             _pg_tool("pg_ctl", ["-D", data, "-w", "-t", "300", "-o", f"-p {port}",
                                 "-l", data.parent / "postgres.log", "start"], timeout=330)
     _retry(start, attempts=10)
-    _wait_accepting(seconds=300)
+    _wait_accepting(port, seconds=300)
 
 
-def _wait_accepting(seconds):
+def _wait_accepting(port, seconds):
     """Return once the server takes connections. pg_ctl -w can come back while it is still in
     crash recovery ("not yet accepting connections", Windows CI after a kill), and a retried
     start finds it running and does not wait at all."""
@@ -250,7 +250,8 @@ def _wait_accepting(seconds):
     deadline = time.monotonic() + seconds
     while True:
         try:
-            psycopg.connect(_admin_uri(), connect_timeout=10).close()
+            psycopg.connect(f"postgresql://postgres@127.0.0.1:{port}/postgres",
+                            connect_timeout=10).close()
             return
         except psycopg.OperationalError as error:
             starting = "not yet accepting" in str(error) or "starting up" in str(error)

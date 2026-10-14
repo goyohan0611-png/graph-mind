@@ -27,8 +27,6 @@ def main(argv=None):
     configure.add_argument("--db")
     configure.add_argument("--poll-seconds", type=int, default=5)
     configure.add_argument("--code-poll-seconds", type=int, default=120)
-    configure.add_argument("--enable-semantic-llm", action="store_true")
-    configure.add_argument("--semantic-model")
     commands.add_parser("baseline")
     commands.add_parser("once")
     commands.add_parser("run")
@@ -39,11 +37,6 @@ def main(argv=None):
             session_id=args.session, sessions_root=args.sessions_root,
             poll_seconds=args.poll_seconds, code_poll_seconds=args.code_poll_seconds,
             db_path=args.db)
-        if args.enable_semantic_llm:
-            if not args.semantic_model:
-                parser.error("--semantic-model is required with --enable-semantic-llm")
-            config["semantic_llm"].update({"enabled": True,
-                                           "model": args.semantic_model})
         _atomic_json(args.config, config)
         _emit({"status": "CONFIGURED", "config": os.path.abspath(args.config),
                "value": config})

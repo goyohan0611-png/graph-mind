@@ -56,7 +56,6 @@ py-modules = [
     "clock",
     "coding_memory",
     "conversation_memory",
-    "development_memory",
     "development_paths",
     "embedding_warmup",
     "entity_timeline",
@@ -66,9 +65,7 @@ py-modules = [
     "local_brain",
     "local_embedder",
     "project_ledger",
-    "semantic_llm_extractor",
     "semantic_memory",
-    "semantic_recall",
     "universal_personal_memory",
     "vector_cache",
 ]

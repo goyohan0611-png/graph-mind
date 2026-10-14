@@ -14,7 +14,7 @@ import unittest
 import graph_mind_mcp_server as server
 from conversation_memory import ConversationMemoryStore
 from embedding_warmup import warm_turns
-from semantic_recall import default_embedder
+from local_embedder import default_embedder
 
 FILLER = ["오늘 회의에서 분기 예산 이야기를 길게 했다", "점심 메뉴 고르느라 시간이 걸렸다",
           "빌드가 깨져서 의존성 버전을 다시 맞췄다", "주말에 읽을 책 목록을 정리했다",

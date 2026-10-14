@@ -8,7 +8,6 @@ from mcp import Client
 from associative_memory import AssociativeMemoryIndex
 from coding_memory import CodingMemoryStore
 from conversation_memory import ConversationMemoryStore
-from development_memory import DevelopmentMemoryStore
 from graph_mind_mcp_server import build_server
 from local_brain import LocalBrainStore
 
@@ -17,27 +16,10 @@ T1 = "2026-01-01T10:00:00"
 T2 = "2026-01-01T11:00:00"
 
 
-def seed_event(event_id, kind, subject, payload, when=T1, supersedes=None):
-    return {"event_id": event_id, "project_id": "project:test",
-            "session_id": "session:seed", "event_type": kind,
-            "effective_at": when, "known_at": when, "actor": "user",
-            "subject_id": subject, "payload": payload,
-            "provenance": {"source_type": "fixture", "source_ref": "test"},
-            "supersedes_event_id": supersedes}
-
-
 class GraphMindMcpServerTests(unittest.IsolatedAsyncioTestCase):
     async def test_tools_share_one_persistent_project_memory(self):
         with tempfile.TemporaryDirectory() as directory:
             db = Path(directory) / "memory.sqlite"
-            with DevelopmentMemoryStore(db) as store:
-                store.record_events([
-                    seed_event("objective", "OBJECTIVE_SET", "project",
-                               {"objective": "Persistent cross-model memory"}),
-                    seed_event("decision", "DECISION_RECORDED", "storage",
-                               {"decision": "Use append-only events",
-                                "reason": "Preserve audit history"}),
-                ])
             with LocalBrainStore(db) as brain:
                 brain.remember({"memory_id": "mind-overview", "scope": "global",
                     "memory_type": "PROJECT", "title": "Graph-MIND 프로젝트",
@@ -109,10 +91,6 @@ class GraphMindMcpServerTests(unittest.IsolatedAsyncioTestCase):
                 indexed = await client.call_tool("brain_folder", {"reindex": True})
                 self.assertFalse(indexed.is_error)
                 self.assertIn("vectors_warmed", indexed.structured_content)
-
-            with DevelopmentMemoryStore(db) as reopened:
-                result = reopened.resume_project("project:test", as_of="2999-01-01T00:00:00")
-            self.assertEqual(result["objective"]["value"], "Persistent cross-model memory")
 
 
 if __name__ == "__main__":

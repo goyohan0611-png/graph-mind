@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-import hashlib
 import json
 import os
 import time
@@ -15,8 +14,6 @@ from conversation_memory import (ClaudeCodeConversationCapture, ClaudeCoworkConv
                                  ConversationMemoryStore)
 from development_paths import default_coding_state_dir, default_development_db, graph_mind_home
 from semantic_memory import SemanticMemoryIngestion
-from semantic_llm_extractor import (OpenAIResponsesSemanticExtractor,
-                                    SemanticLLMIngestion)
 
 
 SERVICE_VERSION = "automatic-capture-v0.2"
@@ -56,8 +53,6 @@ def make_config(*, workspace, project_id, session_id, sessions_root,
         "db_path": str(Path(db_path or default_development_db()).expanduser().resolve()),
         "poll_seconds": max(1, int(poll_seconds)),
         "code_poll_seconds": max(int(poll_seconds), int(code_poll_seconds)),
-        "semantic_llm": {"enabled": False, "provider": "openai",
-                         "model": None, "poll_seconds": 60, "limit": 25},
         "codex_sessions_root": sessions_root,
         "workspace_scopes": {workspace: project_id},
         "code_workspaces": [{"workspace": workspace, "project_id": project_id,
@@ -163,7 +158,7 @@ class AutomaticCaptureService:
         self._write_status(result)
         return result
 
-    def run_once(self, *, capture_code=True, capture_llm=True):
+    def run_once(self, *, capture_code=True):
         started = self.now()
         coding, errors = [], []
         if capture_code:
@@ -204,22 +199,6 @@ class AutomaticCaptureService:
         except Exception as error:
             errors.append({"source": "semantic", "error": type(error).__name__,
                            "detail": str(error)})
-        semantic_llm = {"status": "DISABLED"}
-        llm_config = self.config.get("semantic_llm", {})
-        if llm_config.get("enabled") and not capture_llm:
-            semantic_llm = {"status": "SKIPPED_NOT_DUE"}
-        elif llm_config.get("enabled"):
-            try:
-                if llm_config.get("provider") != "openai":
-                    raise ValueError("UNSUPPORTED_SEMANTIC_LLM_PROVIDER")
-                extractor = OpenAIResponsesSemanticExtractor(llm_config.get("model"))
-                with SemanticLLMIngestion(self.db_path, now=self.now) as ingestion:
-                    semantic_llm = ingestion.process_new(
-                        extractor, limit=int(llm_config.get("limit", 25)))
-            except Exception as error:
-                errors.append({"source": "semantic_llm",
-                               "error": type(error).__name__, "detail": str(error)})
-                semantic_llm = {"status": "ERROR"}
         associative = None
         try:
             with AssociativeMemoryIndex(self.db_path) as index:
@@ -232,7 +211,6 @@ class AutomaticCaptureService:
                   "completed_at": self.now(), "coding": coding,
                   "conversation": conversation.get("codex"),
                   "conversation_sources": conversation, "semantic": semantic,
-                  "semantic_llm": semantic_llm,
                   "associative": associative,
                   "errors": errors,
                   "warnings": self._stall_warnings(conversation)}
@@ -277,7 +255,7 @@ class AutomaticCaptureService:
         does this: a one-off `once` or a test should not load the embedding model."""
         try:
             from embedding_warmup import warm_turns
-            from semantic_recall import default_embedder
+            from local_embedder import default_embedder
             if getattr(self, "_embedder", None) is None:
                 self._embedder = default_embedder(self.db_path)
             return warm_turns(self.db_path, limit=limit, embedder=self._embedder)
@@ -288,21 +266,15 @@ class AutomaticCaptureService:
         self.pid_path.write_text(str(os.getpid()) + "\n", encoding="ascii")
         iteration = 0
         last_code_scan = None
-        last_llm_scan = None
         try:
             while max_iterations is None or iteration < max_iterations:
                 monotonic_now = time.monotonic()
                 code_due = (last_code_scan is None or monotonic_now - last_code_scan
                             >= self.config.get("code_poll_seconds", 120))
-                llm_config = self.config.get("semantic_llm", {})
-                llm_due = (last_llm_scan is None or monotonic_now - last_llm_scan
-                           >= llm_config.get("poll_seconds", 60))
-                self.run_once(capture_code=code_due, capture_llm=llm_due)
+                self.run_once(capture_code=code_due)
                 self.embed_new_turns()
                 if code_due:
                     last_code_scan = time.monotonic()
-                if llm_config.get("enabled") and llm_due:
-                    last_llm_scan = time.monotonic()
                 iteration += 1
                 if max_iterations is None or iteration < max_iterations:
                     time.sleep(self.config["poll_seconds"])
@@ -313,7 +285,3 @@ class AutomaticCaptureService:
             except (FileNotFoundError, OSError):
                 pass
 
-
-def config_identity(config):
-    raw = json.dumps(config, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()[:16]

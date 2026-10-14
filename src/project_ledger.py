@@ -703,8 +703,7 @@ def git_link(folder: Path) -> dict | None:
     return link
 
 
-# -- work context ------------------------------------------------------------------
-NOT_RECORDED = "not recorded"
+# -- work context ------------------------------------------------------------------------------
 # what a checkpoint says about its work. The text fields are the publishing AI's own account;
 # `addresses` (ids of the decisions, feedback and reviews it answers) and `evidence` (commit,
 # PR, test log or document ids and links) point at the record itself.
@@ -737,18 +736,6 @@ def _clean_context(context) -> dict:
     if found:
         raise ValueError("SECRET_IN_CONTEXT: " + ", ".join(found))
     return out
-
-
-def context_view(checkpoint) -> dict:
-    """The publisher's account and the links to the record, kept apart; a missing part says
-    "not recorded" so an AI never fills it in."""
-    context = checkpoint.get("context") or {}
-    code = [a for a in checkpoint.get("artifacts", []) if a.get("kind") == "git"]
-    return {"publishers_account": {key: context.get(key) or NOT_RECORDED for key in CONTEXT_TEXT},
-            "record": {"addresses": context.get("addresses") or NOT_RECORDED,
-                       "evidence": context.get("evidence") or NOT_RECORDED,
-                       "source_refs": checkpoint.get("source_refs") or NOT_RECORDED,
-                       "code": code or NOT_RECORDED}}
 
 
 # -- secret scan --------------------------------------------------------------------------------

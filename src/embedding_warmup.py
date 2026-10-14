@@ -37,7 +37,7 @@ def pending_texts(db: sqlite3.Connection, embedder, limit: int) -> list[str]:
 
 def warm(db_path, *, limit: int = 500, embedder=None) -> int:
     """Embed everything unembedded in the newest `limit` engrams. Returns how many were added."""
-    from semantic_recall import default_embedder
+    from local_embedder import default_embedder
 
     embedder = embedder or default_embedder(db_path)
     db = sqlite3.connect(db_path)
@@ -73,7 +73,7 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
     searchable by meaning before anyone asks about them. Without it the first question after a
     busy day met thousands of unembedded pieces, and the server, which never makes a question
     wait for that, answered it from word search alone (79.2% against 86.0% on LongMemEval)."""
-    from semantic_recall import default_embedder
+    from local_embedder import default_embedder
     embedder = embedder or default_embedder(db_path)
     if hasattr(embedder.cache, "refresh"):
         embedder.cache.refresh()                 # what the memory servers embedded meanwhile

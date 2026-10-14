@@ -39,7 +39,6 @@ class AutomaticCaptureTests(unittest.TestCase):
                 recalled = store.search("프로젝트 값", scopes=["project:test"])
             self.assertEqual(baseline["status"], "BASELINE_READY")
             self.assertEqual(first["status"], "CAPTURE_OK")
-            self.assertEqual(first["semantic_llm"]["status"], "DISABLED")
             self.assertEqual(first["coding"][0]["change_count"], 1)
             self.assertEqual(first["conversation"]["recorded_turns"], 1)
             self.assertEqual(second["coding"][0]["status"], "NO_CHANGES")

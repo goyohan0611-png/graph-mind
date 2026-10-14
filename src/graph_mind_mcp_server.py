@@ -179,7 +179,7 @@ def embedder_for(database):
     """One on-device embedder per store, kept loaded for the life of the server."""
     key = str(database)
     if key not in _EMBEDDER:
-        from semantic_recall import default_embedder
+        from local_embedder import default_embedder
         _EMBEDDER[key] = default_embedder(database)
     return _EMBEDDER[key]
 

@@ -11,12 +11,9 @@ import math
 import os
 import threading
 
-from associative_memory import _terms
 from vector_cache import VectorCache, convert
 
 LOCAL_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-ACTIVATE = dict(seed_limit=12, hops=2, fanout=8, max_nodes=24, limit=8)  # frozen v0.7.1 params
-SEED_LIMIT = ACTIVATE["seed_limit"]
 
 
 def own_hf_home() -> Path:
@@ -162,23 +159,6 @@ def cosine(a, b):
     return dot / (na * nb) if na and nb else 0.0
 
 
-def semantic_coverage(cue_vecs, seed_vecs):
-    """Mean over cues of the best cosine similarity of that cue to any seed text."""
-    if not cue_vecs or not seed_vecs:
-        return 0.0
-    return sum(max(cosine(c, s) for s in seed_vecs) for c in cue_vecs) / len(cue_vecs)
-
-
-def _seed_texts(index, query, cues):
-    terms = _terms(" ".join([query, *cues]))
-    if not terms:
-        return []
-    expression = " OR ".join('"' + t.replace('"', '""') + '"' for t in terms)
-    rows = index.db.execute(
-        """SELECT associative_engrams_fts.text AS text
-           FROM associative_engrams_fts JOIN associative_engrams e
-             ON e.engram_id=associative_engrams_fts.engram_id
-           WHERE associative_engrams_fts MATCH ?
-           ORDER BY bm25(associative_engrams_fts), e.revision DESC LIMIT ?""",
-        [expression, SEED_LIMIT]).fetchall()
-    return [r["text"] for r in rows]
+def default_embedder(db_path):
+    """Local, on-device embedder with a cache persisted beside the memory DB."""
+    return LocalEmbedder(Path(db_path).with_name(Path(db_path).stem + ".semantic-embed-cache.json"))

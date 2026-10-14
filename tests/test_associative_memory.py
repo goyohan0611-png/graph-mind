@@ -3,9 +3,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from associative_memory import AssociativeMemoryIndex
-from conversation_memory import ConversationMemoryStore
-from local_brain import LocalBrainStore
+from graph_mind.associative_memory import AssociativeMemoryIndex
+from graph_mind.conversation_memory import ConversationMemoryStore
+from graph_mind.local_brain import LocalBrainStore
 
 
 T1 = "2026-09-16T10:00:00"

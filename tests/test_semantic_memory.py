@@ -3,9 +3,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from conversation_memory import ConversationMemoryStore
-from local_brain import LocalBrainStore
-from semantic_memory import SemanticMemoryIngestion, classify_durable_turn
+from graph_mind.conversation_memory import ConversationMemoryStore
+from graph_mind.local_brain import LocalBrainStore
+from graph_mind.semantic_memory import SemanticMemoryIngestion, classify_durable_turn
 
 
 T = "2026-09-16T12:00:00"
@@ -40,7 +40,8 @@ class SemanticMemoryTests(unittest.TestCase):
                 store.record(turn("t3", "user", "나는 짧은 답변을 선호한다"))
                 store.record(turn("t4", "assistant", "앞으로 전부 저장하겠습니다"))
             with SemanticMemoryIngestion(db, now=lambda: T) as ingestion:
-                first = ingestion.process_new(); second = ingestion.process_new()
+                first = ingestion.process_new()
+                second = ingestion.process_new()
             with LocalBrainStore(db) as brain:
                 decision = brain.recall("Local Brain 과거 질문", as_of=T)
                 preference = brain.recall("짧은 답변 선호", as_of=T)

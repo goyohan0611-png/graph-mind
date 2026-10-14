@@ -7,18 +7,19 @@ import sqlite3
 import tempfile
 import unittest
 
-import brain_log
-from associative_memory import AssociativeMemoryIndex
-from conversation_memory import ConversationMemoryStore
-from forget import find, forget
-from local_brain import LocalBrainStore
+from graph_mind import sharing
+from graph_mind.associative_memory import AssociativeMemoryIndex
+from graph_mind.conversation_memory import ConversationMemoryStore
+from graph_mind.forget import find, forget
+from graph_mind.local_brain import LocalBrainStore
 
 SECRET = "hunter2-correct-horse"
 T = "2026-10-08T10:00:00"
 
 
 def turn(n, text):
-    return {"turn_id": f"t{n}", "client": "claude-code", "client_session_id": "s", "scope": "global",
+    return {"turn_id": f"t{n}", "client": "claude-code", "client_session_id": "s",
+            "scope": "global",
             "role": "user", "content_redacted": text, "raw_sha256": f"h{n}", "source_path": "p",
             "happened_at": T, "known_at": T, "source_ordinal": n}
 
@@ -51,12 +52,12 @@ class ForgetTests(unittest.TestCase):
                         store.record(item)
                 with LocalBrainStore(desk) as store:
                     store.remember(secret_memory)
-                brain_log.append_many(shared, [("turn", t) for t in turns]
+                sharing.append_many(shared, [("turn", t) for t in turns]
                                       + [("memory", secret_memory)])
                 with AssociativeMemoryIndex(desk) as index:
                     index.sync_sources()
                 os.environ["GRAPH_MIND_DEVICE"] = "lap"
-                brain_log.sync(shared, lap)
+                sharing.sync(shared, lap)
                 self.assertEqual(words(lap, "password"), ["t2"])
 
                 os.environ["GRAPH_MIND_DEVICE"] = "desk"
@@ -74,7 +75,7 @@ class ForgetTests(unittest.TestCase):
                     self.assertNotIn(SECRET, log.read_text(encoding="utf-8"))
 
                 os.environ["GRAPH_MIND_DEVICE"] = "lap"
-                brain_log.sync(shared, lap)               # the other PC follows on its next sync
+                sharing.sync(shared, lap)               # the other PC follows on its next sync
                 self.assertEqual(find(lap, SECRET), {"turn_ids": [], "memory_ids": []})
                 self.assertEqual(words(lap, "password"), [])
                 self.assertEqual(sorted(words(lap, "build") + words(lap, "kimchi")), ["t1", "t3"])
@@ -93,24 +94,24 @@ class ForgetTests(unittest.TestCase):
                 with ConversationMemoryStore(desk) as store:
                     for item in items:
                         store.record(item)
-                brain_log.append_many(hub, [("turn", t) for t in items])
+                sharing.append_many(hub, [("turn", t) for t in items])
                 os.environ["GRAPH_MIND_DEVICE"] = "lap"
-                brain_log.sync(hub, lap)
+                sharing.sync(hub, lap)
                 os.environ["GRAPH_MIND_DEVICE"] = "desk"
                 forget(SECRET, desk, hub)
                 with psycopg.connect(hub) as connection:
-                    lines = [row[0] for row in connection.execute("SELECT line FROM brain_log")]
+                    lines = [row[0] for row in connection.execute("SELECT line FROM sharing")]
                 self.assertFalse(any(SECRET in line for line in lines))
                 self.assertTrue(any('"kind": "forget"' in line for line in lines))
                 os.environ["GRAPH_MIND_DEVICE"] = "lap"
-                brain_log.sync(hub, lap)
+                sharing.sync(hub, lap)
                 self.assertEqual(find(lap, SECRET), {"turn_ids": [], "memory_ids": []})
                 self.assertEqual(words(lap, "build"), ["t1"])
             finally:
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
 
     def test_short_phrases_are_refused(self):
-        import forget as module
+        from graph_mind import forget as module
         with self.assertRaises(SystemExit):
             module.main(["abc", "--yes"])
 

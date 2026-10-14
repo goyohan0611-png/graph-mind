@@ -3,8 +3,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from local_brain import LocalBrainStore
-from universal_personal_memory import build_context_pack, decide_recall
+from graph_mind.local_brain import LocalBrainStore
+from graph_mind.context_packet import build_context_pack, decide_recall
 
 
 T1 = "2026-09-16T10:00:00"

@@ -14,9 +14,9 @@ import unittest
 
 from mcp import Client
 
-from conversation_memory import ConversationMemoryStore
-from graph_mind_mcp_server import build_server, wait_for_index
-from local_brain import LocalBrainStore
+from graph_mind.conversation_memory import ConversationMemoryStore
+from graph_mind.mcp_server import build_server, wait_for_index
+from graph_mind.local_brain import LocalBrainStore
 
 NOW = "2026-10-06T10:00:00"
 

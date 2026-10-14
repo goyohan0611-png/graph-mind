@@ -32,8 +32,8 @@ import json
 import os
 import sqlite3
 
-from associative_memory import AssociativeMemoryIndex
-from development_paths import default_development_db
+from graph_mind.associative_memory import AssociativeMemoryIndex
+from graph_mind.paths import default_development_db
 from ingestion_synonyms import EXTRACTOR_VERSION, OpenAIResponsesAliasExtractor
 from llm_concept_planner import (INSTRUCTIONS as PLAN_INSTRUCTIONS,
     PLAN_SCHEMA, OpenAIResponsesConceptPlanner, digest)

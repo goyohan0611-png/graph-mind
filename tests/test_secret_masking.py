@@ -1,4 +1,5 @@
-"""Secrets never reach the store: not from captured chat, and not from a proactive brain_remember."""
+"""Secrets never reach the store: not from captured chat, and not from a proactive
+brain_remember."""
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import tempfile
@@ -6,8 +7,8 @@ import unittest
 
 from mcp import Client
 
-from conversation_memory import _redact
-from graph_mind_mcp_server import build_server, wait_for_index
+from graph_mind.conversation_memory import _redact
+from graph_mind.mcp_server import build_server, wait_for_index
 
 KEYS = {
     "sk-proj-" + "a" * 40: "[REDACTED_OPENAI_KEY]",
@@ -38,13 +39,15 @@ class SecretMaskingTests(unittest.IsolatedAsyncioTestCase):
     def test_passwords_after_their_name(self):
         self.assertEqual(_redact("wifi password: qwer1234! ok")[0], "wifi password: [REDACTED] ok")
         self.assertEqual(_redact("PWD=hunter2")[0], "PWD=[REDACTED]")
-        self.assertEqual(_redact("회의실 비밀번호: 7788ab 이야")[0], "회의실 비밀번호: [REDACTED] 이야")
+        self.assertEqual(_redact("회의실 비밀번호: 7788ab 이야")[0],
+                         "회의실 비밀번호: [REDACTED] 이야")
         self.assertEqual(_redact("비번=abcd")[0], "비번=[REDACTED]")
         self.assertEqual(_redact("I forgot my password again")[1], 0)
 
     def test_unknown_random_tokens(self):
         """A token from a service no pattern knows is still masked by how random it looks;
-        what people recall on purpose (commit ids, hashes, UUIDs, code names, model names) is not."""
+        what people recall on purpose (commit ids, hashes, UUIDs, code names, model names) is
+        not."""
         for token in ("x7Kq9mP2vL8nR4tY6wZ3aB5c", "tok_Q2w9ErT5yU8iO1pA3sD6fG7h",
                       "Cj0KCQiA2af-BRDzARIsAIVQUOdNiV5qT"):
             self.assertEqual(_redact(f"use {token} here")[0], "use [REDACTED_SECRET] here", token)

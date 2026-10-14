@@ -7,7 +7,6 @@ version everywhere; and nothing but plain log lines is ever written into the sha
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from contextlib import contextmanager
-import importlib.util
 import json
 import os
 import shutil
@@ -18,7 +17,7 @@ import unittest.mock
 
 from mcp import Client
 
-from graph_mind_mcp_server import build_server, wait_for_index
+from graph_mind.mcp_server import build_server, wait_for_index
 
 
 @contextmanager
@@ -37,14 +36,14 @@ def plain_directory():
 @contextmanager
 def scratch_postgres(root: Path, port: int):
     """A throwaway Postgres on `root` (the hub's own programs), and its admin URL."""
-    import brain_log
+    from graph_mind import sharing
     data = root / "pg"
-    brain_log._initdb_with_retries(data)
-    brain_log._start(data, port)
+    sharing._initdb_with_retries(data)
+    sharing._start(data, port)
     try:
         yield f"postgresql://postgres@127.0.0.1:{port}/postgres"
     finally:
-        brain_log.stop_postgres(data)
+        sharing.stop_postgres(data)
 
 
 def remember(text, **extra):
@@ -126,30 +125,31 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
 
     async def test_connection_code_joins_another_pc(self):
-        """'다른 PC도 붙게 해줘' on the desktop, the code pasted on the laptop: one brain. The laptop
-        comes in over the network address (not 127.0.0.1), so it is the password that lets it in."""
-        import brain_log
+        """'다른 PC도 붙게 해줘' on the desktop, the code pasted on the laptop: one brain.
+        The laptop comes in over the network address (not 127.0.0.1), so it is the password
+        that lets it in."""
+        from graph_mind import sharing
         import psycopg
         with plain_directory() as directory:
             root = Path(directory)
-            port, brain_log.PORT = brain_log.PORT, 54391        # never the real hub's port
-            brain_log._LOCAL_URI.clear()
+            port, sharing.PORT = sharing.PORT, 54391        # never the real hub's port
+            sharing._LOCAL_URI.clear()
             home_before = os.environ["GRAPH_MIND_HOME"]          # the isolated one (_isolate)
             os.environ["GRAPH_MIND_HOME"] = str(root / "home")
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
                 os.environ["GRAPH_MIND_CONFIG"] = str(root / "desktop-config.json")
-                with unittest.mock.patch.object(brain_log, "_firewall", return_value="open"):
+                with unittest.mock.patch.object(sharing, "_firewall", return_value="open"):
                     async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
                         shared = await desktop.call_tool("brain_folder", {"path": "share"})
                         await desktop.call_tool("brain_remember", remember("사는 곳: 서울"))
                 code = shared.structured_content["connection_code"]
                 self.assertTrue(code.startswith("gm1."))
                 self.assertEqual(shared.structured_content["folder"], "this PC's Postgres")
-                value = brain_log._decode(code)
+                value = sharing._decode(code)
                 self.assertNotIn("127.0.0.1", value["h"])
                 lan = value["h"][0]
-                pinned = brain_log.tls_options(value["c"])
+                pinned = sharing.tls_options(value["c"])
                 with psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind"
                                      + pinned) as c:
                     self.assertFalse(c.execute("SELECT rolsuper FROM pg_roles "
@@ -175,22 +175,23 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                                      ["사는 곳: 서울"])
                     self.assertEqual(joined.structured_content["devices"], ["desktop"])
                 # what crosses the network and sits in the hub is ciphertext only
-                with psycopg.connect(f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind") as c:
-                    stored = [row[0] for row in c.execute("SELECT line FROM brain_log")]
+                url = f"postgresql://graphmind:{value['k']}@{lan}:54391/graphmind"
+                with psycopg.connect(url) as c:
+                    stored = [row[0] for row in c.execute("SELECT line FROM sharing")]
                 self.assertTrue(stored)
-                self.assertTrue(all(l.startswith(brain_log.SEALED) for l in stored))
-                self.assertFalse(any("서울" in l for l in stored))
+                self.assertTrue(all(s.startswith(sharing.SEALED) for s in stored))
+                self.assertFalse(any("서울" in s for s in stored))
                 with self.assertRaises(ValueError):
-                    brain_log.set_folder("gm1.not-a-code")
+                    sharing.set_folder("gm1.not-a-code")
             finally:
                 wait_for_index()
                 for name in ("GRAPH_MIND_DEVICE", "GRAPH_MIND_CONFIG"):
                     os.environ.pop(name, None)
                 os.environ["GRAPH_MIND_HOME"] = home_before
-                brain_log.stop_postgres(root / "home" / "postgres")
-                brain_log.PORT = port
-                brain_log._LOCAL_URI.clear()
-                brain_log._JOINED.clear()
+                sharing.stop_postgres(root / "home" / "postgres")
+                sharing.PORT = port
+                sharing._LOCAL_URI.clear()
+                sharing._JOINED.clear()
 
     async def test_folder_chosen_in_conversation(self):
         """No environment variable: the user names the folder, and that is enough."""
@@ -233,22 +234,22 @@ if __name__ == "__main__":
 
 class SealTests(unittest.TestCase):
     def test_lines_are_sealed_with_the_code_password(self):
-        import brain_log
+        from graph_mind import sharing
         joined = "postgresql://graphmind:s3cret-pw@192.0.2.1:54329/graphmind"
         line = json.dumps({"kind": "turn", "record": {"content_redacted": "회의실 와이파이는 7층"}},
                           ensure_ascii=False)
-        sealed = brain_log._seal(joined, [line])[0]
-        self.assertTrue(sealed.startswith(brain_log.SEALED))
+        sealed = sharing._seal(joined, [line])[0]
+        self.assertTrue(sealed.startswith(sharing.SEALED))
         self.assertNotIn("와이파이", sealed)
-        self.assertEqual(brain_log._unseal(joined, sealed), line)
+        self.assertEqual(sharing._unseal(joined, sealed), line)
         stranger = "postgresql://graphmind:another@192.0.2.1:54329/graphmind"
-        self.assertIsNone(brain_log._unseal(stranger, sealed), "another key opens nothing")
-        self.assertEqual(brain_log._unseal(stranger, line), line, "old plain lines still read")
+        self.assertIsNone(sharing._unseal(stranger, sealed), "another key opens nothing")
+        self.assertEqual(sharing._unseal(stranger, line), line, "old plain lines still read")
 
 
 class OutboxTests(unittest.TestCase):
     def test_lines_wait_while_the_hub_is_down_and_go_with_the_next_append(self):
-        import brain_log
+        from graph_mind import sharing
         sent, hub_up = [], [False]
 
         def fake_append(url, lines):
@@ -256,24 +257,24 @@ class OutboxTests(unittest.TestCase):
                 raise OSError("connection refused")
             sent.extend(lines)
             return len(lines)
-        with unittest.mock.patch.object(brain_log, "_pg_append", fake_append):
+        with unittest.mock.patch.object(sharing, "_pg_append", fake_append):
             url = "postgresql://graphmind@127.0.0.1:1/graphmind"
-            brain_log.append(url, "turn", {"turn_id": "t1"})      # hub down: queued, no error
-            brain_log.append(url, "turn", {"turn_id": "t2"})
+            sharing.append(url, "turn", {"turn_id": "t1"})      # hub down: queued, no error
+            sharing.append(url, "turn", {"turn_id": "t2"})
             self.assertEqual(sent, [])
-            self.assertTrue(brain_log._outbox().exists())
+            self.assertTrue(sharing._outbox().exists())
             hub_up[0] = True
-            brain_log.append(url, "turn", {"turn_id": "t3"})
-        self.assertEqual([json.loads(l)["record"]["turn_id"] for l in sent], ["t1", "t2", "t3"])
-        self.assertFalse(brain_log._outbox().exists())
+            sharing.append(url, "turn", {"turn_id": "t3"})
+        self.assertEqual([json.loads(s)["record"]["turn_id"] for s in sent], ["t1", "t2", "t3"])
+        self.assertFalse(sharing._outbox().exists())
 
 
 class NoPgserverTests(unittest.TestCase):
     def test_hosting_where_postgres_has_no_build_says_why(self):
         """A machine Postgres has no build for: a clear reason, and nothing downloaded."""
-        import brain_log
+        from graph_mind import sharing
         with (unittest.mock.patch("platform.machine", return_value="riscv64"),
               unittest.mock.patch("urllib.request.urlopen") as download):
             with self.assertRaisesRegex(RuntimeError, "not supported yet"):
-                brain_log.postgres_bin()
+                sharing.postgres_bin()
         download.assert_not_called()

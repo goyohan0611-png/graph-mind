@@ -275,7 +275,7 @@ def _now() -> str:
 
 def named() -> bool:
     """Whether this person chose the name others see (else it is this PC's name)."""
-    from brain_log import _config
+    from graph_mind.sharing import _config
     return bool(_config().get("user_name"))
 
 
@@ -283,12 +283,12 @@ def set_display_name(name: str) -> dict:
     """The name others see on checkpoints and member lists, instead of this PC's name:
     kept on this PC and set on the account of every hub this person is in (their own and each
     team hub), so all their PCs and teammates show it. Names are unique per hub."""
-    import brain_log
+    from graph_mind import sharing
     name = " ".join(str(name or "").split())
     if not name or len(name) > 40:
         raise ValueError("NAME: 1 to 40 characters, as teammates should see it (e.g. 고요한)")
     was = actor()
-    brain_log._save({"user_name": name})
+    sharing._save({"user_name": name})
     renamed, taken = [], []
     found, unreachable = ledgers()
     for book in found:
@@ -312,12 +312,12 @@ def set_display_name(name: str) -> dict:
 def actor() -> str:
     """Who this person is on their own ledger: config "user_name", else this PC's name. On a
     team hub it is the name in their invite (Ledger.by)."""
-    from brain_log import _config, device_name
+    from graph_mind.sharing import _config, device_name
     return _config().get("user_name") or device_name()
 
 
 def _home() -> Path:
-    from development_paths import graph_mind_home
+    from graph_mind.paths import graph_mind_home
     return graph_mind_home()
 
 
@@ -677,7 +677,8 @@ def git_link(folder: Path) -> dict | None:
         return None
     remote = re.sub(r"//[^/@]+@", "//", git("remote", "get-url", "origin") or "")   # no tokens
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
-    link = {"kind": "git", "repo": remote or Path(git("rev-parse", "--show-toplevel") or folder).name,
+    top = git("rev-parse", "--show-toplevel") or folder
+    link = {"kind": "git", "repo": remote or Path(top).name,
             "branch": branch, "commit": commit,
             "uncommitted_changes": bool(git("status", "--porcelain")), "stage": "committed"}
     remote_branches = git("branch", "-r", "--contains", commit) or ""
@@ -703,8 +704,7 @@ def git_link(folder: Path) -> dict | None:
     return link
 
 
-# -- work context ------------------------------------------------------------------
-NOT_RECORDED = "not recorded"
+# -- work context ------------------------------------------------------------------------------
 # what a checkpoint says about its work. The text fields are the publishing AI's own account;
 # `addresses` (ids of the decisions, feedback and reviews it answers) and `evidence` (commit,
 # PR, test log or document ids and links) point at the record itself.
@@ -732,30 +732,19 @@ def _clean_context(context) -> dict:
             if text:
                 out[key] = text
         else:
-            raise ValueError(f"CONTEXT_FIELD '{key}': use " + ", ".join(CONTEXT_TEXT + CONTEXT_LINKS))
+            raise ValueError(f"CONTEXT_FIELD '{key}': use "
+                             + ", ".join(CONTEXT_TEXT + CONTEXT_LINKS))
     found = scan_text(json.dumps(out, ensure_ascii=False))
     if found:
         raise ValueError("SECRET_IN_CONTEXT: " + ", ".join(found))
     return out
 
 
-def context_view(checkpoint) -> dict:
-    """The publisher's account and the links to the record, kept apart; a missing part says
-    "not recorded" so an AI never fills it in."""
-    context = checkpoint.get("context") or {}
-    code = [a for a in checkpoint.get("artifacts", []) if a.get("kind") == "git"]
-    return {"publishers_account": {key: context.get(key) or NOT_RECORDED for key in CONTEXT_TEXT},
-            "record": {"addresses": context.get("addresses") or NOT_RECORDED,
-                       "evidence": context.get("evidence") or NOT_RECORDED,
-                       "source_refs": checkpoint.get("source_refs") or NOT_RECORDED,
-                       "code": code or NOT_RECORDED}}
-
-
 # -- secret scan --------------------------------------------------------------------------------
 def scan_text(text: str) -> list[str]:
     """Kinds of secrets in the text: the masking rules capture uses, applied whatever the
     user's mask_secrets setting (that setting is about this PC; this is about sharing)."""
-    from conversation_memory import RANDOM_CANDIDATE, SECRET_PATTERNS, _looks_random
+    from graph_mind.conversation_memory import RANDOM_CANDIDATE, SECRET_PATTERNS, _looks_random
     found = []
     for pattern, replacement in SECRET_PATTERNS:
         if pattern.search(text):
@@ -810,9 +799,10 @@ def _decode_team(code: str) -> dict:
 
 
 def _admin(database=HUB_DATABASE):
-    import brain_log
     import psycopg
-    return psycopg.connect(f"postgresql://postgres@127.0.0.1:{brain_log.PORT}/{database}",
+
+    from graph_mind import sharing
+    return psycopg.connect(f"postgresql://postgres@127.0.0.1:{sharing.PORT}/{database}",
                            autocommit=True)
 
 
@@ -821,9 +811,9 @@ _PREPARED = set()
 
 def prepare_hub(owner_url=None) -> None:
     """On the PC hosting a hub: its database, functions and project template, and the team
-    group. Idempotent; done once per process (brain_log.local_postgres calls it)."""
-    import brain_log
-    owner_url = owner_url or brain_log.local_postgres()
+    group. Idempotent; done once per process (sharing.local_postgres calls it)."""
+    from graph_mind import sharing
+    owner_url = owner_url or sharing.local_postgres()
     # each home has its own cluster: a hub prepared for one home is not prepared for another
     key = (owner_url, str(_home()))
     if key in _PREPARED:
@@ -882,12 +872,12 @@ def _prepare(owner_url) -> None:
     _migrate_shared_tables()
     # a hub already open to the network (shared before, or teammates in it): the person's other
     # PCs and the teammates reach the hub database, and nobody but the owner the memory one
-    import brain_log
-    rules = (brain_log._pg_data() / "pg_hba.conf").read_text(encoding="utf-8")
+    from graph_mind import sharing
+    rules = (sharing._pg_data() / "pg_hba.conf").read_text(encoding="utf-8")
     if "graphmind graphmind all scram-sha-256" in rules and \
             f"hostssl {HUB_DATABASE} +{TEAM_GROUP} all" not in rules:
-        brain_log.allow_from_network(f"{HUB_DATABASE} +{TEAM_GROUP}", "teammates, project brains")
-        brain_log.forbid_from_network(f"graphmind +{TEAM_GROUP}")
+        sharing.allow_from_network(f"{HUB_DATABASE} +{TEAM_GROUP}", "teammates, project brains")
+        sharing.forbid_from_network(f"graphmind +{TEAM_GROUP}")
 
 
 def _migrate_shared_tables() -> dict:
@@ -895,12 +885,13 @@ def _migrate_shared_tables() -> dict:
     memory, one key for the whole hub) move into schemas of their own, sealed again with their
     own keys, one project per transaction. The old tables stay, renamed old_ledger_*, until
     every project has moved. (Stored files and reviews belonged to a feature since removed.)"""
-    import brain_log
     from cryptography.fernet import Fernet
+
+    from graph_mind import sharing
     with _admin("graphmind") as old:
         if not old.execute("SELECT to_regclass('public.ledger_projects')").fetchone()[0]:
             return {}
-        password = brain_log._config().get("share_password")
+        password = sharing._config().get("share_password")
         old_key = _fernet(ledger_secret(password)) if password else None
 
         def plain(stored) -> bytes:
@@ -966,19 +957,19 @@ def _migrate_shared_tables() -> dict:
 
 def secure_hub() -> None:
     """prepare_hub, and let the team group in from the network: to the hub database only."""
-    import brain_log
+    from graph_mind import sharing
     prepare_hub()
-    brain_log.allow_from_network(f"{HUB_DATABASE} +{TEAM_GROUP}", "teammates, project brains")
-    brain_log.forbid_from_network(f"graphmind +{TEAM_GROUP}")
+    sharing.allow_from_network(f"{HUB_DATABASE} +{TEAM_GROUP}", "teammates, project brains")
+    sharing.forbid_from_network(f"graphmind +{TEAM_GROUP}")
 
 
 def host_projects() -> dict:
     """Make this PC's hub the home of this person's project brains (a NAS or an always-on PC
     can do it without holding anyone's personal memory). Projects kept on this PC alone so far
     move into it."""
-    import brain_log
-    opened = brain_log.open_to_network()
-    brain_log._save({"hosts_projects": True})
+    from graph_mind import sharing
+    opened = sharing.open_to_network()
+    sharing._save({"hosts_projects": True})
     prepare_hub()
     return {"hosting": True, "moved": _move_local_projects(), "addresses": opened["addresses"],
             "firewall": opened["firewall"]}
@@ -1022,12 +1013,13 @@ def add_account(member: str, by: str = "hub operator", *, reset: bool = False) -
     """On the hub's machine: an account for a person, with no project at all, and the code to
     give them. Owners then add the account to their projects; the operator never does. An
     existing account keeps its code unless `reset` (a lost code): a new code ends the old one."""
-    import brain_log
     import secrets
+
+    from graph_mind import sharing
     member = str(member or "").strip()
     if not member or len(member) > 60:
         raise ValueError("MEMBER_NAME: the person's name, as others will see it")
-    opened = brain_log.open_to_network()
+    opened = sharing.open_to_network()
     secure_hub()
     login = _member_role(member)
     with _admin() as admin:
@@ -1052,7 +1044,7 @@ def add_account(member: str, by: str = "hub operator", *, reset: bool = False) -
                        "reset_account" if exists else "add_account", f"account {member}"))
     # no key in the code: each project's key comes from the hub, to its members only
     code = TEAM_PREFIX + base64.urlsafe_b64encode(json.dumps(
-        {"h": opened["addresses"], "p": brain_log.PORT, "u": login, "k": password, "n": member,
+        {"h": opened["addresses"], "p": sharing.PORT, "u": login, "k": password, "n": member,
          "c": opened["certificate"]}).encode()).decode().rstrip("=")
     return {"member": member, "account": "reset" if exists else "created", "team_code": code,
             "firewall": opened["firewall"],
@@ -1168,10 +1160,10 @@ def join_team(code: str, name: str | None = None) -> dict:
     """On a teammate's PC: add a team hub to the ones it takes part in, shown there as `name`
     (else the name the invite gave). It changes nothing about this PC's personal memory or
     where that memory syncs: no conversation is sent anywhere."""
-    import brain_log
+    from graph_mind import sharing
     value = _decode_team(code)
     key = (tuple(value["h"]), value["p"], value["u"])
-    hubs = [c for c in brain_log._config().get("team_hubs", [])
+    hubs = [c for c in sharing._config().get("team_hubs", [])
             if (lambda v: (tuple(v["h"]), v["p"], v["u"]))(_decode_team(c)) != key]
     ledger = _team_ledger(code.strip())
     try:
@@ -1181,22 +1173,22 @@ def join_team(code: str, name: str | None = None) -> dict:
         visible = ledger.names()
     finally:
         ledger.db.close()
-    brain_log._save({"team_hubs": hubs + [code.strip()]})
+    sharing._save({"team_hubs": hubs + [code.strip()]})
     if not named():
-        brain_log._save({"user_name": ledger.by})
+        sharing._save({"user_name": ledger.by})
     return {"joined_as": ledger.by, "projects": visible, "ledger": ledger.where,
             "personal_memory": "unchanged: still only on your own PCs"}
 
 
 def leave_team(project: str) -> dict:
     """Stop using the team hub that holds `project` on this PC."""
-    import brain_log
-    hubs = brain_log._config().get("team_hubs", [])
+    from graph_mind import sharing
+    hubs = sharing._config().get("team_hubs", [])
     for code in hubs:
         ledger = _team_ledger(code)
         try:
             if _project_name(project) in ledger.names():
-                brain_log._save({"team_hubs": [c for c in hubs if c != code]})
+                sharing._save({"team_hubs": [c for c in hubs if c != code]})
                 return {"left": ledger.where}
         finally:
             ledger.db.close()
@@ -1204,9 +1196,10 @@ def leave_team(project: str) -> dict:
 
 
 def _team_url(value: dict) -> str:
-    import brain_log
     import socket
     import urllib.parse
+
+    from graph_mind import sharing
     host = value["h"][0] if value["h"] else "127.0.0.1"
     for candidate in value["h"]:
         try:
@@ -1216,7 +1209,7 @@ def _team_url(value: dict) -> str:
         except OSError:
             continue
     return (f"postgresql://{value['u']}:{urllib.parse.quote(value['k'], safe='')}"
-            f"@{host}:{value['p']}/{HUB_DATABASE}" + brain_log.tls_options(value["c"]))
+            f"@{host}:{value['p']}/{HUB_DATABASE}" + sharing.tls_options(value["c"]))
 
 
 # -- which ledgers ------------------------------------------------------------------------------
@@ -1240,8 +1233,8 @@ def _team_ledger(code: str) -> Ledger:
 
 
 def _hosts_here() -> bool:
-    import brain_log
-    settings = brain_log._config()
+    from graph_mind import sharing
+    settings = sharing._config()
     return bool(settings.get("hosts_projects")) or settings.get("memory_folder") == "local"
 
 
@@ -1249,15 +1242,15 @@ def own_ledger() -> Ledger:
     """This person's own project brains: on the hub this PC hosts or the person's memory uses,
     else on this PC alone (~/.graph-mind/ledger.sqlite)."""
     import psycopg
-    import urllib.parse
-    import brain_log
-    settings = brain_log._config()
+
+    from graph_mind import sharing
+    settings = sharing._config()
     url = None
     if settings.get("hosts_projects"):
-        url = brain_log.local_postgres()
+        url = sharing.local_postgres()
     else:
-        shared = brain_log.folder()
-        if shared and brain_log.is_database(shared):
+        shared = sharing.folder()
+        if shared and sharing.is_database(shared):
             url = shared
     if url:
         if "@127.0.0.1:" in url:
@@ -1280,10 +1273,10 @@ def own_ledger() -> Ledger:
 def home_ledger(hub: str | None = None) -> Ledger:
     """Where a new project goes: the person's own hub, or this PC alone, unless they work only
     on team hubs (a company server): then the team hub, or the one `hub` names."""
-    import brain_log
-    settings = brain_log._config()
+    from graph_mind import sharing
+    settings = sharing._config()
     codes = settings.get("team_hubs", [])
-    own = settings.get("hosts_projects") or brain_log.is_database(brain_log.folder())
+    own = settings.get("hosts_projects") or sharing.is_database(sharing.folder())
     if hub or (codes and not own):
         label = lambda c: ", ".join(_decode_team(c)["h"])  # noqa: E731
         matches = [c for c in codes if not hub or hub in label(c)]
@@ -1296,7 +1289,7 @@ def home_ledger(hub: str | None = None) -> Ledger:
 
 def ledgers() -> tuple[list[Ledger], list[str]]:
     """Every project brain this person takes part in, and the hubs that cannot be reached."""
-    from brain_log import _config
+    from graph_mind.sharing import _config
     found, unreachable = [], []
     try:
         found.append(own_ledger())
@@ -1331,7 +1324,7 @@ def ledger_for(project: str) -> Ledger:
 def folder_project(cwd=None) -> str | None:
     """The project this working folder is bound to (config project_folders), if any: the
     default when the user says "공유해" without naming one. Sharing still needs the request."""
-    from brain_log import _config
+    from graph_mind.sharing import _config
     here = Path(cwd or os.getcwd()).resolve()
     best = None
     for folder_path, project in _config().get("project_folders", {}).items():
@@ -1343,7 +1336,7 @@ def folder_project(cwd=None) -> str | None:
 
 
 def bind_folder(folder_path, project) -> dict:
-    from brain_log import _config, _save
+    from graph_mind.sharing import _config, _save
     bound = dict(_config().get("project_folders", {}))
     resolved = str(Path(folder_path).expanduser().resolve())
     bound[resolved] = _project_name(project)

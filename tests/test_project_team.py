@@ -3,14 +3,13 @@ the owner's personal memory, acts within their role, and loses access when remov
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from unittest import mock
-import importlib.util
 import os
 import tempfile
 import time
 import unittest
 
-import brain_log
-import project_ledger as pl
+from graph_mind import sharing
+from graph_mind import project_brains as pl
 
 
 class FolderTests(unittest.TestCase):
@@ -41,7 +40,7 @@ class FolderTests(unittest.TestCase):
             {"h": [host], "p": 1, "u": "u", "k": "k", "l": "", "n": "n"}).encode()).decode()
         root = Path(tempfile.mkdtemp())
         with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
-            brain_log._save({"team_hubs": [code("10.0.0.1"), code("10.0.0.2")]})
+            sharing._save({"team_hubs": [code("10.0.0.1"), code("10.0.0.2")]})
             with self.assertRaisesRegex(ValueError, "HUB_REQUIRED.*10.0.0.1.*10.0.0.2"):
                 pl.home_ledger()
 
@@ -50,22 +49,23 @@ class TeamHubTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.gettempdir()) / f"graph-mind-team-{os.getpid()}-{time.time_ns()}"
         self.root.mkdir()
-        self.saved = (brain_log.PORT, os.environ.get("GRAPH_MIND_HOME"),
+        self.saved = (sharing.PORT, os.environ.get("GRAPH_MIND_HOME"),
                       os.environ.get("GRAPH_MIND_CONFIG"))
-        brain_log.PORT = 54393                                   # never the real hub's port
-        brain_log._LOCAL_URI.clear()
+        sharing.PORT = 54393                                   # never the real hub's port
+        sharing._LOCAL_URI.clear()
         os.environ["GRAPH_MIND_HOME"] = str(self.root / "home")
         os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "owner-config.json")
-        brain_log._save({"memory_folder": "local", "user_name": "yohan"})
+        sharing._save({"memory_folder": "local", "user_name": "yohan"})
 
     def tearDown(self):
         try:
-            brain_log.stop_postgres()
+            sharing.stop_postgres()
         except Exception:
             pass
-        brain_log.PORT = self.saved[0]
-        brain_log._LOCAL_URI.clear()
-        for name, value in (("GRAPH_MIND_HOME", self.saved[1]), ("GRAPH_MIND_CONFIG", self.saved[2])):
+        sharing.PORT = self.saved[0]
+        sharing._LOCAL_URI.clear()
+        for name, value in (("GRAPH_MIND_HOME", self.saved[1]),
+                            ("GRAPH_MIND_CONFIG", self.saved[2])):
             if value is None:
                 os.environ.pop(name, None)
             else:
@@ -78,14 +78,14 @@ class TeamHubTests(unittest.TestCase):
         decision = owner.publish("alpha", "decision", "허브는 PC 한 대", "yohan")
         owner.publish("beta", "progress", "다른 팀 일", "yohan")
         owner.db.close()
-        shared = brain_log.folder()
-        brain_log.append(shared, "memory", {"memory_id": "m-personal", "scope": "global",
+        shared = sharing.folder()
+        sharing.append(shared, "memory", {"memory_id": "m-personal", "scope": "global",
                                             "memory_type": "fact", "title": "연봉",
                                             "content": "연봉 협상 전략", "effective_at": None,
                                             "known_at": None, "actor": "yohan", "tags": [],
                                             "entities": [], "provenance": {},
                                             "supersedes_memory_id": None})
-        with mock.patch.object(brain_log, "_firewall", return_value="open"):
+        with mock.patch.object(sharing, "_firewall", return_value="open"):
             editor = pl.invite("minji", "editor", ["alpha"], "yohan")["team_code"]
             viewer = pl.invite("jun", "viewer", ["alpha"], "yohan")["team_code"]
 
@@ -130,7 +130,7 @@ class TeamHubTests(unittest.TestCase):
         owner = pl.own_ledger()
         owner.create_project("alpha", "yohan")
         owner.db.close()
-        with mock.patch.object(brain_log, "_firewall", return_value="open"):
+        with mock.patch.object(sharing, "_firewall", return_value="open"):
             minji_code = pl.invite("minji", "editor", ["alpha"], "yohan")["team_code"]
             jun_code = pl.add_account("jun")["team_code"]
             self.assertIsNone(pl.add_account("jun")["team_code"])     # the code stays valid
@@ -194,7 +194,7 @@ class TeamHubTests(unittest.TestCase):
         code and asks where things stand. Everything through brain_checkpoint."""
         import asyncio
         from mcp import Client
-        from graph_mind_mcp_server import build_server
+        from graph_mind.mcp_server import build_server
 
         async def run():
             async with Client(build_server(self.root / "a.sqlite")) as a:
@@ -202,19 +202,22 @@ class TeamHubTests(unittest.TestCase):
                 await call(action="create_project", project="graph-mind")
                 await call(action="publish", project="graph-mind", type="decision",
                            summary="Postgres 시작 실패 시 최대 10회 재시도",
-                           details="brain_log._retry; initdb·pg_ctl start. 남은 일: 원인 확정")
+                           details="sharing._retry; initdb·pg_ctl start. 남은 일: 원인 확정")
                 await call(action="attach", project="graph-mind",
                            path="https://lab241.slack.com/archives/C1/p1", summary="제안서 v1 완료")
-                with mock.patch.object(brain_log, "_firewall", return_value="open"):
-                    code = (await call(action="invite", member="minji", role="editor",
-                                       projects=["graph-mind"])).structured_content["team_code"]
+                with mock.patch.object(sharing, "_firewall", return_value="open"):
+                    invited = (await call(action="invite", member="minji", role="editor",
+                                          projects=["graph-mind"])).structured_content
+                    self.assertIn("team_code", invited, invited)
+                    code = invited["team_code"]
                 refused = (await call(action="remove_member", member="minji")).structured_content
                 self.assertEqual(refused["status"], "REFUSED")    # never the whole account
                 self.assertTrue(pl.accounts())
             os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "minji-config.json")
             async with Client(build_server(self.root / "b.sqlite")) as b:
                 call = lambda **k: b.call_tool("brain_checkpoint", k)  # noqa: E731
-                joined = (await call(action="join_team", code=code, name="minji")).structured_content
+                joined = (await call(action="join_team", code=code, name="minji")
+                          ).structured_content
                 where = (await call(action="timeline", project="graph-mind")).structured_content
             return joined, where
         joined, where = asyncio.run(run())
@@ -232,18 +235,18 @@ class TeamHubTests(unittest.TestCase):
         owner.create_project("alpha", "yohan")
         owner.create_project("beta", "yohan")
         owner.db.close()
-        with mock.patch.object(brain_log, "_firewall", return_value="open"):
+        with mock.patch.object(sharing, "_firewall", return_value="open"):
             minji = pl.invite("mini", "editor", ["alpha"], "yohan")["team_code"]
             jun = pl.add_account("jun")["team_code"]
         owner_config = os.environ["GRAPH_MIND_CONFIG"]
 
         os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "minji.json")
         self.assertEqual(pl.join_team(minji, "김민지")["joined_as"], "김민지")
-        self.assertEqual(brain_log._config()["user_name"], "김민지")
+        self.assertEqual(sharing._config()["user_name"], "김민지")
         os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "jun.json")
         with self.assertRaisesRegex(ValueError, "NAME_TAKEN"):
             pl.join_team(jun, "김민지")
-        self.assertEqual(brain_log._config().get("team_hubs", []), [])   # not half joined
+        self.assertEqual(sharing._config().get("team_hubs", []), [])   # not half joined
 
         os.environ["GRAPH_MIND_CONFIG"] = owner_config
         with self.assertRaisesRegex(ValueError, "NAME_TAKEN"):
@@ -270,9 +273,9 @@ class TeamHubTests(unittest.TestCase):
         sealed with one hub key. Each moves into its own schema under its own key, with its
         members and history, and reads back the same."""
         import json
-        brain_log._save({"share_password": "pw-before"})
+        sharing._save({"share_password": "pw-before"})
         old_key = pl._fernet(pl.ledger_secret("pw-before"))
-        brain_log.local_postgres()
+        sharing.local_postgres()
         checkpoint = {"id": "cp-0123456789ab", "project": "legacy", "type": "artifact",
                       "summary": "옛 결과물", "details": "", "actor": "yohan",
                       "created_at": "2026-10-01T10:00:00+09:00", "artifacts": [],

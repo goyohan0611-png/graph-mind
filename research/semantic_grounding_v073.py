@@ -29,12 +29,36 @@ import math
 import os
 import threading
 
-from local_embedder import (LOCAL_MODEL, LocalEmbedder, _seed_texts, cosine,  # noqa: F401
-                            semantic_coverage)
+from graph_mind.local_embedder import LOCAL_MODEL, LocalEmbedder, cosine  # noqa: F401
 
-from associative_memory import AssociativeMemoryIndex, _terms
+from graph_mind.associative_memory import AssociativeMemoryIndex, _terms
 from grounded_concept_bridge_v072 import (ACTIVATE, BLIND_CASES, BLIND_ROOT, CASES_PATH,
     _blind_plan_map, _frozen_plans, _metric, _read_json, _summary, _write_json)
+
+SEED_LIMIT = ACTIVATE["seed_limit"]
+
+
+def semantic_coverage(cue_vecs, seed_vecs):
+    """Mean over cues of the best cosine similarity of that cue to any seed text."""
+    if not cue_vecs or not seed_vecs:
+        return 0.0
+    return sum(max(cosine(c, s) for s in seed_vecs) for c in cue_vecs) / len(cue_vecs)
+
+
+def _seed_texts(index, query, cues):
+    terms = _terms(" ".join([query, *cues]))
+    if not terms:
+        return []
+    expression = " OR ".join('"' + t.replace('"', '""') + '"' for t in terms)
+    rows = index.db.execute(
+        """SELECT associative_engrams_fts.text AS text
+           FROM associative_engrams_fts JOIN associative_engrams e
+             ON e.engram_id=associative_engrams_fts.engram_id
+           WHERE associative_engrams_fts MATCH ?
+           ORDER BY bm25(associative_engrams_fts), e.revision DESC LIMIT ?""",
+        [expression, SEED_LIMIT]).fetchall()
+    return [r["text"] for r in rows]
+
 
 # Pre-registered from the DEV calibration safe window [0.25, 0.35] (control=0%, vague=33%,
 # exact=89%). Fixed BEFORE observing any blind semantic score. Not re-tuned on the blind set.

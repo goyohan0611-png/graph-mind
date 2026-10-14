@@ -233,7 +233,7 @@ def _library_tag(inline: bool) -> str:
     fallback = f'<script src="{LIBRARY}"></script>'
     if not inline:
         return fallback
-    from development_paths import graph_mind_home
+    from graph_mind.paths import graph_mind_home
     cached = graph_mind_home() / "vendor" / LIBRARY.rsplit("/", 1)[-1].replace(
         ".min.js", "-1.73.3.min.js")
     if not cached.exists():
@@ -264,8 +264,8 @@ def build(db_path, out, *, limit=4000, with_text=True, inline_library=True) -> d
 
 
 def main(argv=None):
-    from development_paths import graph_mind_home
-    from graph_mind_mcp_server import configured_db_path
+    from graph_mind.mcp_server import configured_db_path
+    from graph_mind.paths import graph_mind_home
     parser = argparse.ArgumentParser(description="Open your memory as a 3D graph.")
     parser.add_argument("--limit", type=int, default=4000, help="most recent nodes to draw")
     parser.add_argument("--no-text", action="store_true",

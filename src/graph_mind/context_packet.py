@@ -5,7 +5,6 @@ from math import ceil
 import json
 import re
 
-
 SCHEMA_VERSION = "universal-personal-memory-v0.5"
 
 MEMORY_CLASSES = frozenset({

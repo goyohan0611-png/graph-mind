@@ -13,7 +13,7 @@ import unittest
 
 from mcp import Client
 
-from project_ledger import Ledger
+from graph_mind.project_brains import Ledger
 
 KEY = "sk-proj-" + "a" * 40
 
@@ -35,7 +35,7 @@ class CheckpointTests(unittest.TestCase):
         second = book.publish("graph-mind", "decision", "허브는 PC 두 대로 이중화", "minji",
                               supersedes=first["id"])
         progress = book.publish("graph-mind", "progress", "3D 보기 배포 완료", "yohan",
-                                details="brain_view.py; 테스트 3개 통과; 남은 일: GIF",
+                                details="memory_view.py; 테스트 3개 통과; 남은 일: GIF",
                                 source_refs=["codex-turn-abc", "commit:4211ae2"])
         timeline = book.timeline("graph-mind")
         self.assertEqual([c["id"] for c in timeline], [progress["id"], second["id"], first["id"]])
@@ -102,7 +102,7 @@ class SealedTests(unittest.TestCase):
 
 class ToolTests(unittest.IsolatedAsyncioTestCase):
     async def test_publish_through_the_assistant_and_personal_memory_stays_out(self):
-        from graph_mind_mcp_server import build_server
+        from graph_mind.mcp_server import build_server
         root = Path(tempfile.mkdtemp())
         with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
             async with Client(build_server(root / "brain.sqlite")) as client:
@@ -113,7 +113,8 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
                 refused = (await call(action="publish", project="graph-mind", type="progress",
                                       summary="x")).structured_content
                 self.assertEqual(refused["status"], "REFUSED")
-                unnamed = (await call(action="create_project", project="graph-mind")).structured_content
+                unnamed = (await call(action="create_project", project="graph-mind")
+                           ).structured_content
                 self.assertEqual(unnamed["status"], "NAME_REQUIRED")       # not this PC's name
                 named = (await call(action="set_name", name="고요한")).structured_content
                 self.assertEqual(named["name"], "고요한")
@@ -137,15 +138,17 @@ class CodeTests(unittest.IsolatedAsyncioTestCase):
     async def test_any_code_goes_where_it_belongs_whichever_tool_gets_it(self):
         """The user pastes 'a code'; a team invite given to the brain-folder tool joins the team,
         and the user's own-PC code given to the team tool joins the brain."""
-        from graph_mind_mcp_server import build_server
+        from graph_mind.mcp_server import build_server
         root = Path(tempfile.mkdtemp())
         with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}), \
-                mock.patch("project_ledger.join_team",
+                mock.patch("graph_mind.project_brains.join_team",
                            return_value={"joined_as": "민지", "projects": ["p"]}) as team, \
-                mock.patch("brain_log.set_folder", side_effect=ValueError("INVALID_CONNECTION_CODE")) as own:
+                mock.patch("graph_mind.sharing.set_folder",
+                           side_effect=ValueError("INVALID_CONNECTION_CODE")) as own:
             async with Client(build_server(root / "brain.sqlite")) as client:
                 await client.call_tool("brain_checkpoint", {"action": "set_name", "name": "민지"})
-                joined = (await client.call_tool("brain_folder", {"path": "gmt1.e30"})).structured_content
+                joined = (await client.call_tool("brain_folder", {"path": "gmt1.e30"})
+                          ).structured_content
                 self.assertEqual(joined["joined_as"], "민지")
                 team.assert_called_once()
                 mine = (await client.call_tool("brain_checkpoint", {

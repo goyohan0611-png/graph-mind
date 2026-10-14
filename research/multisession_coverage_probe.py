@@ -13,10 +13,10 @@ import hashlib
 import json
 import tempfile
 
-from graph_mind_mcp_server import gather
+from graph_mind.mcp_server import gather
 from longmemeval_m_fetch import stream_instances
 from product_recall_eval import DATA, fill, iso
-from universal_personal_memory import build_context_pack
+from graph_mind.context_packet import build_context_pack
 
 RUN = Path("runs/graph-v6.4-full500")
 CACHE = RUN / "embed-cache-local.json"

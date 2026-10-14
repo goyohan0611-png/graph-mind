@@ -4,9 +4,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-import brain_view
-from associative_memory import AssociativeMemoryIndex
-from conversation_memory import ConversationMemoryStore
+from graph_mind import memory_view
+from graph_mind.associative_memory import AssociativeMemoryIndex
+from graph_mind.conversation_memory import ConversationMemoryStore
 
 TEXTS = ["콩이랑 해변 산책 다녀옴", "콩이 사료 바꿨더니 잘 먹네", "서버 배포 스크립트 고쳤다",
          "배포 서버 포트 54329로 고정", "점심은 김치찌개", "콩이 병원 예약 금요일"]
@@ -26,11 +26,11 @@ class BrainViewTests(unittest.TestCase):
             with AssociativeMemoryIndex(db) as index:
                 index.sync_sources(limit=1000)
             page = Path(directory) / "brain.html"
-            shown = brain_view.build(db, page, inline_library=False)
+            shown = memory_view.build(db, page, inline_library=False)
             self.assertEqual(shown["nodes"], len(TEXTS))
             self.assertGreater(shown["links"], 0)
             self.assertIn("김치찌개", page.read_text(encoding="utf-8"))
-            brain_view.build(db, page, with_text=False, inline_library=False)
+            memory_view.build(db, page, with_text=False, inline_library=False)
             html = page.read_text(encoding="utf-8")
             self.assertFalse(any(text in html for text in TEXTS))
             self.assertNotIn("콩이", html)              # nor the topic words of a region

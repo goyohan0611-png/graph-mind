@@ -1,24 +1,23 @@
 """Conservative semantic promotion gate for captured conversation turns."""
 from __future__ import annotations
 
-from development_paths import use_wal
-
 from datetime import datetime
 from pathlib import Path
 import hashlib
-import json
 import re
 import sqlite3
 
-from local_brain import LocalBrainStore
-
+from graph_mind.local_brain import LocalBrainStore
+from graph_mind.paths import use_wal
 
 GATE_VERSION = "semantic-memory-gate-v0.3.1"
 PREFERENCE = re.compile(r"(?:선호|좋아(?:해|한다|함)|싫어(?:해|한다|함)|원해|원한다|했으면)")
-DECISION = re.compile(r"(?:앞으로|하기로|결정(?:했|한다|함)|채택(?:했|한다|함)|고정(?:하자|한다|함)|방향.{0,20}(?:잡|가자|간다))")
+DECISION = re.compile(r"(?:앞으로|하기로|결정(?:했|한다|함)|채택(?:했|한다|함)"
+                      r"|고정(?:하자|한다|함)|방향.{0,20}(?:잡|가자|간다))")
 REMEMBER = re.compile(r"(?:기억해|기억해줘|잊지 ?마|계속 기억)")
 PROJECT = re.compile(r"(?:프로젝트|제품|서비스).{0,40}(?:목표|방향|원칙|목적)")
-QUESTION_ONLY = re.compile(r"(?:뭐야|무엇|왜|어떻게|해줘|봐줘|고쳐줘|수정해줘|리뷰해줘)\s*[?？\\]*$")
+QUESTION_ONLY = re.compile(r"(?:뭐야|무엇|왜|어떻게|해줘|봐줘|고쳐줘|수정해줘|리뷰해줘)"
+                           r"\s*[?？\\]*$")
 
 
 def _now():

@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from coding_memory import CodingMemoryCapture, CodingMemoryStore
+from graph_mind.coding_memory import CodingMemoryCapture, CodingMemoryStore
 
 
 T1 = "2026-09-15T10:00:00"

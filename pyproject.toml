@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.7.0"
+version = "0.8.0"
 description = "Local-first memory for AI coding assistants: verbatim, on your own PC, no LLM calls at write time."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,39 +36,32 @@ Issues = "https://github.com/goyohan0611-png/graph-mind/issues"
 Changelog = "https://github.com/goyohan0611-png/graph-mind/blob/main/CHANGELOG.md"
 
 [project.scripts]
-graph-mind = "graph_mind_mcp_server:main"
-graph-mind-install = "install:main"
-graph-mind-uninstall = "install:uninstall"
-graph-mind-capture = "automatic_capture_cli:main"
-graph-mind-forget = "forget:main"
-graph-mind-view = "brain_view:main"
-graph-mind-hub = "project_ledger:hub_main"
+graph-mind = "graph_mind.mcp_server:main"
+graph-mind-install = "graph_mind.install:main"
+graph-mind-uninstall = "graph_mind.install:uninstall"
+graph-mind-capture = "graph_mind.capture_cli:main"
+graph-mind-forget = "graph_mind.forget:main"
+graph-mind-view = "graph_mind.memory_view:main"
+graph-mind-hub = "graph_mind.project_brains:hub_main"
 
 [tool.setuptools]
-# ponytail: flat modules under src/; a graph_mind/ package is the upgrade path.
 package-dir = { "" = "src" }
-py-modules = [
-    "associative_memory",
-    "automatic_capture",
-    "automatic_capture_cli",
-    "brain_log",
-    "brain_view",
-    "clock",
-    "coding_memory",
-    "conversation_memory",
-    "development_memory",
-    "development_paths",
-    "embedding_warmup",
-    "entity_timeline",
-    "forget",
-    "graph_mind_mcp_server",
-    "install",
-    "local_brain",
-    "local_embedder",
-    "project_ledger",
-    "semantic_llm_extractor",
-    "semantic_memory",
-    "semantic_recall",
-    "universal_personal_memory",
-    "vector_cache",
-]
+packages = ["graph_mind"]
+# where apps registered before 0.8 start the server and the capture service (gone in 0.9)
+py-modules = ["graph_mind_mcp_server", "automatic_capture_cli"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+extend-exclude = ["research"]   # experiments and benchmarks, kept as they were run
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+from-first = true
+known-first-party = ["graph_mind"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/graph_mind/memory_view.py" = ["E501"]   # the page's HTML and JavaScript, kept readable as is
+"tests/*" = ["I001"]          # each test imports _isolate first, before anything it isolates

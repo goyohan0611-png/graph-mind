@@ -4,7 +4,8 @@ import json
 import tempfile
 import unittest
 
-from conversation_memory import (ClaudeCodeConversationCapture, ClaudeCoworkConversationCapture,
+from graph_mind.conversation_memory import (ClaudeCodeConversationCapture,
+                                            ClaudeCoworkConversationCapture,
                                  CodexConversationCapture,
                                  ConversationMemoryStore)
 
@@ -21,7 +22,8 @@ class ConversationMemoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             sessions, workspace = root / "sessions", root / "project"
-            sessions.mkdir(); workspace.mkdir()
+            sessions.mkdir()
+            workspace.mkdir()
             source = sessions / "rollout-test.jsonl"
             meta = {"type": "session_meta", "payload": {
                 "session_id": "session:test", "cwd": str(workspace)}}
@@ -51,7 +53,9 @@ class ConversationMemoryTests(unittest.TestCase):
 
     def test_utc_codex_timestamp_is_normalized_to_local_store_clock(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory); sessions = root / "sessions"; sessions.mkdir()
+            root = Path(directory)
+            sessions = root / "sessions"
+            sessions.mkdir()
             source = sessions / "utc.jsonl"
             source.write_text(json.dumps({"type": "session_meta", "payload": {
                 "session_id": "session:utc"}}) + "\n", encoding="utf-8")
@@ -70,7 +74,9 @@ class ConversationMemoryTests(unittest.TestCase):
 
     def test_existing_sessions_start_at_end_and_new_session_starts_at_zero(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory); sessions = root / "sessions"; sessions.mkdir()
+            root = Path(directory)
+            sessions = root / "sessions"
+            sessions.mkdir()
             old = sessions / "old.jsonl"
             old.write_text(json.dumps(row(1, "user", "old history")) + "\n",
                            encoding="utf-8")
@@ -99,7 +105,8 @@ class ConversationMemoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             projects, workspace = root / "projects", root / "project"
-            (projects / "p").mkdir(parents=True); workspace.mkdir()
+            (projects / "p").mkdir(parents=True)
+            workspace.mkdir()
             source = projects / "p" / "cc.jsonl"
             source.write_text(json.dumps({"type": "summary", "sessionId": "cc:1",
                                           "cwd": str(workspace)}) + "\n", encoding="utf-8")

@@ -33,7 +33,8 @@ Or from source:
 ```bash
 git clone https://github.com/goyohan0611-png/graph-mind.git
 cd graph-mind
-python src/install.py
+pip install -e .
+graph-mind-install
 ```
 
 ## What the installer does

@@ -1,12 +1,3 @@
-mcp>=2,<3
-numpy
-onnxruntime>=1.17
-tokenizers>=0.15
-huggingface_hub>=0.20
-psycopg[binary]>=3.2
-cryptography
-psutil
-fasteners
-platformdirs
-# research and benchmark scripts only
+# A checkout for development: Graph-MIND itself (editable) and what research/ adds.
+-e .
 tiktoken

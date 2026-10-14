@@ -10,7 +10,7 @@ import sys
 import tempfile
 import unittest
 
-import install
+from graph_mind import install
 
 
 class InstallTests(unittest.TestCase):
@@ -34,13 +34,13 @@ class InstallTests(unittest.TestCase):
                            "GRAPH_MIND_HOME": str(home / ".graph-mind"),
                            "GRAPH_MIND_CONFIG": str(home / ".graph-mind" / "config.json")}
             with mock.patch.dict(os.environ, environment), \
-                    mock.patch("install.shutil.which", return_value=None):
+                    mock.patch("graph_mind.install.shutil.which", return_value=None):
                 for _ in range(2):
                     install.main(["--skip-packages", "--skip-model", "--no-start",
                                   "--join", code])
             toml = (home / ".codex" / "config.toml").read_text(encoding="utf-8")
             self.assertEqual(toml.count("[mcp_servers.graph-mind-memory]"), 1)
-            self.assertIn(str(install.SERVER), toml)
+            self.assertIn('args = ["-m", "graph_mind.mcp_server"]', toml)
             self.assertIn("[mcp_servers.other]", toml)
             self.assertNotIn("'old'", toml)
             self.assertNotIn("required", toml)       # a failing server must not block a chat
@@ -50,7 +50,7 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(code_cli["mcpServers"]["graph-mind-memory"]["command"], sys.executable)
             app = json.loads((desktop / "claude_desktop_config.json").read_text(encoding="utf-8"))
             entry = app["mcpServers"]["graph-mind-memory"]
-            self.assertEqual(entry["args"], [str(install.SERVER)])
+            self.assertEqual(entry["args"], install.SERVER)
             self.assertEqual(entry["env"]["MINE"], "1")
             self.assertNotIn("type", entry)
             self.assertNotIn("GRAPH_MIND_CAPTURED", entry["env"])     # desktop chat: not captured
@@ -71,7 +71,7 @@ class InstallTests(unittest.TestCase):
             # and back out: every app unregistered, the user's other settings untouched,
             # the memory kept unless asked to purge it
             with mock.patch.dict(os.environ, environment), \
-                    mock.patch("install.shutil.which", return_value=None):
+                    mock.patch("graph_mind.install.shutil.which", return_value=None):
                 install.uninstall([])
                 toml = (home / ".codex" / "config.toml").read_text(encoding="utf-8")
                 self.assertNotIn("graph-mind-memory", toml)
@@ -80,7 +80,8 @@ class InstallTests(unittest.TestCase):
                 code_cli = json.loads((home / ".claude.json").read_text(encoding="utf-8"))
                 self.assertNotIn("graph-mind-memory", code_cli["mcpServers"])
                 self.assertEqual(code_cli["keep"], 1)
-                app = json.loads((desktop / "claude_desktop_config.json").read_text(encoding="utf-8"))
+                app = json.loads((desktop / "claude_desktop_config.json")
+                                 .read_text(encoding="utf-8"))
                 self.assertNotIn("graph-mind-memory", app["mcpServers"])
                 self.assertFalse(login_item.exists())
                 self.assertTrue((home / ".graph-mind").exists(), "memory kept by default")
@@ -111,19 +112,23 @@ class InstallTests(unittest.TestCase):
             (vscode / "mcp.json").write_text(json.dumps({"servers": {"other": {"command": "y"}}}),
                                              encoding="utf-8")
             with mock.patch.dict(os.environ, environment), \
-                    mock.patch("install.shutil.which", return_value=None):
+                    mock.patch("graph_mind.install.shutil.which", return_value=None):
                 connected = install.other_apps(home)
                 self.assertEqual(sorted(connected), sorted(
                     ["Cursor", "Windsurf", "Gemini CLI", "LM Studio", "VS Code", "Cline"]))
-                read = lambda p: json.loads(p.read_text(encoding="utf-8"))
+
+                def read(path):
+                    return json.loads(path.read_text(encoding="utf-8"))
                 self.assertIn("other", read(home / ".cursor" / "mcp.json")["mcpServers"])
-                self.assertIn("graph-mind-memory", read(home / ".cursor" / "mcp.json")["mcpServers"])
+                cursor = read(home / ".cursor" / "mcp.json")["mcpServers"]
+                self.assertIn("graph-mind-memory", cursor)
                 self.assertEqual(read(home / ".gemini" / "settings.json")["theme"], "Dracula")
                 vs = read(vscode / "mcp.json")["servers"]
                 self.assertEqual(vs["graph-mind-memory"]["type"], "stdio")
                 self.assertIn("other", vs)
                 install.uninstall([])
-                self.assertNotIn("graph-mind-memory", read(home / ".cursor" / "mcp.json")["mcpServers"])
+                cursor = read(home / ".cursor" / "mcp.json")["mcpServers"]
+                self.assertNotIn("graph-mind-memory", cursor)
                 self.assertNotIn("graph-mind-memory", read(vscode / "mcp.json")["servers"])
                 self.assertEqual(read(home / ".gemini" / "settings.json")["theme"], "Dracula")
                 (vscode / "mcp.json").write_text('{\n  // my servers\n  "servers": {}\n}',
@@ -139,19 +144,18 @@ class InstallTests(unittest.TestCase):
     def test_model_goes_to_own_folder_when_the_usual_cache_is_locked(self):
         """A fresh Windows profile refused ~/.cache (access denied): Hugging Face's whole home
         moves to ~/.graph-mind/huggingface, and every later process is pointed there."""
-        import local_embedder
-
+        from graph_mind import local_embedder
         def locked(*_):
             raise PermissionError(5, "Access is denied: ~/.cache/huggingface")
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
                 mock.patch.object(local_embedder, "model_paths", locked), \
-                mock.patch("install.subprocess.run") as retry:
+                mock.patch("graph_mind.install.subprocess.run") as retry:
             os.environ.pop("HF_HOME", None)
             install.embedding_model()
             own = str(Path(directory) / "huggingface")
             self.assertEqual(retry.call_args.kwargs["env"]["HF_HOME"], own)
-            import local_embedder
+            from graph_mind import local_embedder
             local_embedder.use_own_hf_home()          # what the server does when it starts
             self.assertEqual(os.environ["HF_HOME"], own)
 

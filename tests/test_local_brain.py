@@ -1,10 +1,12 @@
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
+from contextlib import closing
 from pathlib import Path
+import json
+import sqlite3
 import tempfile
 import unittest
 
-from development_memory import DevelopmentMemoryStore
-from local_brain import LocalBrainStore
+from graph_mind.local_brain import LocalBrainStore
 
 
 T1 = "2026-09-15T10:00:00"
@@ -48,8 +50,18 @@ class LocalBrainTests(unittest.TestCase):
                 "payload": {"objective": "사용자 기억 엔진 만들기"},
                 "provenance": {"source_type": "fixture", "source_ref": "test"},
                 "supersedes_event_id": None}
-            with DevelopmentMemoryStore(path) as development:
-                development.record_event(event)
+            with closing(sqlite3.connect(path)) as db:  # written by versions before 0.8
+                db.execute("""CREATE TABLE development_events(revision INTEGER PRIMARY KEY,
+                  event_id TEXT, project_id TEXT, session_id TEXT, event_type TEXT,
+                  effective_at TEXT, known_at TEXT, actor TEXT, subject_id TEXT,
+                  payload_json TEXT, provenance_json TEXT, supersedes_event_id TEXT)""")
+                db.execute("INSERT INTO development_events VALUES(1,?,?,?,?,?,?,?,?,?,?,?)",
+                           (event["event_id"], event["project_id"], event["session_id"],
+                            event["event_type"], event["effective_at"], event["known_at"],
+                            event["actor"], event["subject_id"],
+                            json.dumps(event["payload"], ensure_ascii=False),
+                            json.dumps(event["provenance"]), None))
+                db.commit()
             with LocalBrainStore(path) as brain:
                 result = brain.recall("기억 엔진", scopes=["project:demo"], as_of=T2)
             self.assertEqual(result["status"], "KNOWN")

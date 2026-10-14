@@ -1,8 +1,6 @@
 """Bounded sparse associative recall over Graph-MIND's evidence vault."""
 from __future__ import annotations
 
-from development_paths import use_wal
-
 from datetime import datetime
 from pathlib import Path
 import hashlib
@@ -12,6 +10,7 @@ import re
 import sqlite3
 import unicodedata
 
+from graph_mind.paths import use_wal
 
 INDEX_VERSION = "engram-associative-layer-v0.6"
 STOP_TERMS = frozenset({
@@ -319,39 +318,6 @@ class AssociativeMemoryIndex:
         if source_id.startswith(("memory:", "conversation:", "development:")):
             return source_id
         return "memory:" + source_id
-
-    def lexical_search(self, query, *, scopes=None, limit=8):
-        """Return direct FTS matches without graph propagation."""
-        query = _text(query, "LEXICAL_QUERY_REQUIRED")
-        scope_list = scopes or []
-        if not isinstance(scope_list, list) or not all(isinstance(x, str) and x.strip()
-                                                       for x in scope_list):
-            raise ValueError("INVALID_LEXICAL_SCOPES")
-        if type(limit) is not int or not 1 <= limit <= 50:
-            raise ValueError("INVALID_LEXICAL_RESULT_LIMIT")
-        terms = _terms(query)
-        if not terms:
-            return {"status": "UNKNOWN", "reason": "NO_SEARCHABLE_QUERY_TERMS",
-                    "results": []}
-        expression = " OR ".join('"' + term.replace('"', '""') + '"'
-                                 for term in terms)
-        where, parameters = ["associative_engrams_fts MATCH ?"], [expression]
-        if scope_list:
-            where.append("e.scope IN (" + ",".join("?" for _ in scope_list) + ")")
-            parameters.extend(scope_list)
-        parameters.append(limit)
-        rows = self.db.execute("""SELECT e.*,associative_engrams_fts.text,
-          bm25(associative_engrams_fts) AS rank
-          FROM associative_engrams_fts JOIN associative_engrams e
-          ON e.engram_id=associative_engrams_fts.engram_id WHERE """
-          + " AND ".join(where) + " ORDER BY rank,e.revision DESC LIMIT ?",
-          parameters).fetchall()
-        return {"status": "KNOWN" if rows else "UNKNOWN",
-                "reason": "LEXICAL_MATCHES_FOUND" if rows else "NO_LEXICAL_MATCH",
-                "results": [{"engram_id": row["engram_id"],
-                    "source_kind": row["source_kind"], "source_id": row["source_id"],
-                    "scope": row["scope"], "rank": row["rank"],
-                    "text_excerpt": row["text"][:500]} for row in rows]}
 
     def activate(self, query, *, scopes=None, concept_cues=None, seed_limit=12, hops=2,
                  fanout=12, max_nodes=40, limit=8, minimum_concept_coverage=0.0,

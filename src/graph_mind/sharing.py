@@ -23,7 +23,7 @@ answered already sees it. "local" runs Postgres on this PC (fetched once, no set
 it over Tailscale with its postgres:// URL. Rows are only ever inserted, one writer at a time
 (an advisory lock), so reading by sequence number never skips a row committed late.
 
-    python brain_log.py            # self-check with two simulated devices
+    python sharing.py            # self-check with two simulated devices
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def config_path() -> Path:
     override = os.environ.get("GRAPH_MIND_CONFIG")
     if override:
         return Path(override)
-    from development_paths import graph_mind_home
+    from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "config.json"            # ~/.graph-mind unless GRAPH_MIND_HOME
 
 
@@ -68,13 +68,13 @@ def is_database(shared) -> bool:
 
 _LOCAL_URI = {}
 _JOINED = {}
-PORT = int(os.environ.get("GRAPH_MIND_PG_PORT", "54329"))   # fixed, so a connection code stays valid
+PORT = int(os.environ.get("GRAPH_MIND_PG_PORT", "54329"))   # fixed: a connection code stays valid
 CODE_PREFIX = "gm1."
 TAILSCALE = "100.64.0.0/10"
 
 
 def _pg_data() -> Path:
-    from development_paths import graph_mind_home
+    from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "postgres"
 
 
@@ -103,16 +103,19 @@ def local_postgres() -> str:
                 _pg_tool("pg_ctl", ["-D", data, "-w", "-m", "fast", "stop"])
             if not _current(_server_exe(data)):
                 _start(data, PORT)
-            if fresh:
-                import psycopg
-                with psycopg.connect(_admin_uri(), autocommit=True) as admin:
+            # not only when fresh: a start that failed after initdb left a cluster without them
+            import psycopg
+            with psycopg.connect(_admin_uri(), autocommit=True) as admin:
+                if not admin.execute("SELECT 1 FROM pg_roles WHERE rolname='graphmind'").fetchone():
                     admin.execute("CREATE ROLE graphmind LOGIN")
+                if not admin.execute("SELECT 1 FROM pg_database WHERE datname='graphmind'"
+                                     ).fetchone():
                     admin.execute("CREATE DATABASE graphmind OWNER graphmind")
     _LOCAL_URI["uri"] = f"postgresql://graphmind@127.0.0.1:{PORT}/graphmind"
     # project brains' tables and file functions, once per process: a teammate or the owner's
     # other PC may use them without this PC ever opening a project itself
     try:
-        from project_ledger import prepare_hub
+        from graph_mind.project_brains import prepare_hub
         prepare_hub(_LOCAL_URI["uri"])
     except Exception:
         pass                                  # the personal memory works without them
@@ -306,8 +309,9 @@ def open_to_network(open_firewall: bool = True) -> dict:
     """Make this PC's Postgres reachable from the network, over TLS and with a password only,
     without moving this PC's personal memory there: a team hub on a NAS or a server needs only
     this. The hub's certificate goes into every code, so a PC checks it reached this hub."""
-    import psycopg
     import secrets
+
+    import psycopg
     local_postgres()                        # first: it explains a machine it cannot host on
     password = _config().get("share_password") or secrets.token_urlsafe(18)
     _save({"share_password": password})          # before sealing: the line key derives from it
@@ -332,8 +336,9 @@ def open_to_network(open_firewall: bool = True) -> dict:
 def allow_from_network(database_and_role: str, why: str) -> None:
     """A rule letting `database role` in from other machines: over TLS, with the password.
     The plain rules written before TLS become TLS-only. Then the server reads its settings."""
-    import psycopg
     import time
+
+    import psycopg
     hba = _pg_data() / "pg_hba.conf"
     plain = f"host {database_and_role} all scram-sha-256"
     rule = "hostssl " + plain[len("host "):]
@@ -375,6 +380,7 @@ def _certificate(data: Path) -> str:
     crt, key = data / "server.crt", data / "server.key"
     if not (crt.exists() and key.exists()):
         import datetime as dt
+
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec
         from cryptography.x509.oid import NameOID
@@ -407,7 +413,8 @@ def tls_options(certificate: str | None) -> str:
     import hashlib
     import ssl
     import urllib.parse
-    from development_paths import graph_mind_home
+
+    from graph_mind.paths import graph_mind_home
     der = base64.urlsafe_b64decode(certificate + "=" * (-len(certificate) % 4))
     path = graph_mind_home() / "hubs" / f"{hashlib.sha256(der).hexdigest()[:16]}.crt"
     if not path.exists():
@@ -419,8 +426,9 @@ def tls_options(certificate: str | None) -> str:
 def _addresses() -> list[str]:
     """This PC's IPv4 addresses other PCs can use: the local network first, then Tailscale."""
     import ipaddress
-    import psutil
     import socket
+
+    import psutil
     up = {name for name, stats in psutil.net_if_stats().items() if stats.isup}
     found = {entry.address for name, entries in psutil.net_if_addrs().items() if name in up
              for entry in entries if entry.family == socket.AF_INET}
@@ -558,7 +566,7 @@ def _shared_ids(shared) -> set:
     if is_database(shared):
         with _pg(shared) as connection:
             lines = [line for line in (_unseal(shared, row[0]) for row in
-                     connection.execute("SELECT line FROM brain_log")) if line is not None]
+                     connection.execute("SELECT line FROM sharing")) if line is not None]
     else:
         lines = [line for log in (Path(shared) / "log").glob("*.jsonl")
                  for line in log.read_text(encoding="utf-8", errors="replace").splitlines()]
@@ -649,8 +657,9 @@ def _line_key(url):
 
     The connection to a hub is TLS (since 0.7; before, it was not encrypted at all), and each
     line is sealed besides, so the hub's disk holds ciphertext only and a hub reached by a code
-    from before TLS still never carries memory in clear. Each line is sealed (Fernet: AES with an HMAC) under a key derived from the password in the connection
-    code, which every PC that joined holds and nobody else does. The hub stores ciphertext too.
+    from before TLS still never carries memory in clear. Each line is sealed (Fernet: AES with
+    an HMAC) under a key derived from the password in the connection code, which every PC that
+    joined holds and nobody else does.
     A joined PC finds the password in its URL; the hub PC in its own config."""
     import urllib.parse
     password = urllib.parse.urlsplit(url).password
@@ -661,7 +670,7 @@ def _line_key(url):
         from cryptography.fernet import Fernet
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-        raw = HKDF(algorithm=hashes.SHA256(), length=32, salt=b"graph-mind brain_log",
+        raw = HKDF(algorithm=hashes.SHA256(), length=32, salt=b"graph-mind sharing",
                    info=b"line key v1").derive(password.encode())
         _KEYS[password] = Fernet(base64.urlsafe_b64encode(raw))
     return _KEYS[password]
@@ -691,10 +700,10 @@ def _seal_existing(url) -> int:
     if _line_key(url) is None:
         return 0
     with _pg(url) as connection:
-        rows = connection.execute("SELECT seq, line FROM brain_log WHERE line NOT LIKE %s",
+        rows = connection.execute("SELECT seq, line FROM sharing WHERE line NOT LIKE %s",
                                   (SEALED + "%",)).fetchall()
         with connection.cursor() as cursor:
-            cursor.executemany("UPDATE brain_log SET line = %s WHERE seq = %s",
+            cursor.executemany("UPDATE sharing SET line = %s WHERE seq = %s",
                                [(_seal(url, [line])[0], seq) for seq, line in rows])
         connection.commit()
     return len(rows)
@@ -703,7 +712,7 @@ def _seal_existing(url) -> int:
 def _pg(url):
     import psycopg
     connection = psycopg.connect(url, autocommit=False)
-    connection.execute("""CREATE TABLE IF NOT EXISTS brain_log(
+    connection.execute("""CREATE TABLE IF NOT EXISTS sharing(
         seq BIGSERIAL PRIMARY KEY, device TEXT NOT NULL, line TEXT NOT NULL)""")
     connection.commit()
     return connection
@@ -731,7 +740,7 @@ def _read_rows(url, query, parameters):
 
 
 def _outbox() -> Path:
-    from development_paths import graph_mind_home
+    from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "outbox.jsonl"
 
 
@@ -743,7 +752,8 @@ def _pg_append_or_queue(url, lines) -> int:
     outbox = _outbox()
     outbox.parent.mkdir(parents=True, exist_ok=True)
     with fasteners.InterProcessLock(str(outbox.with_suffix(".lock"))):
-        waiting = ([l for l in outbox.read_text(encoding="utf-8").splitlines() if l.strip()]
+        waiting = ([line for line in outbox.read_text(encoding="utf-8").splitlines()
+                    if line.strip()]
                    if outbox.exists() else [])
         try:
             _pg_append(url, waiting + lines)
@@ -762,7 +772,7 @@ def _pg_append(url, lines) -> int:
         # been read, which would make a reader's cursor step over it for good
         connection.execute("SELECT pg_advisory_xact_lock(4242)")
         with connection.cursor() as cursor:
-            cursor.executemany("INSERT INTO brain_log(device, line) VALUES (%s, %s)",
+            cursor.executemany("INSERT INTO sharing(device, line) VALUES (%s, %s)",
                                [(device_name(), line) for line in _seal(url, lines)])
         connection.commit()
     return len(lines)
@@ -773,7 +783,7 @@ def devices(shared) -> list[str]:
     if is_database(shared):
         with _pg(shared) as connection:
             return [row[0] for row in connection.execute(
-                "SELECT DISTINCT device FROM brain_log ORDER BY device")]
+                "SELECT DISTINCT device FROM sharing ORDER BY device")]
     return sorted(p.stem for p in (Path(shared) / "log").glob("*.jsonl"))
 
 
@@ -783,7 +793,7 @@ def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
         source = "postgres"
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
                          (source,)).fetchone()
-        rows = _read_rows(shared, "SELECT seq, line FROM brain_log WHERE seq > %s ORDER BY seq",
+        rows = _read_rows(shared, "SELECT seq, line FROM sharing WHERE seq > %s ORDER BY seq",
                           (row[0] if row else 0,))
         if rows:
             with db:
@@ -796,13 +806,14 @@ def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
                          (log.name,)).fetchone()
         start = row[0] if row else 0
-        if log.stat().st_size < start:      # replaced by the sync client: re-read, imports are idempotent
+        if log.stat().st_size < start:   # replaced by the sync client: re-read (imports idempotent)
             start = 0
         with log.open("rb") as handle:
             handle.seek(start)
             data = handle.read()
-        complete = data[:data.rfind(b"\n") + 1]        # an unfinished last line waits for its newline
-        lines += [l for l in complete.decode("utf-8", "replace").splitlines() if l.strip()]
+        complete = data[:data.rfind(b"\n") + 1]     # an unfinished last line waits for its newline
+        lines += [line for line in complete.decode("utf-8", "replace").splitlines()
+                  if line.strip()]
         with db:
             db.execute("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)",
                        (log.name, start + len(complete)))
@@ -811,8 +822,8 @@ def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
 
 def sync(shared: Path, index: Path) -> dict:
     """Bring this machine's index up to date with every device's log."""
-    from conversation_memory import ConversationMemoryStore
-    from local_brain import LocalBrainStore
+    from graph_mind.conversation_memory import ConversationMemoryStore
+    from graph_mind.local_brain import LocalBrainStore
 
     db = _cursor_db(index)
     try:
@@ -852,7 +863,7 @@ def sync(shared: Path, index: Path) -> dict:
                     waiting = [line for _, line in retry]
                     break
         if forgets:                         # after the imports: a forgotten turn may be in them
-            from forget import erase
+            from graph_mind.forget import erase
             for record in forgets:
                 erase(index, record)
         with db:
@@ -870,8 +881,8 @@ def _self_check():
     root = Path(tempfile.mkdtemp())
     shared, desk_index, lap_index = root / "OneDrive" / "Graph-MIND", root / "desk.sqlite", \
         root / "lap.sqlite"
-    from conversation_memory import ConversationMemoryStore
-    from local_brain import LocalBrainStore
+    from graph_mind.conversation_memory import ConversationMemoryStore
+    from graph_mind.local_brain import LocalBrainStore
 
     def memory(mid, text, when, supersedes=None):
         return {"memory_id": mid, "scope": "global", "memory_type": "fact", "title": text,
@@ -908,7 +919,7 @@ def _self_check():
     assert sync(shared, lap_index)["conflicts"] == 0
 
     os.environ.pop("GRAPH_MIND_DEVICE")
-    print("brain_log self-check ok")
+    print("sharing self-check ok")
 
 
 if __name__ == "__main__":

@@ -3,21 +3,21 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-import hashlib
 import json
 import os
 import time
 
-from associative_memory import AssociativeMemoryIndex
-from coding_memory import CodingMemoryCapture, CodingMemoryStore
-from conversation_memory import (ClaudeCodeConversationCapture, ClaudeCoworkConversationCapture,
-                                 cowork_root, CodexConversationCapture,
-                                 ConversationMemoryStore)
-from development_paths import default_coding_state_dir, default_development_db, graph_mind_home
-from semantic_memory import SemanticMemoryIngestion
-from semantic_llm_extractor import (OpenAIResponsesSemanticExtractor,
-                                    SemanticLLMIngestion)
-
+from graph_mind.associative_memory import AssociativeMemoryIndex
+from graph_mind.coding_memory import CodingMemoryCapture, CodingMemoryStore
+from graph_mind.conversation_memory import (
+    ClaudeCodeConversationCapture,
+    ClaudeCoworkConversationCapture,
+    CodexConversationCapture,
+    ConversationMemoryStore,
+    cowork_root,
+)
+from graph_mind.paths import default_coding_state_dir, default_development_db, graph_mind_home
+from graph_mind.semantic_memory import SemanticMemoryIngestion
 
 SERVICE_VERSION = "automatic-capture-v0.2"
 
@@ -56,8 +56,6 @@ def make_config(*, workspace, project_id, session_id, sessions_root,
         "db_path": str(Path(db_path or default_development_db()).expanduser().resolve()),
         "poll_seconds": max(1, int(poll_seconds)),
         "code_poll_seconds": max(int(poll_seconds), int(code_poll_seconds)),
-        "semantic_llm": {"enabled": False, "provider": "openai",
-                         "model": None, "poll_seconds": 60, "limit": 25},
         "codex_sessions_root": sessions_root,
         "workspace_scopes": {workspace: project_id},
         "code_workspaces": [{"workspace": workspace, "project_id": project_id,
@@ -106,38 +104,42 @@ class AutomaticCaptureService:
         """
         scopes = self.config.get("workspace_scopes", {})
         # With a shared folder, every captured turn also goes into the shared log, so a
-        # conversation held on this PC can be recalled on any other (brain_log.py).
-        from brain_log import folder
-        shared = folder()                       # config, GRAPH_MIND_FOLDER, or the chosen one
-        if self.config.get("memory_folder"):    # the service's own config wins
-            from brain_log import is_database
+        # conversation held on this PC can be recalled on any other (sharing.py).
+        from graph_mind.sharing import folder
+        # config, GRAPH_MIND_FOLDER, or the one chosen in conversation; the service's own wins
+        shared = folder()
+        if self.config.get("memory_folder"):
+            from graph_mind.sharing import is_database
             chosen = self.config["memory_folder"]
-            shared = chosen if is_database(chosen) else Path(chosen).expanduser()     # folder() also reads the
-                                                                   # one chosen in conversation
+            shared = chosen if is_database(chosen) else Path(chosen).expanduser()
         publish = None
         if shared:
-            from brain_log import append
-            publish = lambda turn: append(shared, "turn", turn)     # a folder or a Postgres URL
-        from forget import forget_ids
-        forget = lambda turn_ids: forget_ids({"turn_ids": turn_ids}, self.db_path, shared)
+            from graph_mind.sharing import append
+
+            def publish(turn):                  # to a folder or a Postgres URL
+                append(shared, "turn", turn)
+        from graph_mind.forget import forget_ids
+
+        def forget(turn_ids):
+            forget_ids({"turn_ids": turn_ids}, self.db_path, shared)
+        hooks = {"workspace_scopes": scopes, "now": self.now, "publish": publish,
+                 "forget": forget}
         sources = []
         # A source whose folder does not exist yet (Codex never run on this PC) is skipped, not
         # fatal: it used to stop every source, so a Claude-Code-only user captured nothing.
         if Path(self.config["codex_sessions_root"]).is_dir():
             sources.append(("codex", CodexConversationCapture(
                 self.config["codex_sessions_root"], store, state_path=self.conversation_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.conversation_cursor))
+                **hooks), self.conversation_cursor))
         claude_root = Path(self.config.get("claude_projects_root")
                            or Path.home() / ".claude" / "projects")
         if claude_root.is_dir():
             sources.append(("claude-code", ClaudeCodeConversationCapture(
-                claude_root, store, state_path=self.claude_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.claude_cursor))
+                claude_root, store, state_path=self.claude_cursor, **hooks), self.claude_cursor))
         cowork = self.config.get("claude_cowork_root") or cowork_root()
         if cowork and Path(cowork).is_dir():
             sources.append(("claude-cowork", ClaudeCoworkConversationCapture(
-                cowork, store, state_path=self.cowork_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.cowork_cursor))
+                cowork, store, state_path=self.cowork_cursor, **hooks), self.cowork_cursor))
         return sources
 
     def baseline(self):
@@ -163,7 +165,7 @@ class AutomaticCaptureService:
         self._write_status(result)
         return result
 
-    def run_once(self, *, capture_code=True, capture_llm=True):
+    def run_once(self, *, capture_code=True):
         started = self.now()
         coding, errors = [], []
         if capture_code:
@@ -204,22 +206,6 @@ class AutomaticCaptureService:
         except Exception as error:
             errors.append({"source": "semantic", "error": type(error).__name__,
                            "detail": str(error)})
-        semantic_llm = {"status": "DISABLED"}
-        llm_config = self.config.get("semantic_llm", {})
-        if llm_config.get("enabled") and not capture_llm:
-            semantic_llm = {"status": "SKIPPED_NOT_DUE"}
-        elif llm_config.get("enabled"):
-            try:
-                if llm_config.get("provider") != "openai":
-                    raise ValueError("UNSUPPORTED_SEMANTIC_LLM_PROVIDER")
-                extractor = OpenAIResponsesSemanticExtractor(llm_config.get("model"))
-                with SemanticLLMIngestion(self.db_path, now=self.now) as ingestion:
-                    semantic_llm = ingestion.process_new(
-                        extractor, limit=int(llm_config.get("limit", 25)))
-            except Exception as error:
-                errors.append({"source": "semantic_llm",
-                               "error": type(error).__name__, "detail": str(error)})
-                semantic_llm = {"status": "ERROR"}
         associative = None
         try:
             with AssociativeMemoryIndex(self.db_path) as index:
@@ -232,7 +218,6 @@ class AutomaticCaptureService:
                   "completed_at": self.now(), "coding": coding,
                   "conversation": conversation.get("codex"),
                   "conversation_sources": conversation, "semantic": semantic,
-                  "semantic_llm": semantic_llm,
                   "associative": associative,
                   "errors": errors,
                   "warnings": self._stall_warnings(conversation)}
@@ -276,8 +261,8 @@ class AutomaticCaptureService:
         memory servers pick the vectors up from the shared cache). Only the long-running service
         does this: a one-off `once` or a test should not load the embedding model."""
         try:
-            from embedding_warmup import warm_turns
-            from semantic_recall import default_embedder
+            from graph_mind.local_embedder import default_embedder
+            from graph_mind.warmup import warm_turns
             if getattr(self, "_embedder", None) is None:
                 self._embedder = default_embedder(self.db_path)
             return warm_turns(self.db_path, limit=limit, embedder=self._embedder)
@@ -288,21 +273,15 @@ class AutomaticCaptureService:
         self.pid_path.write_text(str(os.getpid()) + "\n", encoding="ascii")
         iteration = 0
         last_code_scan = None
-        last_llm_scan = None
         try:
             while max_iterations is None or iteration < max_iterations:
                 monotonic_now = time.monotonic()
                 code_due = (last_code_scan is None or monotonic_now - last_code_scan
                             >= self.config.get("code_poll_seconds", 120))
-                llm_config = self.config.get("semantic_llm", {})
-                llm_due = (last_llm_scan is None or monotonic_now - last_llm_scan
-                           >= llm_config.get("poll_seconds", 60))
-                self.run_once(capture_code=code_due, capture_llm=llm_due)
+                self.run_once(capture_code=code_due)
                 self.embed_new_turns()
                 if code_due:
                     last_code_scan = time.monotonic()
-                if llm_config.get("enabled") and llm_due:
-                    last_llm_scan = time.monotonic()
                 iteration += 1
                 if max_iterations is None or iteration < max_iterations:
                     time.sleep(self.config["poll_seconds"])
@@ -313,7 +292,3 @@ class AutomaticCaptureService:
             except (FileNotFoundError, OSError):
                 pass
 
-
-def config_identity(config):
-    raw = json.dumps(config, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()[:16]

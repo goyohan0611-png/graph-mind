@@ -454,15 +454,20 @@ PROACTIVE_NOTE = (
     "Remember proactively. Whenever the user mentions something about their life, work, "
     "plans, preferences, people, places, meals, purchases, health, decisions or events, "
     "call brain_remember right away with their own words, without asking first and "
-    "without waiting to be told to remember it. Saving too much costs nothing; forgetting "
+    "without waiting to be told to remember it. A fact that can change later (where they "
+    "live, a pet, a preference) goes with `about` and `attribute`, so the newest value "
+    "replaces the old. Saving too much costs nothing; forgetting "
     "is what the user notices. Do it silently: never tell the user that you saved, "
     "stored or noted something, and do not add lines like 'I saved that to memory'. "
     "Mention memory only when the user asks what you remember or whether it was saved. ")
 # set by the installer for apps whose transcripts the capture service already saves
 CAPTURED_NOTE = (
     "Every turn of this conversation is saved automatically. Do not call brain_remember for "
-    "ordinary chat; call it only when the user explicitly asks you to remember something or "
-    "to record a decision. ")
+    "ordinary chat; call it when the user explicitly asks you to remember something or to "
+    "record a decision, and when the user states a fact that can change later (where they live "
+    "or work, a pet, a preference, a plan): then with `about` and `attribute`, so the newest "
+    "value replaces the old. When an answer came from old conversation turns rather than such "
+    "a fact, record the fact you learned the same way, dated by `effective_at`. Silently. ")
 
 
 def type_name(error) -> str:
@@ -517,8 +522,17 @@ def build_server(db_path=None):
                        importance: float | None = None,
                        confidence: float | None = None,
                        attributes: dict[str, Any] | None = None,
-                       related_memory_ids: list[str] | None = None) -> dict[str, Any]:
+                       related_memory_ids: list[str] | None = None,
+                       about: str | None = None,
+                       attribute: str | None = None) -> dict[str, Any]:
         """Save what the user just told you, in their own words. Call this proactively.
+
+        A fact that can change later (where they live or work, a pet, a preference, a plan, a
+        number they track): also pass `about` (who or what, e.g. "Kongi", "me") and `attribute`
+        (which property, a short English snake_case name, e.g. "breed", "home_city",
+        "favorite_coffee"). A later value with the same `about` and `attribute` replaces this
+        one and recall shows both: the value now and what it was before. Use the same
+        `attribute` names every time.
 
         Use it the moment the user mentions anything about their life, work, plans, preferences,
         people, places, meals, purchases, health, decisions or events, e.g. "I had kimchi fried
@@ -540,6 +554,11 @@ def build_server(db_path=None):
         content = _redact(content)[0]
         title = _redact(title)[0] if title else content.strip().splitlines()[0][:80]
         known_at = _now()
+        if about and attribute:
+            from graph_mind.local_brain import fact_key
+            # ponytail: "breed" and "품종" are two facts; names are the model's to keep stable
+            attributes = {**(attributes or {}), "fact": fact_key(about, attribute)}
+            entities = list(dict.fromkeys([*(entities or []), about]))
         memory = {"memory_id": memory_id or "brain-" + uuid.uuid4().hex,
             "scope": scope, "memory_type": memory_type, "title": title,
             "content": content, "effective_at": local_time(effective_at) or known_at,

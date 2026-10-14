@@ -47,6 +47,32 @@ def _tokens(value):
     return [item for item in _normalized(value).split() if len(item) > 1]
 
 
+def fact_key(about, attribute):
+    """What a fact is about and which of its properties: "Kongi" + "breed". Saved with every
+    value, so a later value of the same fact replaces an earlier one without anyone knowing the
+    earlier memory's id (brain_remember's `about` / `attribute`)."""
+    return _normalized(about) + "|" + _normalized(attribute)
+
+
+def current_facts(memories, *, keep_earlier=5):
+    """One entry per fact: the value in effect (latest by when it became true, not by when it
+    was saved: an old fact recorded late must not replace a newer one), carrying the values
+    before it in `earlier`, newest first. Memories that are not facts pass through."""
+    groups, plain = {}, []
+    for memory in memories:
+        fact = (memory.get("attributes") or {}).get("fact")
+        if fact:
+            groups.setdefault((memory["scope"], fact), []).append(memory)
+        else:
+            plain.append(memory)
+    for group in groups.values():
+        group.sort(key=lambda m: (m["effective_at"], m["revision"]), reverse=True)
+        plain.append({**group[0], "earlier": [
+            {"memory_id": m["memory_id"], "content": m["content"],
+             "effective_at": m["effective_at"]} for m in group[1:1 + keep_earlier]]})
+    return plain
+
+
 class LocalBrainStore:
     """Append-only general memory with deterministic, scope-aware recall."""
 
@@ -301,6 +327,7 @@ class LocalBrainStore:
         memories = [self._memory(row) for row in rows]
         superseded = {item["supersedes_memory_id"] for item in memories
                       if item["supersedes_memory_id"]}
+        memories = current_facts([m for m in memories if m["memory_id"] not in superseded])
         memories.extend(self._development_memories(effective, cutoff, scope_list))
         floor = self._time(since) if since else None
         query_normalized = _normalized(query)

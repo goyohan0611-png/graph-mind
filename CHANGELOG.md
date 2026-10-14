@@ -4,6 +4,12 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased
+- **Facts that change.** `brain_remember` takes `about` and `attribute` ("Kongi" + "breed", "me" +
+  "home_city"). A later value of the same fact replaces the earlier one in recall, with no memory
+  id needed, and the packet shows the value now and what it was before. Order is when each became
+  true, so a fact recorded late from an old conversation stays history. The models are asked to
+  record such facts as they hear them, and to record the fact behind an answer that came from old
+  conversation turns.
 - **The capture service comes back by itself.** It started only at login, so a crash or a kill
   meant nothing was saved until the next login. Now the memory server of every app that relies on
   it checks once a minute and starts it again; a second one never starts beside it.

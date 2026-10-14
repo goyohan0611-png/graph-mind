@@ -157,12 +157,16 @@ def decide_recall(query, policy="auto"):
 
 
 def _memory_item(memory):
+    content = memory["content"]
+    if memory.get("earlier"):          # a fact: its value now, then what it was before
+        content += "\n(current since " + memory["effective_at"][:10] + "; before: " + "; ".join(
+            f"{e['effective_at'][:10]} {e['content']}" for e in memory["earlier"]) + ")"
     return {
         "id": memory["memory_id"], "source_kind": "CURATED_MEMORY",
         "memory_class": memory.get("memory_class", "EPISODE"),
         "modality": memory.get("modality", "OTHER"),
         "scope": memory["scope"], "title": memory["title"],
-        "content": memory["content"], "effective_at": memory["effective_at"],
+        "content": content, "effective_at": memory["effective_at"],
         "known_at": memory["known_at"], "provenance": memory["provenance"],
         "confidence": memory.get("confidence", 1.0),
         "importance": memory.get("importance", 0.5),

@@ -100,7 +100,7 @@ def local_postgres() -> str:
                 _initdb_with_retries(data)
             running = _server_exe(data)
             if running and not _current(running):
-                _pg_tool("pg_ctl", ["-D", data, "-w", "-m", "fast", "stop"])
+                stop_postgres(data)
             if not _current(_server_exe(data)):
                 _start(data, PORT)
             # not only when fresh: a start that failed after initdb left a cluster without them
@@ -263,7 +263,7 @@ def _wait_accepting(port, seconds):
 def stop_postgres(data: Path | None = None) -> None:
     data = data or _pg_data()
     if _server_exe(data):
-        _pg_tool("pg_ctl", ["-D", data, "-w", "-m", "fast", "stop"])
+        _pg_tool("pg_ctl", ["-D", data, "-w", "-t", "300", "-m", "fast", "stop"], timeout=330)
 
 
 def _retry(step, attempts, undo=None):

@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 import json
 import os
+import subprocess
+import sys
 import time
 
 from graph_mind.associative_memory import AssociativeMemoryIndex
@@ -28,6 +30,46 @@ def default_config_path():
 
 def default_service_state_dir():
     return graph_mind_home() / "automatic-capture"
+
+
+def running_service(state_dir=None):
+    """The live capture service's pid, or None. A pid file left by a crash, or naming a pid the
+    system has since given to another program, is not a running service."""
+    import psutil
+    try:
+        path = Path(state_dir or default_service_state_dir()) / "service.pid"
+        pid = int(path.read_text(encoding="ascii"))
+        mine = (os.getpid(), os.getppid())      # a venv's pythonw runs the service as its child
+        if pid not in mine and "capture_cli" in " ".join(psutil.Process(pid).cmdline()):
+            return pid
+    except (OSError, ValueError, psutil.Error):
+        pass
+    return None
+
+
+def ensure_service() -> bool:
+    """Start the capture service unless it runs; True when it was started.
+
+    It starts at login, and nothing else brought it back: a crash, a Task Manager kill or an
+    update closing it meant no conversation was saved until the next login. Now every memory
+    server of an app that relies on it checks it now and then and starts it again."""
+    import fasteners
+    state = default_service_state_dir()
+    state.mkdir(parents=True, exist_ok=True)
+    with fasteners.InterProcessLock(str(state / "start.lock")):    # two apps, one service
+        if running_service(state):
+            return False
+        python = Path(sys.executable)
+        if sys.platform == "win32":
+            python = python.with_name("pythonw.exe")                 # no console window
+            detach = {"creationflags": subprocess.DETACHED_PROCESS}
+        else:
+            detach = {"start_new_session": True}
+        child = subprocess.Popen([str(python), "-m", "graph_mind.capture_cli", "run"],
+                                 cwd=Path.home(), stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **detach)
+        (state / "service.pid").write_text(f"{child.pid}\n", encoding="ascii")
+        return True
 
 
 def _now():
@@ -282,7 +324,11 @@ class AutomaticCaptureService:
             pass
 
     def run_forever(self, *, max_iterations=None):
+        if running_service(self.state_dir):
+            return                              # one service per PC (login item + a restart)
         self.pid_path.write_text(str(os.getpid()) + "\n", encoding="ascii")
+        if max_iterations is None:
+            self.lend_model()
         iteration = 0
         last_code_scan = None
         try:

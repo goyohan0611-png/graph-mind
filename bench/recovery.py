@@ -31,6 +31,8 @@ SCENARIOS = [
     ("an app changes its transcript format; the user is told",
      "test_capture_health.StallWarningTests."
      "test_rows_without_turns_add_up_across_passes_then_warn"),
+    ("capture service killed; an app's memory server starts it again",
+     "test_recovery.CaptureServiceDiedTests.test_a_dead_capture_service_is_started_again_once"),
     ("embedding model still loading; word search answers at once",
      "test_cold_start.ModelStillLoadingTests.test_a_question_does_not_wait_for_the_model"),
     ("embedding model cannot run; word search still answers",
@@ -38,10 +40,7 @@ SCENARIOS = [
     ("three apps write the same store at once",
      "test_concurrent_use.ConcurrentUseTests.test_three_writers_one_store"),
 ]
-GAPS = [
-    "the capture service dies: nothing restarts it before the next login, and nothing is saved "
-    "meanwhile",
-]
+GAPS: list[str] = []
 
 
 def main() -> int:
@@ -59,7 +58,7 @@ def main() -> int:
         failed += not passed
         print(f"{title:<66}{'healed' if passed else 'FAILED':>8}"
               f"{time.perf_counter() - began:>7.0f}s")
-    print("\nnot handled yet:")
+    print("\nnot handled yet:" + ("" if GAPS else " none known"))
     for gap in GAPS:
         print(f"  - {gap}")
     return 1 if failed else 0

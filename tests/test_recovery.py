@@ -1,13 +1,17 @@
-"""Faults that must heal without the user: a hub process that died, an embedding model that will
-not run. bench/recovery.py runs these with the other fault tests and reports them together."""
+"""Faults that must heal without the user: a hub process that died, a capture service that died,
+an embedding model that will not run. bench/recovery.py runs these with the other fault tests and
+reports them together."""
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from unittest import mock
 import os
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
 
+from graph_mind import automatic_capture
 from graph_mind import mcp_server as server
 from graph_mind import sharing
 from graph_mind.conversation_memory import ConversationMemoryStore
@@ -39,6 +43,33 @@ class HubProcessDiedTests(unittest.TestCase):
                                      "before the crash")
             finally:
                 sharing.stop_postgres()
+
+
+class CaptureServiceDiedTests(unittest.TestCase):
+    def test_a_dead_capture_service_is_started_again_once(self):
+        """Killed, crashed, closed by an update: the next check starts it, and while it runs no
+        second one is started (two apps check; one service)."""
+        real_popen, started = subprocess.Popen, []
+
+        def start(*_, **__):                     # a stand-in that looks like the service
+            started.append(real_popen([sys.executable, "-c", "import time; time.sleep(120)",
+                                       "capture_cli"]))
+            return started[-1]
+
+        state = automatic_capture.default_service_state_dir()
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "service.pid").write_text("4194000", encoding="ascii")   # left by a crash
+        with mock.patch.object(automatic_capture.subprocess, "Popen", start):
+            try:
+                self.assertTrue(automatic_capture.ensure_service())
+                self.assertFalse(automatic_capture.ensure_service())   # running: left alone
+                started[0].kill()
+                started[0].wait()
+                self.assertTrue(automatic_capture.ensure_service())    # died: started again
+                self.assertEqual(len(started), 2)
+            finally:
+                for process in started:
+                    process.kill()
 
 
 class ModelBrokenTests(unittest.TestCase):

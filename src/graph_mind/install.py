@@ -183,7 +183,6 @@ def capture_service(start: bool) -> str:
     from graph_mind.automatic_capture import (
         _atomic_json,
         default_config_path,
-        default_service_state_dir,
         make_config,
     )
     if not default_config_path().exists():
@@ -219,16 +218,8 @@ def capture_service(start: bool) -> str:
                          f"Exec=\"{python}\" {' '.join(CAPTURE)}\nPath={Path.home()}\n"
                          "X-GNOME-Autostart-enabled=true\n", encoding="utf-8")
     if start:
-        import psutil
-        pid_file = default_service_state_dir() / "service.pid"
-        try:
-            running = psutil.pid_exists(int(pid_file.read_text(encoding="ascii")))
-        except (OSError, ValueError):
-            running = False
-        if not running:
-            detach = ({"creationflags": subprocess.DETACHED_PROCESS} if system == "Windows"
-                      else {"start_new_session": True})
-            subprocess.Popen([str(python), *CAPTURE], cwd=Path.home(), **detach)
+        from graph_mind.automatic_capture import ensure_service
+        ensure_service()
     return "capture service starts at login"
 
 

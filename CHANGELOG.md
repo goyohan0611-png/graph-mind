@@ -4,6 +4,9 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased
+- **The capture service comes back by itself.** It started only at login, so a crash or a kill
+  meant nothing was saved until the next login. Now the memory server of every app that relies on
+  it checks once a minute and starts it again; a second one never starts beside it.
 - **One model for every app.** The capture service, running since login with the embedding model
   loaded, lends it to the memory servers (127.0.0.1, keyed). An app's server no longer loads its
   own: search by meaning works from its first question and each app's server holds ~90 MB instead

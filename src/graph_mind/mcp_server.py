@@ -1072,10 +1072,27 @@ def preload(database):
     timer.start()
 
 
+def keep_capture_running(every=60.0):
+    """An app that relies on the capture service (GRAPH_MIND_CAPTURED, set by the installer)
+    keeps it alive: if it died, this server starts it again within a minute."""
+    def work():
+        from graph_mind.automatic_capture import ensure_service
+        try:
+            ensure_service()
+        except Exception:                 # never let this take the memory server down
+            pass
+        timer = threading.Timer(every, work)
+        timer.daemon = True
+        timer.start()
+    if os.environ.get("GRAPH_MIND_CAPTURED"):
+        work()
+
+
 def main():
     from graph_mind.local_embedder import LocalEmbedder
     LocalEmbedder.WAIT_FOR_MODEL = 0.5      # an app's question never waits out a model load
     LocalEmbedder.USE_SERVICE = True        # the capture service's model, when it runs
+    keep_capture_running()
     preload(configured_db_path())
     server.run(transport="stdio")
 

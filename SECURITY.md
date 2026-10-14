@@ -31,6 +31,9 @@ Only the latest release is supported.
   Protect it as you protect the rest of your home folder.
 - Capture reads each AI app's local transcript; known secret formats and long machine-random
   strings are masked before storage. Plain passwords without a recognisable form are not.
+- The capture service lends its embedding model to the memory servers on the same PC: a port on
+  127.0.0.1 only, and a client must prove it holds the random key in `~/.graph-mind/embedder.json`.
+  Texts go in and vectors come out; nothing is stored or read from memory through it.
 - When the AI recalls a memory, that text goes to the model provider with your question, as
   anything in the chat does.
 - Sharing across PCs uses a Postgres server on one PC, reachable only from the local network and

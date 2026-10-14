@@ -7,9 +7,11 @@ from __future__ import annotations
 
 from pathlib import Path
 import hashlib
+import json
 import math
 import os
 import threading
+import time
 
 from graph_mind.vector_cache import VectorCache, convert
 
@@ -68,6 +70,10 @@ class LocalEmbedder:
     # alone. None waits (benchmarks, tests, the capture service); the MCP server sets 0.5: loading
     # torch took 38.8 s for an app's first question on a OneDrive-synced Windows PC; now 2.4 s.
     WAIT_FOR_MODEL = None
+    # Ask the capture service's model first (serve below). The MCP server sets it: every app
+    # starts its own server, and each one loading the model cost 7-17 s before search by meaning
+    # worked and ~500 MB of memory per app, while the capture service has it loaded all day.
+    USE_SERVICE = False
     _loaded = threading.Event()
     _loading = threading.Lock()
 
@@ -99,7 +105,7 @@ class LocalEmbedder:
     def ready(self, timeout) -> bool:
         """Whether the model is loaded, waiting at most `timeout` seconds. The first call starts
         loading it in the background, so a later question finds it ready."""
-        if LocalEmbedder._model is not None:
+        if LocalEmbedder._model is not None or _service.connected(self.model_name):
             return True
         if LocalEmbedder._loading.acquire(blocking=False):
             def load():
@@ -133,15 +139,21 @@ class LocalEmbedder:
     def embed(self, texts):
         texts = [t.strip()[:2000] for t in texts]
         missing = [t for t in dict.fromkeys(texts) if self._key(t) not in self.cache]
-        if missing:
-          with LocalEmbedder._lock:
-            missing = [t for t in dict.fromkeys(texts) if self._key(t) not in self.cache]
-            self._load()
-            for start in range(0, len(missing), 128):  # larger batch = higher CPU throughput
-                chunk = missing[start:start + 128]
-                for text, vector in zip(chunk, self._encode(chunk)):
-                    self.cache.put(self._key(text), vector)
-                    self._since += 1
+        if not missing:
+            return [self.cache.get(self._key(t)) for t in texts]
+        served = _service.encode(self.model_name, missing)     # outside the lock: no waiting
+        with LocalEmbedder._lock:
+            if served is not None:
+                pairs = zip(missing, served)
+            else:
+                missing = [t for t in missing if self._key(t) not in self.cache]
+                self._load()
+                pairs = ((text, vector) for start in range(0, len(missing), 128)
+                         for text, vector in zip(missing[start:start + 128],
+                                                 self._encode(missing[start:start + 128])))
+            for text, vector in pairs:                  # larger batch = higher CPU throughput
+                self.cache.put(self._key(text), vector)
+                self._since += 1
             if self._since >= LocalEmbedder.FLUSH_EVERY:
                 self.flush()
         return [self.cache.get(self._key(t)) for t in texts]
@@ -150,6 +162,95 @@ class LocalEmbedder:
         with LocalEmbedder._lock:
             self.cache.flush()
             self._since = 0
+
+
+def service_file() -> Path:
+    from graph_mind.paths import graph_mind_home
+    return graph_mind_home() / "embedder.json"
+
+
+class _Service:
+    """This process's line to the capture service's loaded model, if one is running. Any failure
+    (no service, a stale file, the service gone mid-call) means: load the model here, as before,
+    and look for the service again a little later."""
+    RETRY = 30.0
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.conn = None
+        self.retry_at = 0.0
+
+    def _open(self, model):
+        from multiprocessing.connection import Client
+        info = json.loads(service_file().read_text(encoding="utf-8"))
+        if info["model"] != model:
+            raise LookupError("the service runs another model")
+        return Client(("127.0.0.1", info["port"]), authkey=bytes.fromhex(info["key"]))
+
+    def connected(self, model) -> bool:
+        if not LocalEmbedder.USE_SERVICE:
+            return False
+        with self.lock:
+            if self.conn is None and time.monotonic() >= self.retry_at:
+                try:
+                    self.conn = self._open(model)
+                except Exception:
+                    self.retry_at = time.monotonic() + self.RETRY
+            return self.conn is not None
+
+    def encode(self, model, texts):
+        if not self.connected(model):
+            return None
+        with self.lock:
+            try:
+                self.conn.send(texts)
+                return self.conn.recv()
+            except Exception:
+                self.conn, self.retry_at = None, time.monotonic() + self.RETRY
+                return None
+
+
+_service = _Service()
+
+
+def serve(embedder) -> None:
+    """Lend this process's model to the memory servers on this PC (the capture service calls it).
+
+    Local only: 127.0.0.1, and a client must prove it read the key in the user's own
+    ~/.graph-mind/embedder.json. Texts come in, vectors go out; nothing is stored here."""
+    from multiprocessing.connection import Listener
+    key = os.urandom(32)
+    listener = Listener(("127.0.0.1", 0), authkey=key)
+    path = service_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps({"port": listener.address[1], "key": key.hex(),
+                                     "model": embedder.model_name, "pid": os.getpid()}),
+                         encoding="utf-8")
+    os.replace(temporary, path)
+
+    def answer(conn):
+        with conn:
+            while True:
+                try:
+                    texts = conn.recv()
+                except (EOFError, OSError):
+                    return
+                with LocalEmbedder._lock:
+                    embedder._load()
+                    vectors = [v for start in range(0, len(texts), 128)
+                               for v in embedder._encode(texts[start:start + 128])]
+                conn.send(vectors)
+
+    def accept():
+        while True:
+            try:
+                conn = listener.accept()
+            except Exception:             # a client with the wrong key, or one that hung up
+                continue
+            threading.Thread(target=answer, args=(conn,), daemon=True).start()
+
+    threading.Thread(target=accept, name="graph-mind-embedder", daemon=True).start()
 
 
 def cosine(a, b):

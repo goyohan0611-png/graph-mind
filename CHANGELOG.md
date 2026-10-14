@@ -4,6 +4,14 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased
+- **One model for every app.** The capture service, running since login with the embedding model
+  loaded, lends it to the memory servers (127.0.0.1, keyed). An app's server no longer loads its
+  own: search by meaning works from its first question and each app's server holds ~90 MB instead
+  of ~830 MB (`bench/latency.py`, 2,000 turns: first answer 9.7 s -> 0.8 s). Without the service
+  running, a server loads the model itself as before.
+- `bench/evidence.py` embeds each haystack before asking, as the capture service does: a backlog
+  sent to the background left some questions to word search alone, so two runs of the same code
+  disagreed (91.6% / 91.4%). It also no longer keeps every question's index in memory.
 - **Measurements** (`bench/`), the yardstick for the structure work ahead: `evidence.py` (does
   the answer reach the packet, all of LongMemEval_S, offline), `latency.py` (server start, first
   answer, when search by meaning works, steady p50/p95, memory), `recovery.py` (every fault meant

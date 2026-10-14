@@ -1,7 +1,8 @@
 """Does the answer reach the model? The shipped recall path on LongMemEval_S, offline and free.
 
 For each question a fresh store is filled with its haystack exactly as the capture service would
-fill it (every turn, verbatim, dated by its session), the question goes through what brain_context
+fill it (every turn, verbatim, dated by its session, embedded before anyone asks: a server meeting
+a backlog answers from word search while it embeds), the question goes through what brain_context
 runs with its shipped defaults, and we check which answer-bearing turns reach the packet. No model
 is called: this is the part of accuracy that Graph-MIND itself controls, measured on every change.
 The answer accuracy behind it (88.8%) needs an answer model and a judge: research/REPORT.md §10.
@@ -39,7 +40,8 @@ from longmemeval_m_fetch import stream_instances  # noqa: E402
 from graph_mind.context_packet import build_context_pack  # noqa: E402
 from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
 from graph_mind.local_embedder import LocalEmbedder  # noqa: E402
-from graph_mind.mcp_server import CONTEXT_CHARS, CONTEXT_LIMIT, gather  # noqa: E402
+from graph_mind.mcp_server import _PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, gather  # noqa: E402
+from graph_mind.warmup import warm_turns  # noqa: E402
 
 DATA = ROOT / "research/external/longmemeval/longmemeval_s_cleaned.json"
 TUNED = ROOT / "research/runs/graph-v3.2-untouched-eval-v2/preregistration.json"   # dev2, 120
@@ -76,10 +78,13 @@ def measure(row: dict, directory: Path, embedder) -> dict | None:
     wanted = fill(store, row)
     if not wanted:                                       # abstention: nothing to find
         return None
+    while warm_turns(store, limit=2048, embedder=embedder):
+        pass
     recalled = gather(store, row["question"], as_of=iso(row["question_date"]),
                       limit=CONTEXT_LIMIT, embedder=embedder)
     packet = build_context_pack(recalled, max_chars=CONTEXT_CHARS)
     found = {item["id"] for item in packet["items"]} & wanted
+    _PIECES.pop(str(store), None)                        # one in-memory index per question
     store.unlink()
     return {"question_id": row["question_id"], "type": row["question_type"],
             "wanted": len(wanted), "found": len(found), "tokens": packet["estimated_tokens"]}

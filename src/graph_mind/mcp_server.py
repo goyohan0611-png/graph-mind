@@ -1075,6 +1075,7 @@ def preload(database):
 def main():
     from graph_mind.local_embedder import LocalEmbedder
     LocalEmbedder.WAIT_FOR_MODEL = 0.5      # an app's question never waits out a model load
+    LocalEmbedder.USE_SERVICE = True        # the capture service's model, when it runs
     preload(configured_db_path())
     server.run(transport="stdio")
 

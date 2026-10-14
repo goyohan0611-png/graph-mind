@@ -269,6 +269,18 @@ class AutomaticCaptureService:
         except Exception:                       # capture must go on if embedding cannot
             return 0
 
+    def lend_model(self):
+        """Load the model now and let the memory servers use it (local_embedder.serve), so an
+        app's search by meaning works from its first question without loading its own."""
+        try:
+            from graph_mind.local_embedder import default_embedder, serve
+            if getattr(self, "_embedder", None) is None:
+                self._embedder = default_embedder(self.db_path)
+            self._embedder.embed(["warm up"])
+            serve(self._embedder)
+        except Exception:                       # no model on disk: the servers load their own
+            pass
+
     def run_forever(self, *, max_iterations=None):
         self.pid_path.write_text(str(os.getpid()) + "\n", encoding="ascii")
         iteration = 0

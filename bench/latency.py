@@ -8,9 +8,12 @@ Then the server is started over stdio, exactly as Claude Code or Codex start it,
     first answer   the first brain_context call (word search is always there)
     meaning ready  start until a question that shares no word with its answer finds it, i.e.
                    until search by meaning works (the embedding model loaded in the server)
+    meaning wait   the same, counted from ready: what an app's questions wait for meaning
     across         whether the same question asked in Korean finds the English memory
     steady         brain_context p50 / p95 over 30 questions once everything is loaded
     memory         the server process's resident memory; every app runs its own server
+
+Twice: alone, and with a capture service running beside it (it lends its loaded model).
 
     python bench/latency.py                  # 5,000 turns
     python bench/latency.py --turns 20000
@@ -28,6 +31,7 @@ import json
 import os
 import random
 import statistics
+import subprocess
 import sys
 import tempfile
 import time
@@ -100,15 +104,34 @@ def build_store(turns: int) -> Path:
     return store
 
 
-async def run_server(store: Path, target: str) -> dict:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-    import psutil
+LEND = ("import sys, time; from graph_mind.local_embedder import default_embedder, serve; "
+        "e = default_embedder(sys.argv[1]); e.embed(['warm up']); serve(e); "
+        "print('lending', flush=True); time.sleep(86400)")
+
+
+async def run_server(store: Path, target: str, *, service: bool) -> dict:
+    from mcp import StdioServerParameters
     home = tempfile.mkdtemp(prefix="graph-mind-bench-home-")
     env = {**os.environ, "GRAPH_MIND_DB": str(store), "GRAPH_MIND_HOME": home,
            "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+    lender = None
+    if service:                         # the capture service, up since login
+        lender = subprocess.Popen([sys.executable, "-c", LEND, str(store)], env=env,
+                                  cwd=str(ROOT / "src"), stdout=subprocess.PIPE, text=True)
+        lender.stdout.readline()
     params = StdioServerParameters(command=sys.executable, args=["-m", "graph_mind.mcp_server"],
                                    env=env, cwd=str(ROOT / "src"))
+    try:
+        return await _timed(params, target)
+    finally:
+        if lender:
+            lender.kill()
+
+
+async def _timed(params, target: str) -> dict:
+    from mcp import ClientSession
+    from mcp.client.stdio import stdio_client
+    import psutil
 
     async def ask(session, query):
         began = time.perf_counter()
@@ -136,6 +159,7 @@ async def run_server(store: Path, target: str) -> dict:
     steady.sort()
     return {"ready_s": round(ready, 2), "first_answer_ms": round(first_ms),
             "meaning_ready_s": round(meaning, 1) if meaning else None,
+            "meaning_wait_s": round(meaning - ready, 1) if meaning else None,
             "steady_p50_ms": round(statistics.median(steady)),
             "steady_p95_ms": round(steady[int(len(steady) * 0.95) - 1]),
             "server_memory_mb": round(rss / 2 ** 20), "korean_finds_english": across}
@@ -147,7 +171,10 @@ def main() -> None:
     parser.add_argument("--baseline", action="store_true", help="write the result as baseline")
     args = parser.parse_args()
     store = build_store(args.turns)
-    measured = asyncio.run(run_server(store, f"t{args.turns}"))  # TARGET's turn id
+    target = f"t{args.turns}"                                   # TARGET's turn id
+    measured = asyncio.run(run_server(store, target, service=False))
+    beside = asyncio.run(run_server(store, target, service=True))
+    measured.update({f"service_{key}": value for key, value in beside.items()})
     result = {"measured_at": datetime.now().isoformat(timespec="seconds"),
               "turns": args.turns, "platform": sys.platform, **measured}
     baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else {}

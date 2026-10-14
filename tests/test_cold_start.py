@@ -73,5 +73,46 @@ class ModelStillLoadingTests(unittest.TestCase):
                 self.assertEqual(server.semantic_turns(db, "반려견", embedder=Loading()), [])
 
 
+class SharedModelTests(unittest.TestCase):
+    def test_a_server_uses_the_capture_services_model_and_never_loads_its_own(self):
+        """Every app's server searching by meaning from its first question, at no memory cost:
+        the capture service has the model loaded and lends it."""
+        from graph_mind import local_embedder
+
+        class ServiceModel:                       # the capture service's loaded model
+            model_name = local_embedder.LOCAL_MODEL
+
+            def _load(self):
+                pass
+
+            def _encode(self, texts):
+                return [[float(len(text)), 1.0] for text in texts]
+
+        def no_local_model(*_):
+            raise AssertionError("the server loaded its own model")
+
+        local_embedder.serve(ServiceModel())
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(local_embedder.LocalEmbedder, "USE_SERVICE", True), \
+                mock.patch.object(local_embedder.LocalEmbedder, "_load", no_local_model), \
+                mock.patch.object(local_embedder, "_service", local_embedder._Service()):
+            embedder = default_embedder(Path(directory) / "brain.sqlite")
+            self.assertTrue(embedder.ready(0))
+            self.assertEqual([list(v) for v in embedder.embed(["abc", "hello"])],
+                             [[3.0, 1.0], [5.0, 1.0]])
+
+    def test_without_the_service_the_server_loads_its_own_model(self):
+        from graph_mind import local_embedder
+        local_embedder.service_file().unlink(missing_ok=True)
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(local_embedder.LocalEmbedder, "USE_SERVICE", True), \
+                mock.patch.object(local_embedder.LocalEmbedder, "_load", lambda self: None), \
+                mock.patch.object(local_embedder.LocalEmbedder, "_encode",
+                                  lambda self, texts: [[7.0, 0.0] for _ in texts]), \
+                mock.patch.object(local_embedder, "_service", local_embedder._Service()):
+            embedder = default_embedder(Path(directory) / "brain.sqlite")
+            self.assertEqual([list(v) for v in embedder.embed(["abc"])], [[7.0, 0.0]])
+
+
 if __name__ == "__main__":
     unittest.main()

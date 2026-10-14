@@ -34,9 +34,15 @@ Only the latest release is supported.
 - When the AI recalls a memory, that text goes to the model provider with your question, as
   anything in the chat does.
 - Sharing across PCs uses a Postgres server on one PC, reachable only from the local network and
-  Tailscale, with a generated password (SCRAM, never sent in clear) and a role limited to the
-  memory database. The Postgres connection itself is not TLS (the bundled server is built without
-  SSL), so every memory line is sealed with Fernet (AES-128-CBC + HMAC-SHA256) under a key derived
-  from the connection code's password before it is sent: the wire and the hub's tables hold
-  ciphertext only. Who holds the code can read the memory.
+  Tailscale, over TLS with the hub's own certificate pinned in the code, with a generated password
+  (SCRAM) and a role limited to the memory database. Every memory line is also sealed with Fernet
+  (AES-128-CBC + HMAC-SHA256) under a key derived from the code's password before it is sent, so
+  the hub's tables hold ciphertext. Who holds the code can read the memory, and so can the hub PC
+  itself: it keeps that password.
+- On the machine running a hub, Postgres trusts connections from that machine itself (no
+  password): anyone who can log in to it can read everything on the hub. Host a hub on a machine
+  only you (or the operator) log in to.
+- Project brains: each project has its own key, kept in the hub's database and handed only to its
+  members. It keeps a project's records from other members' logins and from copies of the
+  tables; it does not keep them from the hub's operator, who administers the database.
 - There is no telemetry and no Graph-MIND server.

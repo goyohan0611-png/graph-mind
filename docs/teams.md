@@ -30,7 +30,8 @@ drive or GitHub; the project brain is what lets another person's AI pick the wor
 key, in a database apart from anyone's personal memory, so it can be backed up, moved or removed
 whole; the database itself enforces each project's permissions, and teammates' logins cannot reach
 anyone's personal memory. Whoever runs the hub runs the server and sees a project only when its
-owner adds them. Teammates reach it on the office network, or from anywhere over
+owner adds them through the tools; as the machine's administrator they could still read the
+database itself, so host it on a machine only the operator logs in to. Teammates reach it on the office network, or from anywhere over
 [Tailscale](https://tailscale.com) (install it on the hub and on each PC, same tailnet; invite
 codes carry the hub's Tailscale address and use it when the office network is not there).
 

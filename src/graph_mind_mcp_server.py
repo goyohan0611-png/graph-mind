@@ -901,9 +901,9 @@ def build_server(db_path=None):
                     raise ValueError("PROJECT_REQUIRED: whose members, in which project")
                 return {"accounts": pl.accounts()}
             if action == "remove_member" and not project:
-                if not pl._hosts_here():
-                    raise ValueError("PROJECT_REQUIRED: remove them from which project")
-                return pl.remove_account(member or "", pl.actor())
+                # closing a whole account is the operator's, on the hub: never one word away
+                raise ValueError("PROJECT_REQUIRED: remove them from which project. To close "
+                                 "their account on this hub: graph-mind-hub remove-user <name>")
             if action == "leave_team":
                 return pl.leave_team(project or "")
             if action == "audit":

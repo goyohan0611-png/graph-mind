@@ -45,8 +45,8 @@ No Python needed; nothing else to set up. Restart your AI apps afterwards. Alrea
 - **Any AI picks up where another left off.** When a question depends on the past, the model calls
   Graph-MIND over MCP and gets back the few thousand tokens that answer it. Korean and English.
 - **One memory across your PCs.** Tell the AI *"let my other PCs use this memory"*, paste the code it gives you
-  to the AI on the other PC. Office network or [Tailscale](https://tailscale.com); TLS and
-  encrypted end to end.
+  to the AI on the other PC. Office network or [Tailscale](https://tailscale.com), over TLS,
+  every line encrypted before it leaves a PC.
 - **Yours.** No account, no cloud of its own, no telemetry. Secrets are masked before anything is
   stored, and *"delete the password I typed earlier"* deletes it everywhere. [docs/privacy.md](docs/privacy.md)
 - **Teams, if you want them.** Share a project's decisions and progress with teammates' AIs, never

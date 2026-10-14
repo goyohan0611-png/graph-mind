@@ -161,6 +161,10 @@ class TeamHubTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "NOT_ALLOWED"):
             jun.grant("gamma", "yohan", "viewer", "jun")
         note = jun.publish("gamma", "progress", "준 작업", "jun")
+        import psycopg
+        with self.assertRaises(psycopg.Error):                # but never rewrite it as jun's
+            minji.db.execute("UPDATE ledger_checkpoints SET payload='forged' WHERE id=%s",
+                             (note["id"],))
         minji.retract(note["id"], "minji")                    # the owner may take it back
         with self.assertRaisesRegex(ValueError, "LAST_OWNER"):
             minji.revoke("gamma", "minji", "minji")
@@ -204,6 +208,9 @@ class TeamHubTests(unittest.TestCase):
                 with mock.patch.object(brain_log, "_firewall", return_value="open"):
                     code = (await call(action="invite", member="minji", role="editor",
                                        projects=["graph-mind"])).structured_content["team_code"]
+                refused = (await call(action="remove_member", member="minji")).structured_content
+                self.assertEqual(refused["status"], "REFUSED")    # never the whole account
+                self.assertTrue(pl.accounts())
             os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "minji-config.json")
             async with Client(build_server(self.root / "b.sqlite")) as b:
                 call = lambda **k: b.call_tool("brain_checkpoint", k)  # noqa: E731
@@ -239,6 +246,14 @@ class TeamHubTests(unittest.TestCase):
         self.assertEqual(brain_log._config().get("team_hubs", []), [])   # not half joined
 
         os.environ["GRAPH_MIND_CONFIG"] = owner_config
+        with self.assertRaisesRegex(ValueError, "NAME_TAKEN"):
+            pl.add_account("김민지")             # a second 김민지 would make "add 김민지" a guess
+        with pl._admin() as hub:                # a hub from before names were unique
+            hub.execute("DROP INDEX ledger_accounts_member")
+            hub.execute("INSERT INTO ledger_accounts VALUES('gm_m_old_abcdef', '김민지')")
+        pl._PREPARED.clear()
+        pl.prepare_hub()
+        self.assertTrue({"김민지", "김민지 (abcdef)"} <= {a["member"] for a in pl.accounts()})
         owner = pl.own_ledger()
         owner.grant("beta", "김민지", "viewer", "yohan")                  # by her chosen name
         self.assertEqual({m["member"]: m["role"] for m in owner.members("beta")},

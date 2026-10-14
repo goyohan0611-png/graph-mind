@@ -89,13 +89,20 @@ ALTER TABLE %1$I.ledger_checkpoints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE %1$I.ledger_audit ENABLE ROW LEVEL SECURITY;
 CREATE POLICY see ON %1$I.ledger_checkpoints FOR SELECT USING (true);
 CREATE POLICY publish ON %1$I.ledger_checkpoints FOR INSERT WITH CHECK (actor_role = current_user);
-CREATE POLICY retract ON %1$I.ledger_checkpoints FOR UPDATE
-    USING (actor_role = current_user OR pg_has_role(current_user, %4$L, 'MEMBER'))
-    WITH CHECK (actor_role = current_user OR pg_has_role(current_user, %4$L, 'MEMBER'));
+%5$s;
 CREATE POLICY log ON %1$I.ledger_audit FOR INSERT WITH CHECK (actor_role = current_user);
 CREATE POLICY see ON %1$I.ledger_audit FOR SELECT
     USING (actor_role = current_user OR pg_has_role(current_user, %4$L, 'MEMBER'))
 """
+
+# The publisher may change their own checkpoint; an owner may only take someone else's back
+# (ponytail: the owner still writes the retracted row's payload, which records who retracted it).
+RETRACT_POLICY = """DROP POLICY IF EXISTS retract ON %1$I.ledger_checkpoints;
+CREATE POLICY retract ON %1$I.ledger_checkpoints FOR UPDATE
+    USING (actor_role = current_user OR pg_has_role(current_user, %4$L, 'MEMBER'))
+    WITH CHECK (actor_role = current_user OR (status = 'retracted'
+                AND pg_has_role(current_user, %4$L, 'MEMBER')))"""
+PROJECT_TEMPLATE = PROJECT_TEMPLATE.replace("%5$s", RETRACT_POLICY)
 
 # The hub's directory, in gmhub's public schema: which projects exist (the key is read only
 # through hub_project_key, by members), the accounts, and who is in which project.
@@ -107,6 +114,12 @@ CREATE TABLE IF NOT EXISTS ledger_accounts(member_role TEXT PRIMARY KEY, member 
 CREATE TABLE IF NOT EXISTS ledger_access(
     member_role TEXT NOT NULL, project TEXT NOT NULL, role TEXT NOT NULL,
     member TEXT NOT NULL, PRIMARY KEY(member_role, project));
+UPDATE ledger_accounts a SET member = a.member || ' (' || right(a.member_role, 6) || ')'
+    WHERE EXISTS (SELECT 1 FROM ledger_accounts b
+                  WHERE b.member = a.member AND b.member_role < a.member_role);
+UPDATE ledger_access x SET member = a.member FROM ledger_accounts a
+    WHERE a.member_role = x.member_role AND x.member <> a.member;
+CREATE UNIQUE INDEX IF NOT EXISTS ledger_accounts_member ON ledger_accounts(member);
 CREATE TABLE IF NOT EXISTS hub_audit(
     stamp TEXT NOT NULL, at TEXT NOT NULL, actor_role TEXT NOT NULL, actor TEXT NOT NULL,
     action TEXT NOT NULL, target TEXT NOT NULL);
@@ -267,7 +280,7 @@ def named() -> bool:
 
 
 def set_display_name(name: str) -> dict:
-    """The name others see on checkpoints, reviews and member lists, instead of this PC's name:
+    """The name others see on checkpoints and member lists, instead of this PC's name:
     kept on this PC and set on the account of every hub this person is in (their own and each
     team hub), so all their PCs and teammates show it. Names are unique per hub."""
     import brain_log
@@ -291,7 +304,7 @@ def set_display_name(name: str) -> dict:
             book.db.close()
     return {"name": name, "was": was, "renamed_on": renamed, "taken_on": taken,
             "unreachable": unreachable,
-            "note": "Checkpoints and reviews already written keep the name they were written "
+            "note": "Checkpoints already written keep the name they were written "
                     "with." + (" On the hubs in taken_on someone already has this name: choose "
                                "another." if taken else "")}
 
@@ -425,8 +438,7 @@ class Ledger:
                                 (project, self._role_of(member))).fetchall()[0][0]
             self._audit(by, "remove_member", f"{project}/{member}")
         return {"project": project, "member": member, "removed": bool(removed),
-                "note": "Their access to this project ended now. Files they already "
-                        "downloaded stay on their PC."}
+                "note": "Their access to this project ended now."}
 
     def _role_of(self, member) -> str:
         """The login of the account shown as `member` (names can change; logins do not)."""
@@ -691,7 +703,7 @@ def git_link(folder: Path) -> dict | None:
     return link
 
 
-# -- work context, reviews and notifications ---------------------------------------------------
+# -- work context ------------------------------------------------------------------
 NOT_RECORDED = "not recorded"
 # what a checkpoint says about its work. The text fields are the publishing AI's own account;
 # `addresses` (ids of the decisions, feedback and reviews it answers) and `evidence` (commit,
@@ -862,6 +874,11 @@ def _prepare(owner_url) -> None:
                 hub.execute(statement)
         hub.execute("INSERT INTO ledger_accounts VALUES(%s,%s) ON CONFLICT DO NOTHING",
                     (OWNER_ROLE, actor()))
+        for (schema,) in hub.execute("SELECT schema FROM hub_projects").fetchall():
+            policy = hub.execute("SELECT format(%s::text, %s::text, %s::text, %s::text, "
+                                 "%s::text)", (RETRACT_POLICY, schema, schema + "_r",
+                                               schema + "_w", schema + "_o")).fetchone()[0]
+            hub.execute(policy)
     _migrate_shared_tables()
     # a hub already open to the network (shared before, or teammates in it): the person's other
     # PCs and the teammates reach the hub database, and nobody but the owner the memory one
@@ -913,35 +930,32 @@ def _migrate_shared_tables() -> dict:
                 key = Fernet.generate_key()
                 new = Fernet(key)
                 seal = lambda stored: new.encrypt(plain(stored)).decode()  # noqa: E731
-                try:
-                    with hub.transaction():
-                        hub.execute("SELECT hub_create_project_for(%s,%s,%s,%s,%s)",
-                                    (owner, name, by, at, key.decode()))
-                        schema = hub.execute("SELECT schema FROM hub_projects WHERE name=%s",
-                                             (name,)).fetchone()[0]
-                        if instructions:
-                            hub.execute(f'UPDATE "{schema}".ledger_projects SET instructions=%s',
-                                        (seal(instructions),))
-                        for login, project, role, member in access:
-                            if project == name and login != owner:
-                                hub.execute("INSERT INTO ledger_accounts VALUES(%s,%s) ON "
-                                            "CONFLICT DO NOTHING", (login, member))
-                                hub.execute("SELECT hub_set_member(%s,%s,%s)",
-                                            (name, login, role))
-                        for row in rows("SELECT id, stamp, created_at, status, actor_role, "
-                                        "payload FROM ledger_checkpoints WHERE project=%s", name):
-                            hub.execute(f'INSERT INTO "{schema}".ledger_checkpoints(id, project, '
-                                        "stamp, created_at, status, actor_role, payload) "
-                                        "VALUES(%s,%s,%s,%s,%s,%s,%s)",
-                                        (row[0], name, *row[1:5], seal(row[5])))
-                        for row in rows("SELECT stamp, at, actor_role, actor, action, target "
-                                        "FROM ledger_audit WHERE target=%s OR "
-                                        "left(target, length(%s) + 1) = %s || '/'",
-                                        name, name, name):
-                            hub.execute(f'INSERT INTO "{schema}".ledger_audit VALUES'
-                                        "(%s,%s,%s,%s,%s,%s)", row)
-                except BaseException:
-                    raise
+                with hub.transaction():
+                    hub.execute("SELECT hub_create_project_for(%s,%s,%s,%s,%s)",
+                                (owner, name, by, at, key.decode()))
+                    schema = hub.execute("SELECT schema FROM hub_projects WHERE name=%s",
+                                         (name,)).fetchone()[0]
+                    if instructions:
+                        hub.execute(f'UPDATE "{schema}".ledger_projects SET instructions=%s',
+                                    (seal(instructions),))
+                    for login, project, role, member in access:
+                        if project == name and login != owner:
+                            hub.execute("INSERT INTO ledger_accounts VALUES(%s,%s) ON "
+                                        "CONFLICT DO NOTHING", (login, member))
+                            hub.execute("SELECT hub_set_member(%s,%s,%s)",
+                                        (name, login, role))
+                    for row in rows("SELECT id, stamp, created_at, status, actor_role, "
+                                    "payload FROM ledger_checkpoints WHERE project=%s", name):
+                        hub.execute(f'INSERT INTO "{schema}".ledger_checkpoints(id, project, '
+                                    "stamp, created_at, status, actor_role, payload) "
+                                    "VALUES(%s,%s,%s,%s,%s,%s,%s)",
+                                    (row[0], name, *row[1:5], seal(row[5])))
+                    for row in rows("SELECT stamp, at, actor_role, actor, action, target "
+                                    "FROM ledger_audit WHERE target=%s OR "
+                                    "left(target, length(%s) + 1) = %s || '/'",
+                                    name, name, name):
+                        hub.execute(f'INSERT INTO "{schema}".ledger_audit VALUES'
+                                    "(%s,%s,%s,%s,%s,%s)", row)
                 moved["projects"] += 1
         for table in ("ledger_projects", "ledger_checkpoints", "ledger_artifacts",
                       "ledger_access", "ledger_reviews", "ledger_audit", "ledger_accounts"):
@@ -961,7 +975,7 @@ def secure_hub() -> None:
 def host_projects() -> dict:
     """Make this PC's hub the home of this person's project brains (a NAS or an always-on PC
     can do it without holding anyone's personal memory). Projects kept on this PC alone so far
-    move into it, files included."""
+    move into it."""
     import brain_log
     opened = brain_log.open_to_network()
     brain_log._save({"hosts_projects": True})
@@ -1027,6 +1041,10 @@ def add_account(member: str, by: str = "hub operator", *, reset: bool = False) -
             admin.execute(f"ALTER ROLE {login} LOGIN PASSWORD '{password}'")
         else:
             admin.execute(f"CREATE ROLE {login} LOGIN PASSWORD '{password}' IN ROLE {TEAM_GROUP}")
+        if admin.execute("SELECT 1 FROM ledger_accounts WHERE member=%s AND member_role<>%s",
+                         (member, login)).fetchall():
+            raise ValueError(f"NAME_TAKEN: an account on this hub already goes by '{member}'; "
+                             "add something to tell them apart")
         admin.execute("INSERT INTO ledger_accounts VALUES(%s,%s) ON CONFLICT (member_role) DO "
                       "UPDATE SET member = EXCLUDED.member", (login, member))
         admin.execute("INSERT INTO hub_audit VALUES(%s,%s,%s,%s,%s,%s)",
@@ -1094,7 +1112,7 @@ def remove_account(member: str, by: str = "hub operator", *, transfer_to: str = 
         admin.execute("INSERT INTO hub_audit VALUES(%s,%s,%s,%s,%s,%s)",
                       (_stamp(), _now(), "postgres", by, "remove_account", f"account {member}"))
     return {"member": member, "removed": True, "transferred": {p: transfer_to for p in sole},
-            "note": "Their access ended now. Files they already downloaded stay on their PC."}
+            "note": "Their access ended now."}
 
 
 def delete_project(project: str, by: str = "hub operator", *, confirm: str = "") -> dict:
@@ -1229,7 +1247,7 @@ def _hosts_here() -> bool:
 
 def own_ledger() -> Ledger:
     """This person's own project brains: on the hub this PC hosts or the person's memory uses,
-    else on this PC alone (~/.graph-mind/ledger.sqlite, files under hub/artifacts)."""
+    else on this PC alone (~/.graph-mind/ledger.sqlite)."""
     import psycopg
     import urllib.parse
     import brain_log

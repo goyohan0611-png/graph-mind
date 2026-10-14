@@ -38,9 +38,9 @@ jobs:
       - name: Recovery
         run: python bench/recovery.py | tee -a recovery.txt
       - name: Latency
-        run: python bench/latency.py | tee -a latency.txt
+        run: python bench/latency.py --baseline | tee -a latency.txt
       - name: Evidence
-        run: python bench/evidence.py | tee -a evidence.txt
+        run: python bench/evidence.py --baseline | tee -a evidence.txt
       - name: Summary
         if: always()
         run: |
@@ -53,4 +53,4 @@ jobs:
           name: bench
           path: |
             *.txt
-            bench/.cache/*.json
+            bench/baseline/*.json

@@ -33,10 +33,14 @@ jobs:
           cache: pip
       - name: Install (CPU-only PyTorch)
         run: python -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Lint
+        run: python -m pip install ruff && ruff check .
       - name: Unit tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Research tests
+        run: python -m unittest discover -s research/tests -p "test_*.py"
       - name: Self-checks
         run: |
-          python src/vector_cache.py
-          python src/brain_log.py
-          python src/embedding_warmup.py
+          python -m graph_mind.vector_cache
+          python -m graph_mind.sharing
+          python -m graph_mind.warmup

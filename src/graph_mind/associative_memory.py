@@ -1,8 +1,6 @@
 """Bounded sparse associative recall over Graph-MIND's evidence vault."""
 from __future__ import annotations
 
-from development_paths import use_wal
-
 from datetime import datetime
 from pathlib import Path
 import hashlib
@@ -12,6 +10,7 @@ import re
 import sqlite3
 import unicodedata
 
+from graph_mind.paths import use_wal
 
 INDEX_VERSION = "engram-associative-layer-v0.6"
 STOP_TERMS = frozenset({

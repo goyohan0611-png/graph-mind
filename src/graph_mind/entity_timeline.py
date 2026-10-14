@@ -6,9 +6,9 @@ only the closest one or two come back. The failures that kept surviving every re
 exactly this shape — which came first, what is the current value, how many times in total.
 
 So the store keeps a second index beside the memories: entity -> its memories, oldest first, with
-superseded ones marked. No graph engine and no traversal: Zep's multi-hop machinery answers questions
-we never actually failed. The entity NAMES come from the model that wrote the memory (naming is a
-language judgement); this module only groups, orders and reads.
+superseded ones marked. No graph engine and no traversal: Zep's multi-hop machinery answers
+questions we never actually failed. The entity NAMES come from the model that wrote the memory
+(naming is a language judgement); this module only groups, orders and reads.
 
     python entity_timeline.py    # self-check on a temporary store
 """
@@ -60,7 +60,8 @@ def rebuild(db: sqlite3.Connection) -> int:
     with db:
         db.execute("DELETE FROM entity_timeline")
         db.executemany("INSERT OR REPLACE INTO entity_timeline VALUES(?,?,?,?)", rows)
-        db.execute("INSERT OR REPLACE INTO entity_timeline_state VALUES('memories',?)", (str(total),))
+        db.execute("INSERT OR REPLACE INTO entity_timeline_state VALUES('memories',?)",
+                   (str(total),))
     return len(rows)
 
 
@@ -91,10 +92,10 @@ def timeline(db: sqlite3.Connection, entity: str, limit: int = 50) -> list[dict]
 
 
 def _self_check():
-    import tempfile
-    import uuid
     from pathlib import Path
-    from local_brain import LocalBrainStore
+    import tempfile
+
+    from graph_mind.local_brain import LocalBrainStore
 
     path = Path(tempfile.mkdtemp()) / "brain.sqlite"
     facts = [("JWT expiry set to 24h", ["auth module"], "2026-03-12T09:00:00", None),

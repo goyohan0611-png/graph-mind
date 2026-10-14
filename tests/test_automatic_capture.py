@@ -4,18 +4,22 @@ import json
 import tempfile
 import unittest
 
-from automatic_capture import AutomaticCaptureService, make_config
-from coding_memory import CodingMemoryStore
-from conversation_memory import ConversationMemoryStore
+from graph_mind.automatic_capture import AutomaticCaptureService, make_config
+from graph_mind.coding_memory import CodingMemoryStore
+from graph_mind.conversation_memory import ConversationMemoryStore
 
 
 class AutomaticCaptureTests(unittest.TestCase):
     def test_baseline_then_incrementally_captures_code_and_conversation(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory); workspace = root / "workspace"
-            sessions = root / "sessions"; state = root / "state"
-            workspace.mkdir(); sessions.mkdir()
-            code = workspace / "app.py"; code.write_text("def value():\n    return 1\n")
+            root = Path(directory)
+            workspace = root / "workspace"
+            sessions = root / "sessions"
+            state = root / "state"
+            workspace.mkdir()
+            sessions.mkdir()
+            code = workspace / "app.py"
+            code.write_text("def value():\n    return 1\n")
             rollout = sessions / "rollout.jsonl"
             rollout.write_text(json.dumps({"type": "session_meta", "payload": {
                 "session_id": "test-session", "cwd": str(workspace)}}) + "\n")
@@ -32,7 +36,8 @@ class AutomaticCaptureTests(unittest.TestCase):
                     "ordinal": 1, "type": "response_item", "payload": {
                         "type": "message", "role": "user", "content": [{
                             "type": "input_text", "text": "프로젝트 값을 바꿨어"}]}}) + "\n")
-            first = service.run_once(); second = service.run_once()
+            first = service.run_once()
+            second = service.run_once()
             with CodingMemoryStore(root / "brain.sqlite") as store:
                 changed = store.query(project_id="project:test", file_path="app.py")
             with ConversationMemoryStore(root / "brain.sqlite") as store:
@@ -52,8 +57,11 @@ class AutomaticCaptureTests(unittest.TestCase):
     def test_claude_code_is_captured_on_a_pc_without_codex(self):
         """A fresh PC with only Claude Code: a missing Codex folder used to stop every source."""
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory); workspace = root / "workspace"; workspace.mkdir()
-            projects = root / "claude-projects"; (projects / "demo").mkdir(parents=True)
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            projects = root / "claude-projects"
+            (projects / "demo").mkdir(parents=True)
             transcript = projects / "demo" / "session.jsonl"
             transcript.write_text(json.dumps({"type": "summary", "sessionId": "s1"}) + "\n",
                                   encoding="utf-8")
@@ -77,8 +85,11 @@ class AutomaticCaptureTests(unittest.TestCase):
 
     def test_conversation_cycle_can_skip_expensive_code_scan(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory); workspace = root / "workspace"
-            sessions = root / "sessions"; workspace.mkdir(); sessions.mkdir()
+            root = Path(directory)
+            workspace = root / "workspace"
+            sessions = root / "sessions"
+            workspace.mkdir()
+            sessions.mkdir()
             (workspace / "app.py").write_text("x = 1\n")
             (sessions / "rollout.jsonl").write_text("", encoding="utf-8")
             config = make_config(workspace=workspace, project_id="project:test",

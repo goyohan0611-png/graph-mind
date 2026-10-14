@@ -8,9 +8,9 @@ import unittest
 
 from mcp import Client
 
-from conversation_memory import ClaudeCodeConversationCapture, ConversationMemoryStore
-from forget import masked_preview
-from graph_mind_mcp_server import build_server, wait_for_index
+from graph_mind.conversation_memory import ClaudeCodeConversationCapture, ConversationMemoryStore
+from graph_mind.forget import masked_preview
+from graph_mind.mcp_server import build_server, wait_for_index
 
 SECRET = "qwer1234!"
 

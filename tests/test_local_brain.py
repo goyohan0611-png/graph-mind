@@ -6,7 +6,7 @@ import sqlite3
 import tempfile
 import unittest
 
-from local_brain import LocalBrainStore
+from graph_mind.local_brain import LocalBrainStore
 
 
 T1 = "2026-09-15T10:00:00"

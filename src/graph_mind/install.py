@@ -1,12 +1,13 @@
-"""One line on a new PC: install Graph-MIND and plug it into every AI app found there.
+"""One line on a new PC: plug Graph-MIND into every AI app found there.
 
-    python install.py                      # this PC keeps its own brain
-    python install.py --join gm1.XXXX      # ...and joins the brain another PC shared
+    graph-mind-install                     # this PC keeps its own brain
+    graph-mind-install --join gm1.XXXX     # ...and joins the brain another PC shared
 
-It installs the Python packages, registers the memory server with every MCP client it finds
-(Claude Code, Claude Desktop, Codex, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio), starts the capture service at login, and downloads the local
-embedding model so the first question is not the one that waits for it. Running it again is
-safe, and after moving this folder it re-points everything at the new place.
+It registers the memory server with every MCP client it finds (Claude Code, Claude Desktop,
+Codex, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio), starts the capture service at
+login, and downloads the local embedding model so the first question is not the one that waits
+for it. From a source checkout it first installs the checkout itself (pip install -e). Running it
+again is safe: it re-points every app at this Python.
 """
 from __future__ import annotations
 
@@ -20,7 +21,11 @@ import subprocess
 import sys
 
 HERE = Path(__file__).resolve().parent
-SERVER = HERE / "graph_mind_mcp_server.py"
+CHECKOUT = HERE.parent.parent         # a source checkout (pyproject.toml), else site-packages
+if __package__ in (None, ""):                # run as a file from a checkout: import it from there
+    sys.path.insert(0, str(HERE.parent))
+SERVER = ["-m", "graph_mind.mcp_server"]
+CAPTURE = ["-m", "graph_mind.capture_cli", "run"]
 NAME = "graph-mind-memory"
 ENV = {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 # apps whose transcripts the capture service reads: every turn is saved without the model,
@@ -34,7 +39,7 @@ def step(message):
 
 def packages():
     done = subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
-                           "-q", "-r", str(HERE.parent / "requirements.txt")])
+                           "-q", "-e", str(CHECKOUT)])
     if done.returncode:
         # PyTorch ships files nested deep enough to pass Windows' 260-character path limit when
         # Python lives under a long folder: pip then fails halfway with "No such file".
@@ -49,7 +54,7 @@ def _json_entry(path: Path, key: str = "mcpServers", env=ENV, **extra) -> None:
     settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     servers = settings.setdefault(key, {})
     environment = {**servers.get(NAME, {}).get("env", {}), **env}   # keep the user's own settings
-    servers[NAME] = {**extra, "command": sys.executable, "args": [str(SERVER)], "env": environment}
+    servers[NAME] = {**extra, "command": sys.executable, "args": SERVER, "env": environment}
     temporary = path.with_suffix(".graph-mind.tmp")
     temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(temporary, path)
@@ -63,7 +68,7 @@ def claude_code(home: Path) -> str:
             subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
             # the name before -e: the CLI's -e takes every value that follows, the name included
             subprocess.run([claude, "mcp", "add", "-s", "user", NAME, *environment, "--",
-                            sys.executable, str(SERVER)], check=True, capture_output=True)
+                            sys.executable, *SERVER], check=True, capture_output=True)
             return "Claude Code"
         except (OSError, subprocess.CalledProcessError):
             pass      # Windows refused to launch it (access denied, seen live): write the file
@@ -111,7 +116,8 @@ def _other_apps(home: Path) -> list:
         ("LM Studio", home / ".lmstudio", home / ".lmstudio" / "mcp.json", "mcpServers", {}),
         ("VS Code", vscode, vscode / "mcp.json", "servers", {"type": "stdio"}),
         ("Cline", vscode / "globalStorage" / "saoudrizwan.claude-dev",
-         vscode / "globalStorage" / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json",
+         vscode / "globalStorage" / "saoudrizwan.claude-dev" / "settings"
+         / "cline_mcp_settings.json",
          "mcpServers", {}),
     ]
 
@@ -167,32 +173,34 @@ def codex(home: Path) -> str:
     environment = "\n".join(f"{key} = '{value}'" for key, value in CAPTURED.items())
     # not required: a memory server that fails to start must never keep a chat from starting
     text += (f"\n{header}\nstartup_timeout_sec = 60\n"
-             f"command = '{sys.executable}'\nargs = ['{SERVER}']\n\n"
+             f"command = '{sys.executable}'\nargs = {json.dumps(SERVER)}\n\n"
              f"[mcp_servers.{NAME}.env]\n{environment}\n")
     config.write_text(text, encoding="utf-8")
     return "Codex"
 
 
 def capture_service(start: bool) -> str:
-    sys.path.insert(0, str(HERE))
-    from automatic_capture import _atomic_json, default_config_path, default_service_state_dir, make_config
+    from graph_mind.automatic_capture import (
+        _atomic_json,
+        default_config_path,
+        default_service_state_dir,
+        make_config,
+    )
     if not default_config_path().exists():
-        config = make_config(workspace=str(HERE.parent), project_id="project:graph-mind",
+        config = make_config(workspace=str(Path.home()), project_id="project:graph-mind",
                              session_id="service:automatic-capture-v0.2",
                              sessions_root=str(Path.home() / ".codex" / "sessions"))
-        # Conversations only. Watching a code folder is opt-in: this folder is Graph-MIND itself,
-        # or site-packages after a pip install, and the service would rescan it every 2 minutes.
+        # Conversations only: watching a code folder is opt-in.
         config["code_workspaces"], config["workspace_scopes"] = [], {}
         _atomic_json(default_config_path(), config)
-    script = HERE / "automatic_capture_cli.py"
     system = platform.system()
     if system == "Windows":
         python = Path(sys.executable).with_name("pythonw.exe")        # no console window
         startup = _login_item()
         startup.parent.mkdir(parents=True, exist_ok=True)
         shortcut = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{startup}');"
-                    f"$s.TargetPath='{python}';$s.Arguments='\"{script}\" run';"
-                    f"$s.WorkingDirectory='{HERE}';$s.Save()")
+                    f"$s.TargetPath='{python}';$s.Arguments='{' '.join(CAPTURE)}';"
+                    f"$s.WorkingDirectory='{Path.home()}';$s.Save()")
         subprocess.run(["powershell", "-NoProfile", "-Command", shortcut], check=True,
                        capture_output=True)
     elif system == "Darwin":
@@ -201,14 +209,14 @@ def capture_service(start: bool) -> str:
         agent = _login_item()
         agent.parent.mkdir(parents=True, exist_ok=True)
         agent.write_bytes(plistlib.dumps({
-            "Label": "com.graph-mind.capture", "RunAtLoad": True, "WorkingDirectory": str(HERE),
-            "ProgramArguments": [str(python), str(script), "run"]}))
+            "Label": "com.graph-mind.capture", "RunAtLoad": True,
+            "WorkingDirectory": str(Path.home()), "ProgramArguments": [str(python), *CAPTURE]}))
     else:                                       # Linux desktops: XDG autostart
         python = Path(sys.executable)
         entry = _login_item()
         entry.parent.mkdir(parents=True, exist_ok=True)
         entry.write_text("[Desktop Entry]\nType=Application\nName=Graph-MIND capture\n"
-                         f"Exec=\"{python}\" \"{script}\" run\nPath={HERE}\n"
+                         f"Exec=\"{python}\" {' '.join(CAPTURE)}\nPath={Path.home()}\n"
                          "X-GNOME-Autostart-enabled=true\n", encoding="utf-8")
     if start:
         import psutil
@@ -220,13 +228,12 @@ def capture_service(start: bool) -> str:
         if not running:
             detach = ({"creationflags": subprocess.DETACHED_PROCESS} if system == "Windows"
                       else {"start_new_session": True})
-            subprocess.Popen([str(python), str(script), "run"], cwd=HERE, **detach)
+            subprocess.Popen([str(python), *CAPTURE], cwd=Path.home(), **detach)
     return "capture service starts at login"
 
 
 def embedding_model():
-    sys.path.insert(0, str(HERE))
-    from local_embedder import LOCAL_MODEL, MODEL_FILES, model_paths, own_hf_home
+    from graph_mind.local_embedder import LOCAL_MODEL, MODEL_FILES, model_paths, own_hf_home
     try:
         import onnxruntime  # noqa: F401  (a DLL failure here would leave search on words only)
     except ImportError as error:
@@ -241,8 +248,9 @@ def embedding_model():
     except OSError as error:
         # ~/.cache refused (access denied): move Hugging Face's whole home under ~/.graph-mind,
         # where every Graph-MIND process looks from now on (local_embedder.use_own_hf_home)
-        if "PermissionError" not in str(error) and not isinstance(error.__cause__, PermissionError) \
-                and not isinstance(error, PermissionError):
+        denied = (isinstance(error, PermissionError) or isinstance(error.__cause__, PermissionError)
+                  or "PermissionError" in str(error))
+        if not denied:
             raise
         own = own_hf_home()
         own.mkdir(parents=True, exist_ok=True)
@@ -268,14 +276,13 @@ def main(argv=None):
     if sys.version_info < (3, 10):
         sys.exit("Graph-MIND needs Python 3.10 or newer.")
     if args.join:                            # a typo in the code should fail before anything else
-        sys.path.insert(0, str(HERE))
         if args.join.strip().startswith("gmt1."):
-            from project_ledger import _decode_team
+            from graph_mind.project_brains import _decode_team
             _decode_team(args.join)
         else:
-            from brain_log import _decode
+            from graph_mind.sharing import _decode
             _decode(args.join)
-    if not args.skip_packages and (HERE.parent / "requirements.txt").exists():   # pip: already done
+    if not args.skip_packages and (CHECKOUT / "pyproject.toml").exists():   # pip: already done
         step("installing packages (the first time takes a few minutes)")
         packages()
     home = Path.home()
@@ -284,8 +291,7 @@ def main(argv=None):
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
     if args.name:
-        sys.path.insert(0, str(HERE))
-        from brain_log import _save
+        from graph_mind.sharing import _save
         _save({"user_name": " ".join(args.name.split())[:40]})
         step(f"teammates will see you as {args.name}")
     step(capture_service(start=not args.no_start))
@@ -293,11 +299,12 @@ def main(argv=None):
         step("downloading the local embedding model")
         embedding_model()
     if args.join and args.join.strip().startswith("gmt1."):
-        from project_ledger import join_team
+        from graph_mind.project_brains import join_team
         joined = join_team(args.join.strip(), args.name)
-        step(f"joined the team as {joined['joined_as']}: {', '.join(joined['projects']) or 'no projects yet'}")
+        projects = ", ".join(joined["projects"]) or "no projects yet"
+        step(f"joined the team as {joined['joined_as']}: {projects}")
     elif args.join:
-        from brain_log import folder, set_folder
+        from graph_mind.sharing import folder, set_folder
         set_folder(args.join)
         where = folder().rsplit("@", 1)[1].split("/")[0]
         step(f"joined the shared brain at {where}")
@@ -312,7 +319,6 @@ def uninstall(argv=None):
                         help="also delete this PC's memory (~/.graph-mind); cannot be undone")
     parser.add_argument("--yes", action="store_true", help="do not ask before --purge")
     args = parser.parse_args(argv)
-    sys.path.insert(0, str(HERE))
     home, removed = Path.home(), []
     claude = shutil.which("claude")
     if claude:
@@ -347,17 +353,17 @@ def uninstall(argv=None):
             subprocess.run(["launchctl", "unload", str(item)], capture_output=True)
         item.unlink()
         step("capture service no longer starts at login")
-    from automatic_capture import default_service_state_dir
+    from graph_mind.automatic_capture import default_service_state_dir
     try:
         import psutil
         service = psutil.Process(int((default_service_state_dir() / "service.pid")
                                      .read_text(encoding="ascii")))
-        if "automatic_capture_cli" in " ".join(service.cmdline()):
+        if "capture_cli" in " ".join(service.cmdline()):
             service.terminate()
             step("capture service stopped")
     except Exception:                            # no pid file, not running, or already gone
         pass
-    from development_paths import graph_mind_home
+    from graph_mind.paths import graph_mind_home
     data = graph_mind_home()
     if args.purge and data.exists():
         if not args.yes and input(f"Delete {data} and everything this PC remembers? "
@@ -366,8 +372,8 @@ def uninstall(argv=None):
         else:
             if (data / "postgres" / "postmaster.pid").exists():     # this PC hosts the hub
                 try:
-                    import brain_log
-                    brain_log.stop_postgres(data / "postgres")
+                    from graph_mind import sharing
+                    sharing.stop_postgres(data / "postgres")
                 except Exception:
                     pass
             shutil.rmtree(data, ignore_errors=True)

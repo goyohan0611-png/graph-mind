@@ -1,6 +1,6 @@
 """Embed memories when they are STORED, not when they are asked about.
 
-semantic_recall embeds each candidate's text at query time. The vectors are cached, so the cost is
+Recall embeds each candidate's text at query time. The vectors are cached, so the cost is
 paid once — but it is paid by whoever asks the first question after a batch of memories arrives, and
 on CPU that is seconds to minutes. Writing is the right moment: it happens once per memory, in the
 background of a conversation the user is already having.
@@ -8,7 +8,7 @@ background of a conversation the user is already having.
 The text embedded here is exactly what the recall path will hash (the engram's FTS text, first 500
 characters), so a warmed memory is a cache hit rather than a near miss.
 
-    python embedding_warmup.py [db_path]      # warm a store, or self-check with no arguments
+    python warmup.py [db_path]      # warm a store, or self-check with no arguments
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def pending_texts(db: sqlite3.Connection, embedder, limit: int) -> list[str]:
 
 def warm(db_path, *, limit: int = 500, embedder=None) -> int:
     """Embed everything unembedded in the newest `limit` engrams. Returns how many were added."""
-    from local_embedder import default_embedder
+    from graph_mind.local_embedder import default_embedder
 
     embedder = embedder or default_embedder(db_path)
     db = sqlite3.connect(db_path)
@@ -73,7 +73,7 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
     searchable by meaning before anyone asks about them. Without it the first question after a
     busy day met thousands of unembedded pieces, and the server, which never makes a question
     wait for that, answered it from word search alone (79.2% against 86.0% on LongMemEval)."""
-    from local_embedder import default_embedder
+    from graph_mind.local_embedder import default_embedder
     embedder = embedder or default_embedder(db_path)
     if hasattr(embedder.cache, "refresh"):
         embedder.cache.refresh()                 # what the memory servers embedded meanwhile
@@ -110,8 +110,9 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
 
 def _self_check():
     import tempfile
-    from associative_memory import AssociativeMemoryIndex
-    from local_brain import LocalBrainStore
+
+    from graph_mind.associative_memory import AssociativeMemoryIndex
+    from graph_mind.local_brain import LocalBrainStore
 
     path = Path(tempfile.mkdtemp()) / "brain.sqlite"
     with LocalBrainStore(path) as store:
@@ -151,9 +152,11 @@ def _self_check():
     db.close()
     assert texts == [], texts
     with sqlite3.connect(path) as db:
-        db.execute("CREATE TABLE conversation_turns(content_redacted TEXT, role TEXT, happened_at TEXT)")
+        db.execute("CREATE TABLE conversation_turns(content_redacted TEXT, role TEXT, "
+                   "happened_at TEXT)")
         db.executemany("INSERT INTO conversation_turns VALUES(?,?,?)", [
-            ("".join(f"{i:04d}" for i in range(300)), "user", "2026-01-01"), ("answer " * 300, "assistant", "2026-01-02"),
+            ("".join(f"{i:04d}" for i in range(300)), "user", "2026-01-01"),
+            ("answer " * 300, "assistant", "2026-01-02"),
             ("newest question", "user", "2026-01-03")])
     turns = FakeEmbedder()
     assert warm_turns(path, embedder=turns, limit=2) == 2          # newest first, capped
@@ -161,7 +164,7 @@ def _self_check():
     assert not any("answer" in key for key in turns.cache), "the user's turns come first"
     assert warm_turns(path, embedder=turns) == 7                    # 2 user + 5 assistant pieces
     assert warm_turns(path, embedder=turns) == 0
-    print(f"embedding_warmup self-check ok ({first} vectors warmed, second pass free)")
+    print(f"warmup self-check ok ({first} vectors warmed, second pass free)")
 
 
 if __name__ == "__main__":

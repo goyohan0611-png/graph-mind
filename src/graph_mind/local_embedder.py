@@ -11,13 +11,13 @@ import math
 import os
 import threading
 
-from vector_cache import VectorCache, convert
+from graph_mind.vector_cache import VectorCache, convert
 
 LOCAL_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 
 def own_hf_home() -> Path:
-    from development_paths import graph_mind_home
+    from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "huggingface"
 
 
@@ -83,8 +83,8 @@ class LocalEmbedder:
 
     def _load(self):
         if LocalEmbedder._model is None:
-            import onnxruntime
             from tokenizers import Tokenizer
+            import onnxruntime
             tokenizer_file, model_file = model_paths(self.model_name)
             tokenizer = Tokenizer.from_file(tokenizer_file)
             tokenizer.enable_truncation(256)          # as transformers did: max_length=256

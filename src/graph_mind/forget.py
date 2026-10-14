@@ -84,27 +84,27 @@ def erase(index: Path, ids: dict) -> dict:
 
 
 def _keys(ids: dict) -> list[str]:
-    """How a target's log line spells its id (brain_log writes sorted keys, ": " separators)."""
+    """How a target's log line spells its id (sharing writes sorted keys, ": " separators)."""
     return ([f'"turn_id": {json.dumps(t)}' for t in ids.get("turn_ids", [])]
             + [f'"memory_id": {json.dumps(m)}' for m in ids.get("memory_ids", [])])
 
 
 def scrub_shared(shared, ids: dict) -> int:
     """Remove the targets' lines from the shared log. Returns how many lines went."""
-    from brain_log import _pg, is_database
+    from graph_mind.sharing import _pg, is_database
     keys = _keys(ids)
     if not keys:
         return 0
     if is_database(shared):
-        from brain_log import _unseal
+        from graph_mind.sharing import _unseal
         with _pg(shared) as connection:          # lines are sealed: open each to find targets
             doomed = []
-            for seq, line in connection.execute("SELECT seq, line FROM brain_log").fetchall():
+            for seq, line in connection.execute("SELECT seq, line FROM sharing").fetchall():
                 text = _unseal(shared, line) or ""
                 if any(key in text for key in keys) and '"kind": "forget"' not in text:
                     doomed.append(seq)
             if doomed:
-                connection.execute("DELETE FROM brain_log WHERE seq = ANY(%s)", (doomed,))
+                connection.execute("DELETE FROM sharing WHERE seq = ANY(%s)", (doomed,))
             connection.commit()
         return len(doomed)
     removed = 0
@@ -125,7 +125,7 @@ def scrub_shared(shared, ids: dict) -> int:
 
 def forget_ids(ids: dict, index: Path, shared=None) -> dict:
     """Erase these turns and memories here, scrub the shared log, and tell the other PCs."""
-    from brain_log import append
+    from graph_mind.sharing import append
     if not (ids.get("turn_ids") or ids.get("memory_ids")):
         return {"turns": 0, "memories": 0, "shared_lines_removed": 0}
     ids = {"turn_ids": list(ids.get("turn_ids", [])),
@@ -165,8 +165,8 @@ def masked_preview(text: str, width: int = 90) -> str:
         if hide_next and lowered in LINKS:          # "password is ...", "비번은 = ..."
             out.append(token)
             continue
-        secretish = hide_next or (any(c.isdigit() for c in bare) and any(c.isalpha() for c in bare)) \
-            or any(c in "!@#$%^&*_=+<>|~`\\" for c in bare)
+        mixed = any(c.isdigit() for c in bare) and any(c.isalpha() for c in bare)
+        secretish = hide_next or mixed or any(c in "!@#$%^&*_=+<>|~`\\" for c in bare)
         out.append("****" if secretish else token)
         hide_next = hint
     preview = " ".join(out)
@@ -174,8 +174,8 @@ def masked_preview(text: str, width: int = 90) -> str:
 
 
 def main(argv=None):
-    from brain_log import folder
-    from development_paths import default_development_db
+    from graph_mind.paths import default_development_db
+    from graph_mind.sharing import folder
     parser = argparse.ArgumentParser(description="Forget every captured turn and memory "
                                                  "that contains a phrase, on every PC.")
     parser.add_argument("phrase", nargs="?", help="omit it to type it without echo")

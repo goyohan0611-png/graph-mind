@@ -1,8 +1,6 @@
 """User-owned local memory shared across models, sessions and applications."""
 from __future__ import annotations
 
-from development_paths import use_wal
-
 from pathlib import Path
 import functools
 import hashlib
@@ -12,10 +10,9 @@ import sqlite3
 import unicodedata
 import uuid
 
-from clock import timestamp
-from universal_personal_memory import (PROFILE_FIELDS, SCHEMA_VERSION,
-                                       default_profile, normalize_profile)
-
+from graph_mind.clock import timestamp
+from graph_mind.context_packet import PROFILE_FIELDS, default_profile, normalize_profile
+from graph_mind.paths import use_wal
 
 CONTRACT_VERSION = "local-brain-v0.1"
 

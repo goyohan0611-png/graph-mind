@@ -5,11 +5,11 @@ import unittest
 
 from mcp import Client
 
-from associative_memory import AssociativeMemoryIndex
-from coding_memory import CodingMemoryStore
-from conversation_memory import ConversationMemoryStore
-from graph_mind_mcp_server import build_server
-from local_brain import LocalBrainStore
+from graph_mind.associative_memory import AssociativeMemoryIndex
+from graph_mind.coding_memory import CodingMemoryStore
+from graph_mind.conversation_memory import ConversationMemoryStore
+from graph_mind.mcp_server import build_server
+from graph_mind.local_brain import LocalBrainStore
 
 
 T1 = "2026-01-01T10:00:00"

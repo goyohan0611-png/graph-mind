@@ -1,8 +1,6 @@
 """Incremental, redacted conversation capture for the user-owned Local Brain."""
 from __future__ import annotations
 
-from development_paths import use_wal
-
 from datetime import datetime
 from pathlib import Path
 import collections
@@ -13,8 +11,9 @@ import os
 import re
 import sqlite3
 
-from clock import timestamp
-
+from graph_mind.clock import timestamp
+from graph_mind.forget import erase
+from graph_mind.paths import use_wal
 
 CAPTURE_VERSION = "codex-conversation-capture-v0.1"
 SECRET_PATTERNS = (
@@ -82,7 +81,7 @@ AGENT_INSTRUCTIONS = re.compile(
 def masking_on():
     """On unless ~/.graph-mind/config.json says "mask_secrets": false: someone running a model on
     their own machines may want keys kept in memory verbatim."""
-    from brain_log import _config
+    from graph_mind.sharing import _config
     return _config().get("mask_secrets", True) is not False
 
 
@@ -299,8 +298,10 @@ class CodexConversationCapture:
         self.publish = publish            # called with each turn that is new to this store
         # erases captured turns everywhere (forget.forget_ids with the shared log); by default
         # this store only
-        self.forget = forget or (lambda turn_ids: __import__("forget").erase(
-            self.store.path, {"turn_ids": turn_ids}))
+        self.forget = forget or self._forget_here
+
+    def _forget_here(self, turn_ids):
+        erase(self.store.path, {"turn_ids": turn_ids})
 
     FORGET_TOOL = "brain_forget"
     FORGET_WINDOW_MINUTES = 30
@@ -544,7 +545,7 @@ class ClaudeCodeConversationCapture(CodexConversationCapture):
         content = message.get("content")
         if isinstance(content, str):
             text = content
-        elif isinstance(content, list):          # text blocks only: no tool_use, tool_result, thinking
+        elif isinstance(content, list):    # text blocks only: no tool_use, tool_result, thinking
             text = "\n".join(block.get("text", "") for block in content
                              if isinstance(block, dict) and block.get("type") == "text")
         else:

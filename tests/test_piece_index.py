@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-import graph_mind_mcp_server as server
-from conversation_memory import ConversationMemoryStore
+from graph_mind import mcp_server as server
+from graph_mind.conversation_memory import ConversationMemoryStore
 
 TOPICS = ("dog", "cat", "beach", "food")
 

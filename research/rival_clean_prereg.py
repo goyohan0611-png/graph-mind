@@ -40,8 +40,8 @@ FROZEN_FILES = ["longmemeval_retrieval_executor.py", "semantic_grounding_v073.py
                 "official_judge_v073.py", "ingestion_gate.py",
                 "longmemeval_ingestion_calibration.py", "rival_mem0.py", "rival_mempalace.py",
                 # the shipped recall path, added as a fourth arm (amendment 5)
-                "graph_mind_mcp_server.py", "conversation_memory.py", "local_brain.py",
-                "universal_personal_memory.py", "product_answer_eval.py", "product_recall_eval.py"]
+                "mcp_server.py", "conversation_memory.py", "local_brain.py",
+                "context_packet.py", "product_answer_eval.py", "product_recall_eval.py"]
 N = 40
 
 

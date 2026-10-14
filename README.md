@@ -74,7 +74,7 @@ On all 500 LongMemEval questions: **88.8%**. Every question, answer and verdict 
 
 [MCP tools](docs/install.md#mcp-tools) · [See your memory in 3D](docs/privacy.md#seeing-your-memory)
 (`graph-mind-view`) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) ·
-Tests: `python -m unittest discover -s tests -p "test_*.py"`
+Development: `pip install -r requirements.txt`, then `python -m unittest discover -s tests`
 
 Contributions are welcome under the [CLA](CLA.md). License: [AGPL-3.0](LICENSE); a
 [commercial license](COMMERCIAL.md) is available for products that cannot publish their changes.

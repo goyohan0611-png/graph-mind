@@ -496,8 +496,8 @@ python rival_clean_prereg.py --show        # the frozen 40-question clean compar
 python clean_graph_mind.py                  # its extraction-pipeline arm (refuses on hash drift)
 python product_recall_eval.py               # shipped path: evidence reaching the packet, offline
 python product_answer_eval.py spans|answer  # shipped path end to end; --ids/--cache for the clean set
-python temporal_resolver.py        # unit self-checks (also: vector_cache, entity_timeline,
-                                   # embedding_warmup, brain_log)
+python temporal_resolver.py        # unit self-checks (also python -m graph_mind.<module> for
+                                   # vector_cache, entity_timeline, warmup, sharing)
 ```
 
 Each run writes its questions, answers, judge verdicts and a frozen manifest under `runs/`, so any
@@ -529,7 +529,7 @@ Joining takes two sentences and no typing of addresses:
   local subnet and Tailscale (100.64.0.0/10); adding it needs one administrator approval. The reply
   is a `gm1.` code carrying this PC's network and Tailscale addresses, the port and a generated
   password.
-- on the other PC, `python src/install.py --join gm1.…` (or paste the code to its AI). Each time it
+- on the other PC, `graph-mind-install --join gm1.…` (or paste the code to its AI). Each time it
   connects it uses the first address that answers. A laptop therefore reaches the same brain over
   the office network and over Tailscale from home.
 

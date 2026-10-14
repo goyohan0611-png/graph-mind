@@ -39,26 +39,29 @@ def record() -> dict:
     transcript.write_text(json.dumps({"type": "summary", "sessionId": "s1"}) + "\n",
                           encoding="utf-8")
     config = home / ".graph-mind" / "automatic-capture.json"
-    run = lambda *args: subprocess.run([sys.executable, *args], cwd=ROOT, env=env,
-                                       capture_output=True, text=True, encoding="utf-8")
-    run("-c", "from automatic_capture import _atomic_json, make_config; import sys; "
+
+    def run(*args):
+        return subprocess.run([sys.executable, *args], cwd=ROOT, env=env,
+                              capture_output=True, text=True, encoding="utf-8")
+    run("-c", "from graph_mind.automatic_capture import _atomic_json, make_config; import sys; "
               f"c = make_config(workspace=r'{ROOT}', project_id='project:app', "
               f"session_id='demo', sessions_root=r'{home / '.codex' / 'sessions'}'); "
               f"c['claude_cowork_root'] = r'{home / 'none'}'; _atomic_json(r'{config}', c)")
-    run("automatic_capture_cli.py", "--config", str(config), "once")          # baseline
+    run("-m", "graph_mind.capture_cli", "--config", str(config), "once")      # baseline
     with transcript.open("a", encoding="utf-8") as stream:
         for role, text in (("user", SAID), ("assistant", "Done: flag added, rollout set.")):
             stream.write(json.dumps({"type": role, "sessionId": "s1", "uuid": role,
                                      "cwd": str(ROOT), "timestamp": "2026-10-05T10:14:00",
                                      "message": {"role": role, "content": text}}) + "\n")
-    captured = json.loads(run("automatic_capture_cli.py", "--config", str(config), "once").stdout)
+    captured = json.loads(run("-m", "graph_mind.capture_cli", "--config", str(config),
+                              "once").stdout)
     turns = captured["conversation_sources"]["claude-code"]["recorded_turns"]
-    run("-c", "from automatic_capture import AutomaticCaptureService, load_config; "
+    run("-c", "from graph_mind.automatic_capture import AutomaticCaptureService, load_config; "
               f"AutomaticCaptureService(load_config(r'{config}')).embed_new_turns()")
 
     async def ask():
         params = StdioServerParameters(command=sys.executable,
-                                       args=[str(ROOT / "graph_mind_mcp_server.py")], env=env)
+                                       args=["-m", "graph_mind.mcp_server"], env=env)
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as client:
                 await client.initialize()

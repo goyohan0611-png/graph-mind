@@ -3,6 +3,27 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.8.0 — 2026-10-14
+Run `graph-mind-install` after upgrading: it registers the server at its new place. Apps set up
+by an earlier version keep working until then. Your memory is kept.
+- **One package.** The code is the `graph_mind` package (`python -m graph_mind.mcp_server`)
+  instead of twenty top-level modules, which had put names like `install` and `forget` into
+  every Python environment it was installed in. Modules that were named for their history now
+  say what they do: `sharing`, `project_brains`, `paths`, `context_packet`, `warmup`,
+  `memory_view`, `capture_cli`. From a source checkout: `pip install -e .`.
+- **Removed what never ran**: the opt-in OpenAI extraction in the capture service (off by
+  default, and at odds with saving memory never calling a model), the old development-event
+  writer (its records in older memories are still read), and unused recall helpers. Research
+  code and its tests live under `research/`.
+- **Team hubs**: one account per name, so adding "Mina" can never pick someone who took her
+  name; an owner can take a teammate's checkpoint back but not rewrite it; `remove_member`
+  without a project no longer closes the whole account (`graph-mind-hub remove-user` does).
+- SECURITY.md and the teams page say plainly what the hub machine's own users and its operator
+  can read.
+- A hub whose first start failed right after it was created (Windows refusing cmd.exe) no
+  longer stays without the memory's database: it is created on the next start.
+- `ruff check .` passes and runs in CI.
+
 ## 0.7.0 — 2026-10-13
 Run `graph-mind-install` after upgrading. Every PC that shares a hub should upgrade: the hub moves
 to its own Postgres build with TLS, and team logins reach a new hub database. Your memory is kept.

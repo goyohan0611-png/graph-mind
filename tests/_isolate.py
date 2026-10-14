@@ -9,9 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent
-for _folder in ("research", "src"):          # src first on the path
-    sys.path.insert(0, str(_ROOT / _folder))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))   # this checkout, first
 
 os.environ["GRAPH_MIND_HOME"] = tempfile.mkdtemp(prefix="graph-mind-test-home-")
 for _name in ("GRAPH_MIND_CONFIG", "GRAPH_MIND_FOLDER", "GRAPH_MIND_DB"):

@@ -1,8 +1,6 @@
 """Indexed coding activity memory with source-bound diffs and symbols."""
 from __future__ import annotations
 
-from development_paths import use_wal
-
 from datetime import datetime
 from pathlib import Path
 import ast
@@ -13,8 +11,8 @@ import os
 import re
 import sqlite3
 
-from clock import timestamp
-
+from graph_mind.clock import timestamp
+from graph_mind.paths import use_wal
 
 CAPTURE_VERSION = "coding-memory-v0.1"
 DEFAULT_SUFFIXES = frozenset({

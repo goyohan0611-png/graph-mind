@@ -7,14 +7,17 @@ import json
 import os
 import time
 
-from associative_memory import AssociativeMemoryIndex
-from coding_memory import CodingMemoryCapture, CodingMemoryStore
-from conversation_memory import (ClaudeCodeConversationCapture, ClaudeCoworkConversationCapture,
-                                 cowork_root, CodexConversationCapture,
-                                 ConversationMemoryStore)
-from development_paths import default_coding_state_dir, default_development_db, graph_mind_home
-from semantic_memory import SemanticMemoryIngestion
-
+from graph_mind.associative_memory import AssociativeMemoryIndex
+from graph_mind.coding_memory import CodingMemoryCapture, CodingMemoryStore
+from graph_mind.conversation_memory import (
+    ClaudeCodeConversationCapture,
+    ClaudeCoworkConversationCapture,
+    CodexConversationCapture,
+    ConversationMemoryStore,
+    cowork_root,
+)
+from graph_mind.paths import default_coding_state_dir, default_development_db, graph_mind_home
+from graph_mind.semantic_memory import SemanticMemoryIngestion
 
 SERVICE_VERSION = "automatic-capture-v0.2"
 
@@ -101,38 +104,42 @@ class AutomaticCaptureService:
         """
         scopes = self.config.get("workspace_scopes", {})
         # With a shared folder, every captured turn also goes into the shared log, so a
-        # conversation held on this PC can be recalled on any other (brain_log.py).
-        from brain_log import folder
-        shared = folder()                       # config, GRAPH_MIND_FOLDER, or the chosen one
-        if self.config.get("memory_folder"):    # the service's own config wins
-            from brain_log import is_database
+        # conversation held on this PC can be recalled on any other (sharing.py).
+        from graph_mind.sharing import folder
+        # config, GRAPH_MIND_FOLDER, or the one chosen in conversation; the service's own wins
+        shared = folder()
+        if self.config.get("memory_folder"):
+            from graph_mind.sharing import is_database
             chosen = self.config["memory_folder"]
-            shared = chosen if is_database(chosen) else Path(chosen).expanduser()     # folder() also reads the
-                                                                   # one chosen in conversation
+            shared = chosen if is_database(chosen) else Path(chosen).expanduser()
         publish = None
         if shared:
-            from brain_log import append
-            publish = lambda turn: append(shared, "turn", turn)     # a folder or a Postgres URL
-        from forget import forget_ids
-        forget = lambda turn_ids: forget_ids({"turn_ids": turn_ids}, self.db_path, shared)
+            from graph_mind.sharing import append
+
+            def publish(turn):                  # to a folder or a Postgres URL
+                append(shared, "turn", turn)
+        from graph_mind.forget import forget_ids
+
+        def forget(turn_ids):
+            forget_ids({"turn_ids": turn_ids}, self.db_path, shared)
+        hooks = {"workspace_scopes": scopes, "now": self.now, "publish": publish,
+                 "forget": forget}
         sources = []
         # A source whose folder does not exist yet (Codex never run on this PC) is skipped, not
         # fatal: it used to stop every source, so a Claude-Code-only user captured nothing.
         if Path(self.config["codex_sessions_root"]).is_dir():
             sources.append(("codex", CodexConversationCapture(
                 self.config["codex_sessions_root"], store, state_path=self.conversation_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.conversation_cursor))
+                **hooks), self.conversation_cursor))
         claude_root = Path(self.config.get("claude_projects_root")
                            or Path.home() / ".claude" / "projects")
         if claude_root.is_dir():
             sources.append(("claude-code", ClaudeCodeConversationCapture(
-                claude_root, store, state_path=self.claude_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.claude_cursor))
+                claude_root, store, state_path=self.claude_cursor, **hooks), self.claude_cursor))
         cowork = self.config.get("claude_cowork_root") or cowork_root()
         if cowork and Path(cowork).is_dir():
             sources.append(("claude-cowork", ClaudeCoworkConversationCapture(
-                cowork, store, state_path=self.cowork_cursor,
-                workspace_scopes=scopes, now=self.now, publish=publish, forget=forget), self.cowork_cursor))
+                cowork, store, state_path=self.cowork_cursor, **hooks), self.cowork_cursor))
         return sources
 
     def baseline(self):
@@ -254,8 +261,8 @@ class AutomaticCaptureService:
         memory servers pick the vectors up from the shared cache). Only the long-running service
         does this: a one-off `once` or a test should not load the embedding model."""
         try:
-            from embedding_warmup import warm_turns
-            from local_embedder import default_embedder
+            from graph_mind.local_embedder import default_embedder
+            from graph_mind.warmup import warm_turns
             if getattr(self, "_embedder", None) is None:
                 self._embedder = default_embedder(self.db_path)
             return warm_turns(self.db_path, limit=limit, embedder=self._embedder)

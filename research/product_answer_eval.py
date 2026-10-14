@@ -16,11 +16,11 @@ import math
 import os
 import tempfile
 
-from graph_mind_mcp_server import DEFAULT_CONTEXT_POLICY, PIECE, gather
+from graph_mind.mcp_server import DEFAULT_CONTEXT_POLICY, PIECE, gather
 from longmemeval_m_fetch import stream_instances
 from product_recall_eval import CACHE, DATA, IDS, fill, iso
 from longmemeval_retrieval_executor import asks_assistant_history
-from universal_personal_memory import build_context_pack
+from graph_mind.context_packet import build_context_pack
 
 OUT = Path("runs/graph-v6.2-product-answers")
 TYPE = None                                     # --type: only one question type (a re-run)

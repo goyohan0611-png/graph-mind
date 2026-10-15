@@ -13,6 +13,7 @@
 [![][longmemeval-shield]][benchmarks-link]
 [![][ci-shield]][ci-link]
 [![][pypi-shield]][pypi-link]
+[![goyohan0611-png/graph-mind MCP server](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind/badges/score.svg)](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind)
 
 *Decide something in Claude Code on Monday. Ask Codex on Wednesday. It knows.*
 

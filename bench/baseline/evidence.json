@@ -1,0 +1,63 @@
+{
+ "commit": "bd8d57a",
+ "measured_at": "2026-10-14T08:27:36",
+ "context_limit": 30,
+ "context_chars": 15000,
+ "questions_seen": 500,
+ "report": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.9019,
+   "turn_coverage": 0.7835,
+   "packet_tokens_median": 3279
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8942,
+   "turn_coverage": 0.7639,
+   "packet_tokens_median": 3283
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.925,
+   "turn_coverage": 0.8398,
+   "packet_tokens_median": 3267
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9444,
+   "packet_tokens_median": 3273
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.904,
+   "turn_coverage": 0.6667,
+   "packet_tokens_median": 3283
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9286,
+   "turn_coverage": 0.9286,
+   "packet_tokens_median": 3256
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.5333,
+   "turn_coverage": 0.5,
+   "packet_tokens_median": 3049
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9844,
+   "turn_coverage": 0.9848,
+   "packet_tokens_median": 3722
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8939,
+   "turn_coverage": 0.8069,
+   "packet_tokens_median": 3262
+  }
+ }
+}

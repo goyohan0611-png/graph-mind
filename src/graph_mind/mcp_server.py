@@ -715,7 +715,8 @@ def build_server(db_path=None):
         ),
     )
     def brain_folder(path: str | None = None, share_existing: bool = False,
-                     reindex: bool = False) -> dict[str, Any]:
+                     reindex: bool = False, export_to: str | None = None,
+                     import_from: str | None = None) -> dict[str, Any]:
         """Where the user's own personal memory lives, and which of their own PCs share it.
 
         Not for teams: project brains shared with teammates are brain_checkpoint.
@@ -742,7 +743,22 @@ def build_server(db_path=None):
 
         `reindex=true` brings the search index up to date (links new memories, embeds unembedded
         ones). Saving already does this; it is for a large imported backlog.
+
+        Moving a whole memory as one file ("내 기억 파일로 내보내줘", "이 기억 파일 가져와"):
+        `export_to=<file path>` writes every memory and conversation turn into that file;
+        `import_from=<file path>` adds such a file's contents to this memory, skipping what is
+        already here. Only when the user asks. Tell them the file holds their entire memory
+        (secrets were masked when saved), so keep it private like a diary.
         """
+        if export_to or import_from:
+            from graph_mind.sharing import export_file, import_file
+            result = {}
+            if export_to:
+                result["exported"] = export_file(database, export_to)
+            if import_from:
+                result["imported"] = import_file(import_from, database)
+                index_in_background(database)
+            return result
         if reindex:
             from graph_mind.warmup import warm
             with AssociativeMemoryIndex(database) as index:

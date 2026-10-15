@@ -563,8 +563,7 @@ def append(shared: Path, kind: str, record: dict) -> None:
     append_many(shared, [(kind, record)])
 
 
-def append_many(shared: Path, items) -> int:
-    """Append several records in one write and one flush (an export can be thousands)."""
+def _lines(items) -> list[str]:
     lines = []
     for kind, record in items:
         if kind not in KINDS:
@@ -572,6 +571,12 @@ def append_many(shared: Path, items) -> int:
         lines.append(json.dumps({"kind": kind, "device": device_name(),
                                  "written_at": datetime.now().isoformat(timespec="microseconds"),
                                  "record": record}, ensure_ascii=False, sort_keys=True))
+    return lines
+
+
+def append_many(shared: Path, items) -> int:
+    """Append several records in one write and one flush (an export can be thousands)."""
+    lines = _lines(items)
     if not lines:
         return 0
     if is_database(shared):
@@ -623,34 +628,12 @@ def export_history(shared: Path, index: Path) -> dict:
     try:
         db.execute("CREATE TABLE IF NOT EXISTS brain_log_exported("
                    "kind TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY(kind, id))")
-        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
         done = {(row[0], row[1]) for row in db.execute("SELECT kind, id FROM brain_log_exported")}
         # what the shared log already holds, whoever wrote it: a turn published as it was
         # captured is never marked exported, so without this a re-share sent everything again,
         # and a PC whose turns missed a downed hub had no way to send just those
         done |= _shared_ids(shared)
-        items = []
-        if "local_brain_memories" in tables:
-            for row in db.execute("SELECT * FROM local_brain_memories ORDER BY revision"):
-                if ("memory", row["memory_id"]) in done:
-                    continue
-                items.append(("memory", {
-                    "memory_id": row["memory_id"], "scope": row["scope"],
-                    "memory_type": row["memory_type"], "title": row["title"],
-                    "content": row["content"], "effective_at": row["effective_at"],
-                    "known_at": row["known_at"], "actor": row["actor"],
-                    "tags": json.loads(row["tags_json"]),
-                    "entities": json.loads(row["entities_json"]),
-                    "provenance": json.loads(row["provenance_json"]),
-                    "supersedes_memory_id": row["supersedes_memory_id"]}))
-        if "conversation_turns" in tables:
-            for row in db.execute("SELECT * FROM conversation_turns ORDER BY revision"):
-                if ("turn", row["turn_id"]) in done:
-                    continue
-                items.append(("turn", {key: row[key] for key in (
-                    "turn_id", "client", "client_session_id", "scope", "cwd", "happened_at",
-                    "known_at", "role", "content_redacted", "raw_sha256", "redaction_count",
-                    "source_path", "source_ordinal")}))
+        items = _history(db, done)
         written = append_many(shared, items)
         with db:
             db.executemany("INSERT OR IGNORE INTO brain_log_exported VALUES(?,?)",
@@ -660,6 +643,89 @@ def export_history(shared: Path, index: Path) -> dict:
                 "turns": sum(kind == "turn" for kind, _ in items), "lines_written": written}
     finally:
         db.close()
+
+
+def _history(db: sqlite3.Connection, done: set) -> list:
+    """Every memory and turn of this index not in `done`, as log records, oldest first so a
+    replacement always follows what it replaces."""
+    tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
+    items = []
+    if "local_brain_memories" in tables:
+        # the profile carries attributes.fact: without it a fact arrives as a plain memory
+        profiled = "local_brain_memory_profiles" in tables
+        for row in db.execute(
+                "SELECT m.*" + (", p.memory_class, p.modality, p.retention, p.importance, "
+                                "p.confidence, p.attributes_json, p.related_memory_ids_json"
+                                if profiled else "") +
+                " FROM local_brain_memories m" +
+                (" LEFT JOIN local_brain_memory_profiles p USING(memory_id)" if profiled else "") +
+                " ORDER BY m.revision"):
+            if ("memory", row["memory_id"]) in done:
+                continue
+            record = {
+                "memory_id": row["memory_id"], "scope": row["scope"],
+                "memory_type": row["memory_type"], "title": row["title"],
+                "content": row["content"], "effective_at": row["effective_at"],
+                "known_at": row["known_at"], "actor": row["actor"],
+                "tags": json.loads(row["tags_json"]),
+                "entities": json.loads(row["entities_json"]),
+                "provenance": json.loads(row["provenance_json"]),
+                "supersedes_memory_id": row["supersedes_memory_id"]}
+            if profiled and row["memory_class"] is not None:
+                record.update({
+                    "memory_class": row["memory_class"], "modality": row["modality"],
+                    "retention": row["retention"], "importance": row["importance"],
+                    "confidence": row["confidence"],
+                    "attributes": json.loads(row["attributes_json"]),
+                    "related_memory_ids": json.loads(row["related_memory_ids_json"])})
+            items.append(("memory", record))
+    if "conversation_turns" in tables:
+        for row in db.execute("SELECT * FROM conversation_turns ORDER BY revision"):
+            if ("turn", row["turn_id"]) in done:
+                continue
+            items.append(("turn", {key: row[key] for key in (
+                "turn_id", "client", "client_session_id", "scope", "cwd", "happened_at",
+                "known_at", "role", "content_redacted", "raw_sha256", "redaction_count",
+                "source_path", "source_ordinal")}))
+    return items
+
+
+def export_file(index: Path, target) -> dict:
+    """The whole memory as one file another PC or person can import: every memory and turn, in
+    the shared log's format. Secrets were masked when saved; everything else is in it."""
+    db = _cursor_db(index)
+    db.row_factory = sqlite3.Row
+    try:
+        items = _history(db, set())
+    finally:
+        db.close()
+    target = Path(target).expanduser().resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(target.name + ".tmp")
+    temporary.write_text("".join(line + "\n" for line in _lines(items)), encoding="utf-8")
+    os.replace(temporary, target)
+    return {"file": str(target), "memories": sum(kind == "memory" for kind, _ in items),
+            "turns": sum(kind == "turn" for kind, _ in items)}
+
+
+def import_file(source, index: Path) -> dict:
+    """Add an exported memory file to this index. What is already here is skipped, so importing
+    the same file twice adds nothing."""
+    import shutil
+    import tempfile
+    import uuid
+    name = f"import-{uuid.uuid4().hex}.jsonl"      # the read cursor is kept per file name
+    with tempfile.TemporaryDirectory() as folder:
+        (Path(folder) / "log").mkdir()
+        shutil.copyfile(Path(source).expanduser(), Path(folder) / "log" / name)
+        result = sync(Path(folder), index)
+    db = _cursor_db(index)
+    try:
+        with db:
+            db.execute("DELETE FROM brain_log_cursor WHERE source=?", (name,))
+    finally:
+        db.close()
+    return result
 
 
 def _cursor_db(index: Path) -> sqlite3.Connection:

@@ -4,6 +4,10 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased
+- **Tools that are easier to tell apart.** `brain_context` now says it is the default way to
+  answer from the past and `brain_recall` that it is for raw rows, ids and one thing's history;
+  `brain_folder` (your own memory and PCs) and `brain_checkpoint` (team projects) point at each
+  other. A Glama review found the old descriptions near-identical.
 - **Facts that change.** `brain_remember` takes `about` and `attribute` ("Kongi" + "breed", "me" +
   "home_city"). A later value of the same fact replaces the earlier one in recall, with no memory
   id needed, and the packet shows the value now and what it was before. Order is when each became

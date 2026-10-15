@@ -604,28 +604,20 @@ def build_server(db_path=None):
                      since: str | None = None,
                      about_assistant: bool = False,
                      around: str | None = None) -> dict[str, Any]:
-        """Look up memories and captured conversation turns directly, from natural wording.
+        """Raw lookup: the matching memories and turns as structured rows, not a ready context.
 
-        `entity` instead answers "what happened to X, in order": every memory about that one
-        thing (the auth module, this project, my address), oldest first, with replaced entries
-        marked and the current one picked out. Similarity search returns only the nearest one or
-        two of four decisions made about one thing in four sessions; this returns all four. With
-        neither `query` nor `entity`, it lists what the store knows about, busiest first.
+        To answer the user's question from their past, use brain_context instead; it returns one
+        bounded text packet ready to read. Use brain_recall to inspect or list: the ids and fields
+        of what matched (e.g. before brain_forget or `supersedes_memory_id`), one thing's history
+        in order, or what the store knows about.
 
-        Set `recent=true` whenever the question is about what happened lately or what the user was
-        just doing: "what was I working on?", "where did we leave off?", "what did I do
-        yesterday?", "최근에", "아까", "어제", "지금 뭐 하고 있었지?". Results then come newest
-        first instead of by word overlap; naming something ("what did Kongi do lately") keeps them
-        about that. Set `since` (ISO date or time) to drop anything earlier, e.g. "this week".
-        Set `about_assistant=true` when the user asks what YOU said earlier: "which restaurant did
-        you recommend?", "what were the steps you gave me?", "네가 아까 뭐라고 했지?". Your own
-        past answers are then searched by meaning too, not only by their words.
-        Set `around` when the question is about WHEN WE TALKED: "what did we discuss last week?",
-        "지난달에 얘기한 거" -> resolve it yourself to a date or "start..end" (e.g. "2026-09-23"
-        or "2026-09-01..2026-09-30"). Conversations from then rank first; nothing is dropped.
-        Do not set it for when something HAPPENED ("the event I went to two weeks ago"): people
-        mention events days or weeks before or after, so that date misleads (measured: on dev2
-        it pushed the answering turn out in 2 of 11 questions and helped 2).
+        `entity` answers "what happened to X, in order": every memory about that one thing (the
+        auth module, this project, my address), oldest first, with replaced entries marked and the
+        current one picked out. Similarity search returns only the nearest one or two of four
+        decisions made about one thing in four sessions; this returns all four. With neither
+        `query` nor `entity`, it lists what the store knows about, busiest first.
+
+        `recent`, `since`, `about_assistant` and `around` mean the same as in brain_context.
         """
         if entity or not query:
             import sqlite3
@@ -665,7 +657,12 @@ def build_server(db_path=None):
                       since: str | None = None,
                       about_assistant: bool = False,
                       around: str | None = None) -> dict[str, Any]:
-        """Return only the bounded personal-memory context needed for this request.
+        """Answer from the user's past: one bounded text packet to read before replying.
+
+        The default memory call: use it whenever a request may depend on earlier conversations,
+        facts, preferences, decisions or work. It returns `context`, a size-capped text of the
+        relevant memories and conversation turns, each with its date and source. For structured
+        rows, ids or one thing's history use brain_recall instead.
 
         Set `recent=true` whenever the question is about what happened lately or what the user was
         just doing: "what was I working on?", "where did we leave off?", "what did I do
@@ -719,7 +716,9 @@ def build_server(db_path=None):
     )
     def brain_folder(path: str | None = None, share_existing: bool = False,
                      reindex: bool = False) -> dict[str, Any]:
-        """Show or choose the folder that holds the user's brain.
+        """Where the user's own personal memory lives, and which of their own PCs share it.
+
+        Not for teams: project brains shared with teammates are brain_checkpoint.
 
         Call it with `path` when the user names a folder for their memory, e.g. "use my Google
         Drive's Graph-MIND folder as my brain". A folder that OneDrive, Google Drive or Dropbox
@@ -823,8 +822,11 @@ def build_server(db_path=None):
                          projects: list[str] | None = None,
                          code: str | None = None, hub: str | None = None,
                          context: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Project brains, an optional team feature: what a team's AIs need to know about a
-        project, apart from the user's personal memory and from every other project. Nothing
+        """Team project brains: decisions and progress shared with teammates' AIs, per project.
+
+        Not for the user's own memory or their other PCs: that is brain_folder. A project brain
+        holds what a team's AIs need to know about a project, apart from the user's personal
+        memory and from every other project. Nothing
         personal is shared through this; only what is published here, when the user asks. Files
         and notifications stay in Slack, drives and GitHub; a project brain keeps the decisions,
         the progress, the context and links to where the work is.

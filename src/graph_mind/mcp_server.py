@@ -10,9 +10,6 @@ import sys
 import threading
 import uuid
 
-from mcp import types
-from mcp.server import MCPServer
-
 from graph_mind import __version__
 from graph_mind.associative_memory import AssociativeMemoryIndex
 from graph_mind.coding_memory import CodingMemoryStore
@@ -527,6 +524,10 @@ def type_name(error) -> str:
 
 
 def build_server(db_path=None):
+    # here, not at the top: the SDK takes 6-10 s to import, and graph_mind.inject (run before
+    # every OpenCode message) needs only gather()
+    from mcp import types
+    from mcp.server import MCPServer
     database = Path(db_path).expanduser() if db_path is not None else configured_db_path()
     server = MCPServer(
         "graph-mind-memory",
@@ -1130,8 +1131,6 @@ def build_server(db_path=None):
     return server
 
 
-server = build_server()
-
 
 def preload(database):
     """Load the embedding model while the app is still starting. Importing torch and the model
@@ -1170,7 +1169,7 @@ def main():
     LocalEmbedder.USE_SERVICE = True        # the capture service's model, when it runs
     keep_capture_running()
     preload(configured_db_path())
-    server.run(transport="stdio")
+    build_server().run(transport="stdio")
 
 
 if __name__ == "__main__":

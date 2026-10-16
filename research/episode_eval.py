@@ -105,7 +105,7 @@ def measure(row, directory, embedder):
     position = {t["turn_id"]: i for i, (_, t) in enumerate(ranked)}
     with ConversationMemoryStore(store) as conversations:
         roles = dict(conversations.db.execute(
-            "SELECT turn_id, role || ':' || length(content) FROM conversation_turns"))
+            "SELECT turn_id, role || ':' || length(content_redacted) FROM conversation_turns"))
     out = {"question_id": row["question_id"], "type": row["question_type"], "wanted": len(wanted),
            # where each answer turn sits in the deeper fused ranking (None: in neither list)
            "ranks": {t: [position.get(t), roles.get(t)] for t in sorted(wanted)}}
@@ -149,7 +149,7 @@ def main():
                 embedder.cache.flush()
     embedder.cache.flush()
     tuned = set(json.loads(TUNED.read_text(encoding="utf-8"))["question_ids"])
-    arms = [k for k in records[0] if isinstance(records[0][k], dict)]
+    arms = [k for k in records[0] if isinstance(records[0][k], dict) and k != "ranks"]
     result = {arm: report([{"question_id": r["question_id"], "type": r["type"],
                             "wanted": r["wanted"], **r[arm]} for r in records], tuned)
               for arm in arms}

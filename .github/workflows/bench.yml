@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "17 22 * * 2"          # Wednesdays 07:17 in Korea
   workflow_dispatch:
+    inputs:
+      research:
+        description: "Instead of the bench, run this research/ script on the cached vectors"
+        required: false
+        default: ""
 
 jobs:
   bench:
@@ -36,15 +41,23 @@ jobs:
           key: bench-${{ github.sha }}
           restore-keys: bench-
       - name: Recovery
+        if: ${{ !inputs.research }}
         run: python bench/recovery.py | tee -a recovery.txt
       - name: Latency
+        if: ${{ !inputs.research }}
         run: python bench/latency.py --baseline | tee -a latency.txt
       - name: Evidence
+        if: ${{ !inputs.research }}
         run: python bench/evidence.py --baseline | tee -a evidence.txt
+      - name: Research
+        if: ${{ inputs.research }}
+        env:
+          SCRIPT: ${{ inputs.research }}
+        run: python "research/$SCRIPT" | tee -a research.txt
       - name: Summary
         if: always()
         run: |
-          for part in recovery latency evidence; do
+          for part in recovery latency evidence research; do
             [ -f $part.txt ] && { echo "### $part"; echo '```'; tail -40 $part.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           done
       - uses: actions/upload-artifact@v4
@@ -54,3 +67,4 @@ jobs:
           path: |
             *.txt
             bench/baseline/*.json
+            research/runs/graph-v9.2-episodes/

@@ -15,9 +15,9 @@
 [![][pypi-shield]][pypi-link]
 [![goyohan0611-png/graph-mind MCP server](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind/badges/score.svg)](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind)
 
-*Decide something in Claude Code on Monday. Ask Codex on Wednesday. It knows.*
+*Decide something with one agent on Monday. Ask another on Wednesday. It knows.*
 
-<img src="demo/demo.gif" alt="A decision made in Claude Code on Monday, recalled from Codex on Wednesday" width="760">
+<img src="demo/demo.gif" alt="A decision made with one agent on Monday, recalled by another on Wednesday" width="760">
 
 </div>
 
@@ -41,13 +41,12 @@ No Python needed; nothing else to set up. Restart your AI apps afterwards. Alrea
 
 ## What it does
 
-- **Remembers every conversation** with Claude Code, Codex and Claude Desktop, word for word, on
-  your own PC. Saving is a database write: no model call, no tokens.
-- **Any AI picks up where another left off.** When a question depends on the past, the model calls
-  Graph-MIND over MCP and gets back the few thousand tokens that answer it. Korean and English.
 - **One shared brain for every agent in your terminal.** Whichever coding agent or model you
-  run, they all read and write the same memory. Switch agents or models; the memory stays.
-  [Which ones](docs/install.md#what-the-installer-does)
+  run, they all read and write the same memory: decide something with one, ask another later,
+  it knows. Switch agents or models; the memory stays. [Which ones](docs/install.md#what-the-installer-does)
+- **Remembers conversations word for word**, on your own PC. Saving is a database write: no model
+  call, no tokens. When a question depends on the past, the agent gets back the few thousand
+  tokens that answer it. Korean and English.
 - **One memory across your PCs.** Tell the AI *"let my other PCs use this memory"*, paste the code it gives you
   to the AI on the other PC. Office network or [Tailscale](https://tailscale.com), over TLS,
   every line encrypted before it leaves a PC.

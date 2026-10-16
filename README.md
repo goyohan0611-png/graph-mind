@@ -45,11 +45,9 @@ No Python needed; nothing else to set up. Restart your AI apps afterwards. Alrea
   your own PC. Saving is a database write: no model call, no tokens.
 - **Any AI picks up where another left off.** When a question depends on the past, the model calls
   Graph-MIND over MCP and gets back the few thousand tokens that answer it. Korean and English.
-- **Any model, not just Claude and GPT.** The installer connects Claude Code, Claude Desktop,
-  Codex, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio and
-  [OpenCode](https://opencode.ai). Through OpenCode, any model that can call tools shares the
-  same memory: DeepSeek, Qwen, Gemini, GLM and more, or a local model on Ollama (with a GPU).
-  Switch models; the memory stays. [Tested models](docs/install.md#models-tested-through-opencode)
+- **One shared brain for every agent in your terminal.** Whichever coding agent or model you
+  run, they all read and write the same memory. Switch agents or models; the memory stays.
+  [Which ones](docs/install.md#what-the-installer-does)
 - **One memory across your PCs.** Tell the AI *"let my other PCs use this memory"*, paste the code it gives you
   to the AI on the other PC. Office network or [Tailscale](https://tailscale.com), over TLS,
   every line encrypted before it leaves a PC.

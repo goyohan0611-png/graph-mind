@@ -40,7 +40,14 @@ def running_service(state_dir=None):
         path = Path(state_dir or default_service_state_dir()) / "service.pid"
         pid = int(path.read_text(encoding="ascii"))
         mine = (os.getpid(), os.getppid())      # a venv's pythonw runs the service as its child
-        if pid not in mine and "capture_cli" in " ".join(psutil.Process(pid).cmdline()):
+        if pid in mine:
+            return None
+        process = psutil.Process(pid)
+        # Just started, a child can still show its parent's command line (Linux, before exec):
+        # a live pid written moments ago is the service, or a second one would start beside it.
+        fresh = time.time() - path.stat().st_mtime < 10 and process.create_time() >= \
+            path.stat().st_mtime - 10
+        if fresh or "capture_cli" in " ".join(process.cmdline()):
             return pid
     except (OSError, ValueError, psutil.Error):
         pass

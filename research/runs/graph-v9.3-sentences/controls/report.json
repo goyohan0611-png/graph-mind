@@ -1,0 +1,98 @@
+{
+ "base": {
+  "all": {
+   "questions": 136,
+   "question_recall": 0.9706,
+   "turn_coverage": 0.9524,
+   "packet_tokens_median": 3234
+  },
+  "untuned": {
+   "questions": 100,
+   "question_recall": 0.98,
+   "turn_coverage": 0.9677,
+   "packet_tokens_median": 3241
+  },
+  "tuned": {
+   "questions": 36,
+   "question_recall": 0.9444,
+   "turn_coverage": 0.9091,
+   "packet_tokens_median": 3212
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9444,
+   "packet_tokens_median": 3273
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9688,
+   "turn_coverage": 0.9697,
+   "packet_tokens_median": 3184
+  }
+ },
+ "sent": {
+  "all": {
+   "questions": 136,
+   "question_recall": 0.9779,
+   "turn_coverage": 0.9619,
+   "packet_tokens_median": 3274
+  },
+  "untuned": {
+   "questions": 100,
+   "question_recall": 0.98,
+   "turn_coverage": 0.9742,
+   "packet_tokens_median": 3274
+  },
+  "tuned": {
+   "questions": 36,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9273,
+   "packet_tokens_median": 3275
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9861,
+   "turn_coverage": 0.9583,
+   "packet_tokens_median": 3264
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9688,
+   "turn_coverage": 0.9697,
+   "packet_tokens_median": 3296
+  }
+ },
+ "mix": {
+  "all": {
+   "questions": 136,
+   "question_recall": 0.9706,
+   "turn_coverage": 0.9333,
+   "packet_tokens_median": 2998
+  },
+  "untuned": {
+   "questions": 100,
+   "question_recall": 0.98,
+   "turn_coverage": 0.9484,
+   "packet_tokens_median": 2989
+  },
+  "tuned": {
+   "questions": 36,
+   "question_recall": 0.9444,
+   "turn_coverage": 0.8909,
+   "packet_tokens_median": 3007
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9236,
+   "packet_tokens_median": 2996
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9688,
+   "turn_coverage": 0.9545,
+   "packet_tokens_median": 2999
+  }
+ }
+}

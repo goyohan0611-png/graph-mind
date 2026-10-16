@@ -38,7 +38,7 @@ def session(model, prompt, home, config, work):
     run = subprocess.run([OPENCODE, "run", "-m", model, "--format", "json", "--dir", str(work),
                           prompt], env=env, capture_output=True, text=True, encoding="utf-8",
                          errors="replace", timeout=600)
-    tools, text = [], []
+    tools, text, calls = [], [], []
     for line in run.stdout.splitlines():
         try:
             event = json.loads(line)
@@ -46,9 +46,13 @@ def session(model, prompt, home, config, work):
             continue
         part = event.get("part") or {}
         if part.get("type") == "tool":
+            state = part.get("state") or {}
             tools.append(part.get("tool"))
+            calls.append({"tool": part.get("tool"), "input": state.get("input"),
+                          "output": str(state.get("output", ""))[:600]})
         elif part.get("type") == "text":
             text.append(part.get("text", ""))
+    session.calls = calls
     return tools, " ".join(text), run.returncode, run.stderr[-500:]
 
 
@@ -68,12 +72,15 @@ def check(model):
                             "GRAPH_MIND_HOME": str(home)}}},
         "instructions": [str(config / "graph-mind.md")]}, indent=1), encoding="utf-8")
     told, _, code1, err1 = session(model, TELL, home, config.parent, work)
+    calls = list(session.calls)
     asked, answer, code2, err2 = session(model, ASK, home, config.parent, work)
+    calls += session.calls
     saved = [t for t in told if t and "brain_remember" in t]
     looked = [t for t in asked if t and ("brain_context" in t or "brain_recall" in t)]
     right = "golden" in answer.lower() and "kongi" in answer.lower()
     result = {"model": model, "saved_unasked": bool(saved), "looked_up": bool(looked),
-              "answered": right, "tools_1": told, "tools_2": asked, "answer": answer[:300]}
+              "answered": right, "tools_1": told, "tools_2": asked, "answer": answer[:300],
+              "calls": calls}
     if code1 or code2:
         result["error"] = (err1 or err2).strip()[-300:]
     shutil.rmtree(base, ignore_errors=True)

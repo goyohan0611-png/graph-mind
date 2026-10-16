@@ -136,6 +136,7 @@ CONTEXT_CHARS = 15000
 # to fill the 6,000-character packet after four or five items.
 PIECE = 500
 INLINE_EMBED_LIMIT = 64
+MEMORY_WAIT = 10.0         # seconds a memory search with no word match waits for the model
 ASSISTANT_TURN_CAP = 3000
 WINDOW_SLACK = 7           # days either side of a resolved "around" date
 _EMBEDDER = {}
@@ -163,11 +164,14 @@ def embed_in_background(embedder, texts):
 def memory_meaning(embedder, query, texts):
     """Cosine of the query with each memory, or None when that cannot be had without making
     the question wait (the model still loading, or a backlog to embed: filled in the background,
-    word search answers meanwhile). Memories are few next to turns: embedded on first use."""
+    word search answers meanwhile). Memories are few next to turns: embedded on first use.
+    It runs only when no memory matched by words, so here waiting for the model beats answering
+    "nothing saved": OpenCode starts a fresh server per session, and with the 0.5 s turns wait
+    four of eight models were told their dog was unknown right after saving it."""
     try:
         import numpy as np
         wait = getattr(embedder, "WAIT_FOR_MODEL", None)
-        if wait is not None and not embedder.ready(wait):
+        if wait is not None and not embedder.ready(max(wait, MEMORY_WAIT)):
             return None
         missing = [t for t in texts if embedder._key(t.strip()[:2000]) not in embedder.cache]
         if len(missing) > INLINE_EMBED_LIMIT:

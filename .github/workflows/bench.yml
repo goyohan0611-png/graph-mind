@@ -23,6 +23,8 @@ jobs:
       PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0             # research scripts may compare with an earlier version
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

@@ -102,7 +102,13 @@ def measure(row, directory, embedder):
         arms[f"cap{k}"] = cap(ranked, k)
     for w in (0.5, 1.0):
         arms[f"episode{w}"] = lifted(ranked, w)
-    out = {"question_id": row["question_id"], "type": row["question_type"], "wanted": len(wanted)}
+    position = {t["turn_id"]: i for i, (_, t) in enumerate(ranked)}
+    with ConversationMemoryStore(store) as conversations:
+        roles = dict(conversations.db.execute(
+            "SELECT turn_id, role || ':' || length(content) FROM conversation_turns"))
+    out = {"question_id": row["question_id"], "type": row["question_type"], "wanted": len(wanted),
+           # where each answer turn sits in the deeper fused ranking (None: in neither list)
+           "ranks": {t: [position.get(t), roles.get(t)] for t in sorted(wanted)}}
     for name, turns in arms.items():
         turns = [{k: v for k, v in t.items() if k != "full"} for t in turns]
         packet = build_context_pack({"matches": [], "conversation_turns": turns},

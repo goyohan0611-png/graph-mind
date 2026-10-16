@@ -48,6 +48,7 @@ def _tokens(value):
 
 
 MEANING_FLOOR = 0.2      # measured: unrelated questions stay under 0.15, "where do I live?" 0.27
+MEANING_MARGIN = 0.1     # and only those close to the best: the rest is the model's noise
 
 
 def fact_key(about, attribute):
@@ -375,20 +376,17 @@ class LocalBrainStore:
         else:
             matches.sort(key=lambda item: (item["score"], item["revision"]), reverse=True)
             selected = matches[:limit]
+            # Meaning only when no word matched: on short Korean memories this model scores
+            # almost everything ~0.6 ("사는 곳" against "점심에 냉면을 먹었다"), so mixed into
+            # word matches it only adds noise; with none, it is what finds "golden retriever"
+            # for "what breed is my dog?" and an English memory for a Korean question.
             similar = meaning(query, [m["title"] + "\n" + m["content"] for m in everything]) \
-                if meaning and everything else None
+                if meaning and everything and not selected else None
             if similar:
-                close = sorted((pair for pair in zip(similar, range(len(everything)))
-                                if pair[0] is not None and pair[0] >= MEANING_FLOOR),
-                               reverse=True)[:limit]
-                fused = {}
-                for rank, item in enumerate(matches[:limit]):
-                    fused[item["memory_id"]] = [1.0 / (60 + rank), item]
-                for rank, (_, i) in enumerate(close):
-                    entry = fused.setdefault(everything[i]["memory_id"], [0.0, everything[i]])
-                    entry[0] += 1.0 / (60 + rank)
-                selected = [item for _, item in sorted(fused.values(), key=lambda p: p[0],
-                                                       reverse=True)][:limit]
+                close = sorted(((score, i) for i, score in enumerate(similar)
+                                if score is not None and score >= MEANING_FLOOR), reverse=True)
+                selected = [everything[i] for score, i in close
+                            if score >= close[0][0] - MEANING_MARGIN][:limit]
         if not selected:
             return {"status": "UNKNOWN", "reason": "NO_MATCHING_MEMORY",
                     "query": query, "scopes": scope_list or "ALL_REQUESTED_SCOPES",

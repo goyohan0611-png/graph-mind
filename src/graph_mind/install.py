@@ -144,7 +144,9 @@ def _opencode_dir(home: Path) -> Path:
 def opencode(home: Path) -> str:
     """OpenCode: any model it runs that can call tools gets the memory. Its config differs from
     the others (`mcp`, a command list, `environment`), and it does not pass a server's
-    instructions on to the model, so they go in an instructions file the config lists."""
+    instructions on to the model, so they go in an instructions file the config lists. A plugin
+    records the conversation for the capture service and adds the memory that bears on each
+    message before the model answers it (opencode_plugin.js)."""
     folder = _opencode_dir(home)
     if not folder.is_dir() and not shutil.which("opencode"):
         return ""
@@ -158,12 +160,18 @@ def opencode(home: Path) -> str:
         return ""
     from graph_mind.mcp_server import instructions
     guide = folder / "graph-mind.md"
-    guide.write_text("# Graph-MIND memory\n\n" + instructions(False) + "\n", encoding="utf-8")
+    guide.write_text("# Graph-MIND memory\n\n" + instructions(True) + "\n", encoding="utf-8")
+    from graph_mind.conversation_memory import opencode_root
+    plugin = (HERE / "opencode_plugin.js").read_text(encoding="utf-8")
+    plugin = plugin.replace("__PYTHON__", json.dumps(sys.executable)).replace(
+        "__TRANSCRIPTS__", json.dumps(str(opencode_root())))
+    (folder / "plugins").mkdir(exist_ok=True)
+    (folder / "plugins" / "graph-mind.js").write_text(plugin, encoding="utf-8")
     settings.setdefault("$schema", "https://opencode.ai/config.json")
     servers = settings.setdefault("mcp", {})
     servers[NAME] = {"type": "local", "command": [sys.executable, *SERVER], "enabled": True,
                      "timeout": 30000,
-                     "environment": {**servers.get(NAME, {}).get("environment", {}), **ENV}}
+                     "environment": {**servers.get(NAME, {}).get("environment", {}), **CAPTURED}}
     listed = settings.setdefault("instructions", [])
     if str(guide) not in listed:
         listed.append(str(guide))
@@ -367,6 +375,7 @@ def uninstall(argv=None):
             guide = str(_opencode_dir(home) / "graph-mind.md")
             if guide in settings.get("instructions", []):
                 settings["instructions"].remove(guide)
+            (_opencode_dir(home) / "plugins" / "graph-mind.js").unlink(missing_ok=True)
             temporary = config.with_suffix(".graph-mind.tmp")
             temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2),
                                  encoding="utf-8")

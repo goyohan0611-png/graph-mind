@@ -23,7 +23,6 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from graph_mind.mcp_server import PROACTIVE_NOTE  # noqa: E402
 
 TELL = ("Quick question about dog food portions. By the way, our golden retriever Kongi turned "
         "three last week and he's about 30 kg now. How much dry food should he get per day?")
@@ -56,31 +55,42 @@ def session(model, prompt, home, config, work):
     return tools, " ".join(text), run.returncode, run.stderr[-500:]
 
 
+def capture(home):
+    """What the capture service does on its next pass: the plugin's transcript into the store."""
+    from graph_mind.conversation_memory import ConversationMemoryStore, OpenCodeConversationCapture
+    root = home / "opencode"
+    if not root.is_dir():
+        return 0
+    with ConversationMemoryStore(home / "development.sqlite") as store:
+        reader = OpenCodeConversationCapture(root, store, state_path=home / "cursor.json")
+        reader.initialize_baseline()
+        reader.scan()
+        return store.db.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()[0]
+
+
 def check(model):
     base = Path(tempfile.mkdtemp(prefix="graph-mind-opencode-"))
     home, config, work = base / "home", base / "config" / "opencode", base / "work"
     for path in (home, config, work):
         path.mkdir(parents=True)
-    (config / "graph-mind.md").write_text("# Graph-MIND memory\n\n" + PROACTIVE_NOTE + "\n",
-                                          encoding="utf-8")
-    (config / "opencode.json").write_text(json.dumps({
-        "$schema": "https://opencode.ai/config.json",
-        "mcp": {"graph-mind-memory": {
-            "type": "local", "command": [sys.executable, "-m", "graph_mind.mcp_server"],
-            "enabled": True, "timeout": 60000,
-            "environment": {"PYTHONPATH": str(ROOT / "src"), "PYTHONUTF8": "1",
-                            "GRAPH_MIND_HOME": str(home)}}},
-        "instructions": [str(config / "graph-mind.md")],
-        # local models through Ollama: `ollama/<model>`, served at OLLAMA_URL (its default
-        # context is too short for OpenCode's prompt and the tools: run it with
-        # OLLAMA_CONTEXT_LENGTH=16384 or more)
-        **({"provider": {"ollama": {
+    # what graph-mind-install writes (server, instructions, plugin), into the throwaway config
+    os.environ.update(XDG_CONFIG_HOME=str(config.parent), GRAPH_MIND_HOME=str(home))
+    from graph_mind import install
+    install.opencode(home)
+    if not PLUGIN:
+        (config / "plugins" / "graph-mind.js").unlink()
+    settings = json.loads((config / "opencode.json").read_text(encoding="utf-8"))
+    if model.startswith("ollama/"):
+        # local models through Ollama, served at OLLAMA_URL (its default context is too short
+        # for OpenCode's prompt and the tools: run it with OLLAMA_CONTEXT_LENGTH=16384 or more)
+        settings["provider"] = {"ollama": {
             "npm": "@ai-sdk/openai-compatible", "name": "Ollama",
             "options": {"baseURL": os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434") + "/v1"},
-            "models": {model.split("/", 1)[1]: {"name": model.split("/", 1)[1], "tools": True}}}}}
-           if model.startswith("ollama/") else {})}, indent=1), encoding="utf-8")
+            "models": {model.split("/", 1)[1]: {"name": model.split("/", 1)[1], "tools": True}}}}
+    (config / "opencode.json").write_text(json.dumps(settings, indent=1), encoding="utf-8")
     told, _, code1, err1 = session(model, TELL, home, config.parent, work)
     calls = list(session.calls)
+    captured = capture(home)                     # the capture service's pass, between sessions
     asked, answer, code2, err2 = session(model, ASK, home, config.parent, work)
     calls += session.calls
     saved = [t for t in told if t and "brain_remember" in t]
@@ -88,16 +98,22 @@ def check(model):
     right = "golden" in answer.lower() and "kongi" in answer.lower()
     result = {"model": model, "saved_unasked": bool(saved), "looked_up": bool(looked),
               "answered": right, "tools_1": told, "tools_2": asked, "answer": answer[:300],
-              "calls": calls}
+              "calls": calls, "plugin": PLUGIN, "captured_turns": captured}
     if code1 or code2:
         result["error"] = (err1 or err2).strip()[-300:]
     shutil.rmtree(base, ignore_errors=True)
     return result
 
 
+PLUGIN = True
+
+
 if __name__ == "__main__":
     out = Path(__file__).resolve().parent / "runs/opencode-models.jsonl"
     out.parent.mkdir(exist_ok=True)
+    if "--no-plugin" in sys.argv:            # as before the plugin: MCP tools and instructions
+        PLUGIN = False
+        sys.argv.remove("--no-plugin")
     for model in sys.argv[1:]:
         result = check(model)
         print(json.dumps(result, ensure_ascii=False), flush=True)

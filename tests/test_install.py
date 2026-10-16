@@ -159,6 +159,10 @@ class InstallTests(unittest.TestCase):
                 self.assertEqual(settings["instructions"], ["mine.md", guide])
                 self.assertIn("brain_remember", Path(guide).read_text(encoding="utf-8"))
                 self.assertEqual(settings["model"], "opencode/big-pickle")
+                plugin = (folder / "plugins" / "graph-mind.js").read_text(encoding="utf-8")
+                self.assertIn(json.dumps(sys.executable), plugin)
+                self.assertNotIn("__PYTHON__", plugin)
+                self.assertNotIn("__TRANSCRIPTS__", plugin)
                 install.opencode(home)                      # again: no second entry
                 self.assertEqual(json.loads(config.read_text(encoding="utf-8"))["instructions"],
                                  ["mine.md", guide])
@@ -166,6 +170,7 @@ class InstallTests(unittest.TestCase):
                 settings = json.loads(config.read_text(encoding="utf-8"))
                 self.assertNotIn("graph-mind-memory", settings["mcp"])
                 self.assertEqual(settings["instructions"], ["mine.md"])
+                self.assertFalse((folder / "plugins" / "graph-mind.js").exists())
 
     def test_mangled_code_stops_before_anything_changes(self):
         with self.assertRaises(ValueError):

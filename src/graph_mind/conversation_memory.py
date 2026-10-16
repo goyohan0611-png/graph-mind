@@ -572,6 +572,29 @@ class ClaudeCoworkConversationCapture(ClaudeCodeConversationCapture):
                       and "subagents" not in path.parts)
 
 
+class OpenCodeConversationCapture(ClaudeCodeConversationCapture):
+    """OpenCode keeps no transcript file of its own that is meant to be read; Graph-MIND's plugin
+    for it (opencode_plugin.js) appends what was said, in Claude Code's record shape, one file per
+    session under ~/.graph-mind/opencode. Read the same way."""
+
+    CLIENT = "opencode"
+
+    def _files(self):
+        return sorted(self.sessions_root.glob("*.jsonl"))
+
+    def initialize_baseline(self):
+        """From the start, not from now: every line here was written by the plugin since it was
+        installed, and the folder first appears with the first message, which a baseline at the
+        end of the files would skip."""
+        self._write_state({})
+        return {"status": "BASELINE_CREATED", "file_count": 0, "state_path": str(self.state_path)}
+
+
+def opencode_root():
+    from graph_mind.paths import graph_mind_home
+    return graph_mind_home() / "opencode"
+
+
 def cowork_root():
     """Where Claude desktop keeps Cowork sessions: the Store (MSIX) build or the plain installer."""
     candidates = [Path(os.environ.get("APPDATA", "")) / "Claude" / "local-agent-mode-sessions"]

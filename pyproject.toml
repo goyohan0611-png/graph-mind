@@ -50,6 +50,9 @@ packages = ["graph_mind"]
 # where apps registered before 0.8 start the server and the capture service (gone in 0.9)
 py-modules = ["graph_mind_mcp_server", "automatic_capture_cli"]
 
+[tool.setuptools.package-data]
+graph_mind = ["opencode_plugin.js"]     # installed into OpenCode by graph-mind-install
+
 [tool.ruff]
 line-length = 100
 src = ["src"]

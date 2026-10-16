@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **OpenCode conversations are saved, and every message brings its memory.** The installer adds
+  a plugin: it records what is said for the capture service (stored like Claude Code's turns,
+  searchable by meaning, shared with the other agents), and before the model answers a message
+  it adds the memory that bears on it (`python -m graph_mind.inject`: 8 items, 4,000
+  characters, nothing when the message shows no sign of the past). The model no longer has to
+  think of calling brain_context: a free model that never saved the fact and answered "I don't
+  have any information about your dog" without the plugin answered "Kongi, a golden retriever"
+  with it.
+- `bench/evidence.py` also reports recall_any@5 and @10, the retrieval number other memory
+  projects publish for LongMemEval, so the two can be compared on the same terms.
+
 ## 0.9.0 — 2026-10-16
 - **OpenCode.** `graph-mind-install` now connects OpenCode too, so any model OpenCode runs that
   can call tools shares the same memory (OpenCode's free models were tested: see

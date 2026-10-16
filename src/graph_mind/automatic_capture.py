@@ -16,7 +16,9 @@ from graph_mind.conversation_memory import (
     ClaudeCoworkConversationCapture,
     CodexConversationCapture,
     ConversationMemoryStore,
+    OpenCodeConversationCapture,
     cowork_root,
+    opencode_root,
 )
 from graph_mind.paths import default_coding_state_dir, default_development_db, graph_mind_home
 from graph_mind.semantic_memory import SemanticMemoryIngestion
@@ -135,6 +137,7 @@ class AutomaticCaptureService:
         self.conversation_cursor = self.state_dir / "codex-session-cursor.json"
         self.claude_cursor = self.state_dir / "claude-code-session-cursor.json"
         self.cowork_cursor = self.state_dir / "claude-cowork-session-cursor.json"
+        self.opencode_cursor = self.state_dir / "opencode-session-cursor.json"
         self.now = now or _now
         self.db_path = Path(config["db_path"]).expanduser().resolve()
 
@@ -189,6 +192,10 @@ class AutomaticCaptureService:
         if cowork and Path(cowork).is_dir():
             sources.append(("claude-cowork", ClaudeCoworkConversationCapture(
                 cowork, store, state_path=self.cowork_cursor, **hooks), self.cowork_cursor))
+        opencode = Path(self.config.get("opencode_root") or opencode_root())
+        if opencode.is_dir():
+            sources.append(("opencode", OpenCodeConversationCapture(
+                opencode, store, state_path=self.opencode_cursor, **hooks), self.opencode_cursor))
         return sources
 
     def baseline(self):

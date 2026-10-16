@@ -84,10 +84,18 @@ def measure(row: dict, directory: Path, embedder) -> dict | None:
                       limit=CONTEXT_LIMIT, embedder=embedder)
     packet = build_context_pack(recalled, max_chars=CONTEXT_CHARS)
     found = {item["id"] for item in packet["items"]} & wanted
+    # agentmemory's and MemPalace's LongMemEval number: recall_any@K, whether any answer session
+    # is among the first K sessions retrieved (no answer, no judge). Sessions in the order their
+    # first turn ranks.
+    sessions = list(dict.fromkeys(t["turn_id"].split("::")[0]
+                                  for t in recalled["conversation_turns"]))
+    gold = set(row["answer_session_ids"])
+    first = next((i for i, s in enumerate(sessions) if s in gold), None)
     _PIECES.pop(str(store), None)                        # one in-memory index per question
     store.unlink()
     return {"question_id": row["question_id"], "type": row["question_type"],
-            "wanted": len(wanted), "found": len(found), "tokens": packet["estimated_tokens"]}
+            "wanted": len(wanted), "found": len(found), "tokens": packet["estimated_tokens"],
+            "first_session": first}
 
 
 def summary(records: list[dict]) -> dict:
@@ -97,7 +105,10 @@ def summary(records: list[dict]) -> dict:
             "question_recall": round(sum(r["found"] > 0 for r in records) / len(records), 4),
             "turn_coverage": round(sum(r["found"] for r in records)
                                    / sum(r["wanted"] for r in records), 4),
-            "packet_tokens_median": int(statistics.median(r["tokens"] for r in records))}
+            "packet_tokens_median": int(statistics.median(r["tokens"] for r in records)),
+            **{f"recall_any@{k}": round(sum(r.get("first_session") is not None
+                                            and r["first_session"] < k for r in records)
+                                        / len(records), 4) for k in (5, 10)}}
 
 
 def report(records: list[dict], tuned: set[str]) -> dict:
@@ -118,7 +129,8 @@ def show(result: dict, baseline: dict | None) -> None:
         delta = (f"{(row['question_recall'] - before['question_recall']) * 100:+.1f}pt recall"
                  if before else "")
         print(f"{name:<28}{row['questions']:>10}{row['question_recall']:>9.1%}"
-              f"{row['turn_coverage']:>9.1%}{row['packet_tokens_median']:>8}   {delta}")
+              f"{row['turn_coverage']:>9.1%}{row['packet_tokens_median']:>8}"
+              f"{row.get('recall_any@5', 0):>8.1%}{row.get('recall_any@10', 0):>8.1%}   {delta}")
 
 
 def main() -> None:

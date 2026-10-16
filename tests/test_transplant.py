@@ -47,5 +47,25 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(found), 1)
 
 
+class MeaningTests(unittest.IsolatedAsyncioTestCase):
+    async def test_a_memory_is_found_by_meaning_not_only_by_its_words(self):
+        # OpenCode has no capture: what the model saved is all there is, and "what breed is my
+        # dog?" shares no word with it (two of three OpenCode models answered "not in memory")
+        with tempfile.TemporaryDirectory() as directory:
+            async with Client(build_server(Path(directory) / "m.sqlite")) as client:
+                await client.call_tool("brain_remember", {
+                    "content": "Our golden retriever Kongi turned three last week, about 30 kg."})
+                await client.call_tool("brain_remember", {"content": "We use Postgres."})
+                found = {}
+                for query in ("What breed is my dog?", "우리 강아지 품종이 뭐였지?",
+                              "Paris weather forecast?"):
+                    rows = (await client.call_tool("brain_recall", {"query": query})
+                            ).structured_content.get("matches", [])
+                    found[query] = [m["content"][:10] for m in rows]
+        self.assertEqual(found["What breed is my dog?"][:1], ["Our golden"])
+        self.assertEqual(found["우리 강아지 품종이 뭐였지?"][:1], ["Our golden"])
+        self.assertEqual(found["Paris weather forecast?"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -66,6 +66,9 @@ def turn_pieces(text: str) -> list[tuple[int, str]]:
             if text[start:start + PIECE].strip()]
 
 
+_VERIFIED = set()
+
+
 def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
     """Embed up to `limit` unembedded pieces of conversation turns, the user's first, newest first.
 
@@ -85,13 +88,15 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
         rows = db.execute("SELECT content_redacted FROM conversation_turns "
                           "WHERE role IN ('user','assistant') "
                           "ORDER BY role='user' DESC, happened_at DESC")
-        texts, seen = [], set()
+        texts, seen, cached = [], set(), []
         for (content,) in rows:
             for _, piece in turn_pieces(content or ""):
                 key = piece.strip()[:2000]
                 if key not in seen and embedder._key(key) not in embedder.cache:
                     seen.add(key)
                     texts.append(piece)
+                elif len(cached) < 400:
+                    cached.append(piece)
             if len(texts) >= limit:
                 break
     except sqlite3.OperationalError as error:
@@ -101,6 +106,12 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
     finally:
         db.close()
     texts = texts[:limit]
+    # once per process and cache: are the vectors already there right? (see LocalEmbedder.verify)
+    checked = str(getattr(embedder.cache, "dir", ""))
+    if hasattr(embedder, "verify") and checked not in _VERIFIED:
+        _VERIFIED.add(checked)
+        if embedder.verify(cached):
+            return warm_turns(db_path, limit=limit, embedder=embedder)
     for start in range(0, len(texts), BATCH):
         embedder.embed(texts[start:start + BATCH])
     if texts and hasattr(embedder, "flush"):

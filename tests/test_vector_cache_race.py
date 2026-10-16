@@ -68,6 +68,37 @@ class VectorCacheRaceTests(unittest.TestCase):
         self.assertGreater(keys, 0)
 
 
+class RepairTests(unittest.TestCase):
+    def test_a_cache_holding_wrong_vectors_is_found_and_refilled(self):
+        import _isolate  # noqa: F401
+        from graph_mind.conversation_memory import ConversationMemoryStore
+        from graph_mind.local_embedder import LocalEmbedder
+        from graph_mind import warmup
+        with tempfile.TemporaryDirectory() as directory:
+            store = Path(directory) / "m.sqlite"
+            with ConversationMemoryStore(store) as turns:
+                for i in range(12):
+                    turns.record({"turn_id": f"t{i}", "client": "c", "client_session_id": "s",
+                                  "scope": "global", "role": "user",
+                                  "content_redacted": f"turn {i}: we talked about topic {i * 7}",
+                                  "raw_sha256": f"x{i}", "source_path": "p",
+                                  "happened_at": "2026-10-01T09:00:00",
+                                  "known_at": "2026-10-01T09:00:00", "source_ordinal": i})
+            embedder = LocalEmbedder(Path(directory) / "cache.json")
+            warmup.warm_turns(store, embedder=embedder)
+            cache = embedder.cache                  # the old bug: keys paired with others' rows
+            keys = list(cache.keys)
+            cache.keys = dict(zip(keys, [cache.keys[k] for k in keys[1:] + keys[:1]]))
+            cache._dirty = 1
+            cache.flush()
+            warmup._VERIFIED.clear()                # a capture service starting up
+            again = LocalEmbedder(Path(directory) / "cache.json")
+            warmup.warm_turns(store, embedder=again)
+            self.assertGreater(again.cache.generation, 0)
+            self.assertFalse(again.verify([f"turn {i}: we talked about topic {i * 7}"
+                                           for i in range(12)]))
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         target = sys.argv[1]

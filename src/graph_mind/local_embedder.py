@@ -163,6 +163,31 @@ class LocalEmbedder:
             self.cache.flush()
             self._since = 0
 
+    def verify(self, texts, sample=16) -> bool:
+        """Are the cached vectors this model's? A few cached texts are embedded afresh; if more
+        than one comes back different, the whole cache is cleared (every process sharing it
+        drops it too) and refilled. True when it was cleared. Caches written before 0.9 could
+        pair keys with other texts' vectors when processes saved at the same moment: the
+        bench's had cosine ~0.07 with the model's, and search by meaning was quietly wrong."""
+        import random
+
+        import numpy as np
+        known = [t for t in dict.fromkeys(t.strip()[:2000] for t in texts)
+                 if self._key(t) in self.cache]
+        if len(known) < 4:
+            return False
+        picked = random.sample(known, min(sample, len(known)))
+        with LocalEmbedder._lock:
+            self._load()
+            fresh = np.asarray(self._encode(picked), dtype=np.float32)
+        cached = np.asarray([self.cache.get(self._key(t)) for t in picked], dtype=np.float32)
+        cosines = (fresh * cached).sum(1) / np.clip(
+            np.linalg.norm(fresh, axis=1) * np.linalg.norm(cached, axis=1), 1e-9, None)
+        if int((cosines < 0.99).sum()) <= 1:
+            return False
+        self.cache.clear()
+        return True
+
 
 def service_file() -> Path:
     from graph_mind.paths import graph_mind_home

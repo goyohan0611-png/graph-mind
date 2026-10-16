@@ -160,6 +160,27 @@ def embed_in_background(embedder, texts):
     threading.Thread(target=work, name="graph-mind-backfill", daemon=True).start()
 
 
+def memory_meaning(embedder, query, texts):
+    """Cosine of the query with each memory, or None when that cannot be had without making
+    the question wait (the model still loading, or a backlog to embed: filled in the background,
+    word search answers meanwhile). Memories are few next to turns: embedded on first use."""
+    try:
+        import numpy as np
+        wait = getattr(embedder, "WAIT_FOR_MODEL", None)
+        if wait is not None and not embedder.ready(wait):
+            return None
+        missing = [t for t in texts if embedder._key(t.strip()[:2000]) not in embedder.cache]
+        if len(missing) > INLINE_EMBED_LIMIT:
+            embed_in_background(embedder, missing)
+            return None
+        vectors = np.asarray(embedder.embed(texts + [query]), dtype=np.float32)
+        norms = np.linalg.norm(vectors, axis=1)
+        similar = vectors[:-1] @ vectors[-1] / np.clip(norms[:-1] * norms[-1], 1e-9, None)
+        return similar.tolist()
+    except Exception:                        # no local model: word search still answers
+        return None
+
+
 def embedder_for(database):
     """One on-device embedder per store, kept loaded for the life of the server."""
     key = str(database)
@@ -204,6 +225,10 @@ class PieceIndex:
 
     def sync(self, database, embedder):
         from graph_mind.warmup import turn_pieces
+        generation = getattr(embedder.cache, "generation", 0)
+        if generation != getattr(self, "generation", generation):
+            self.reset()                  # the cache was found wrong and cleared: so are these
+        self.generation = generation
         with ConversationMemoryStore(database) as store:
             count = store.db.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()[0]
             new = store.db.execute(
@@ -387,7 +412,9 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
     span = window(around)
     with LocalBrainStore(database) as store:
         result = store.recall(query, scopes=scopes, as_of=as_of, knowledge_cutoff=knowledge_cutoff,
-                              limit=limit, recent=recent, since=since)
+                              limit=limit, recent=recent, since=since,
+                              meaning=lambda q, texts: memory_meaning(
+                                  embedder or embedder_for(database), q, texts))
     with ConversationMemoryStore(database) as conversations:
         if recent:
             names = sorted({name for match in result["matches"] for name in match["named"]})

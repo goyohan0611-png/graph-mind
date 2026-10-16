@@ -40,8 +40,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: bench/.cache
-          key: bench-${{ github.sha }}
-          restore-keys: bench-
+          key: bench2-${{ github.sha }}
+          restore-keys: bench2-
       - name: Recovery
         if: ${{ !inputs.research }}
         run: python bench/recovery.py | tee -a recovery.txt

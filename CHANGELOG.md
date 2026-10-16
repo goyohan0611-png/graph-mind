@@ -4,6 +4,16 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased
+- **Search by meaning could be quietly wrong; now it checks and repairs itself.** The vectors
+  cache shared by the capture service and every app's memory server could pair texts with other
+  texts' vectors when two processes saved at the same moment (seen on Linux; on Windows the save
+  crashed instead). The capture service now re-embeds a few cached pieces when it starts and,
+  if they differ, clears the cache for every process and fills it again. The benchmark's own
+  cache had this, so the evidence numbers measured in CI since 0.8.0 were too low.
+- **Saved memories are found by meaning too.** "What breed is my dog?" now finds "our golden
+  retriever Kongi", and a Korean question an English memory; before, a memory needed a shared
+  word. This matters most in apps whose conversations are not captured (OpenCode): there, what
+  the model saved is all there is.
 - **Move a whole memory as one file.** Ask "export my memory to a file" on one PC and "import
   this memory file" on another: `brain_folder(export_to=...)` / `brain_folder(import_from=...)`.
   Importing twice adds nothing. Sharing an existing memory (`share_existing`) also stopped

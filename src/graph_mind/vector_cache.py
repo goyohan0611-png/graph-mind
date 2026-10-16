@@ -38,6 +38,9 @@ class VectorCache:
         self.keys: dict[str, int] = meta.get("keys", {})
         self._rows = rows
         self._dirty = 0
+        # bumped by clear(): a process holding an older generation drops it on its next refresh,
+        # or its next save would write the discarded vectors back
+        self.generation = meta.get("generation", 0)
         # refresh() and put() both append rows; a background embedding thread and a question's
         # refresh interleaving would pair keys with other texts' rows
         self._lock = threading.RLock()
@@ -79,6 +82,14 @@ class VectorCache:
         except OSError:
             return 0
         meta, rows, stamp = self._read()
+        if meta and meta.get("generation", 0) < self.generation:
+            return 0                       # this process is clearing it: nothing on disk counts
+        if meta and meta.get("generation", 0) > self.generation:
+            self.keys, self._rows = meta.get("keys", {}), rows
+            self.dim, self.generation = meta.get("dim") or self.dim, meta.get("generation", 0)
+            self.blob_path = self.dir / meta.get("blob", "vectors.f32")
+            self._stamp, self._dirty = stamp, 0
+            return len(self.keys)
         dim, added = meta.get("dim"), 0
         if dim and (self.dim is None or dim == self.dim):
             self.dim = self.dim or dim
@@ -136,7 +147,8 @@ class VectorCache:
             blob.write_bytes(self._rows.tobytes())
             staged = self.dir / f"index.{os.getpid()}.tmp"
             staged.write_text(json.dumps({"dim": self.dim, "model": self.model, "keys": self.keys,
-                                          "blob": blob.name}), encoding="utf-8")
+                                          "blob": blob.name, "generation": self.generation}),
+                              encoding="utf-8")
             for attempt in range(50):
                 try:
                     os.replace(staged, self.index_path)
@@ -154,6 +166,19 @@ class VectorCache:
                 except OSError:                     # another process is reading it right now
                     pass
         self._dirty = 0
+
+
+    def clear(self) -> None:
+        """Discard every vector, here and for every process sharing the cache (a new
+        generation): for a cache found holding wrong vectors. They are embedded again."""
+        with self._lock:
+            import fasteners
+            with fasteners.InterProcessLock(str(self.dir / "save.lock")):
+                meta, _, _ = self._read()
+                self.generation = max(self.generation, meta.get("generation", 0)) + 1
+                self.keys, self._rows, self._dirty = {}, array("f"), 1
+                self._stamp = None
+            self._flush()
 
 
 def convert(json_path, directory=None, model: str = "") -> VectorCache:
@@ -207,6 +232,16 @@ def _self_check():
     assert "late" not in reader and reader.refresh() == 1
     assert list(reader.get("late")) == [3.0, 1.0, 4.0] and reader.refresh() == 0
     assert list(reader.get("only-first")) == [7.0, 7.0, 7.0]
+
+    # a cache found wrong is cleared for everyone: a process still holding the old vectors drops
+    # them on refresh instead of saving them back
+    holder, fixer = VectorCache(directory), VectorCache(directory)
+    fixer.clear()
+    assert len(VectorCache(directory)) == 0
+    assert holder.refresh() == 0 and len(holder) == 0
+    holder.put("new", [1.0, 1.0, 1.0])
+    holder.flush()
+    assert list(VectorCache(directory).keys) == ["new"]
 
     legacy = directory.parent / "legacy.json"
     legacy.write_text(json.dumps({"k1": [1.0, 2.0, 3.0], "k2": [4.0, 5.0, 6.0]}), encoding="utf-8")

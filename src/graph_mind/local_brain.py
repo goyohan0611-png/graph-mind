@@ -47,6 +47,9 @@ def _tokens(value):
     return [item for item in _normalized(value).split() if len(item) > 1]
 
 
+MEANING_FLOOR = 0.2      # measured: unrelated questions stay under 0.15, "where do I live?" 0.27
+
+
 def fact_key(about, attribute):
     """What a fact is about and which of its properties: "Kongi" + "breed". Saved with every
     value, so a later value of the same fact replaces an earlier one without anyone knowing the
@@ -290,7 +293,7 @@ class LocalBrainStore:
                 for row in rows if row["event_id"] not in superseded]
 
     def recall(self, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=8,
-               since=None, recent=False):
+               since=None, recent=False, meaning=None):
         """Memories for a query, by relevance, or newest first when `recent` is set.
 
         "What was I doing?", "what did I do yesterday?" share almost no words with the memories
@@ -300,6 +303,9 @@ class LocalBrainStore:
         title, tag or entity): "what did Kongi do lately" stays about Kongi. Whether a question
         asks about recent events is a language judgement, so the calling model sets `recent`.
         `since` drops anything that happened before it.
+        `meaning(query, texts)` -> a similarity per text (None: not available) also ranks the
+        memories by meaning: "what breed is my dog?" shares no word with "our golden retriever
+        Kongi", and a Korean question none with an English memory.
         """
         query = _text(query, "RECALL_QUERY_REQUIRED")
         if type(limit) is not int or not 1 <= limit <= 50:
@@ -369,6 +375,20 @@ class LocalBrainStore:
         else:
             matches.sort(key=lambda item: (item["score"], item["revision"]), reverse=True)
             selected = matches[:limit]
+            similar = meaning(query, [m["title"] + "\n" + m["content"] for m in everything]) \
+                if meaning and everything else None
+            if similar:
+                close = sorted((pair for pair in zip(similar, range(len(everything)))
+                                if pair[0] is not None and pair[0] >= MEANING_FLOOR),
+                               reverse=True)[:limit]
+                fused = {}
+                for rank, item in enumerate(matches[:limit]):
+                    fused[item["memory_id"]] = [1.0 / (60 + rank), item]
+                for rank, (_, i) in enumerate(close):
+                    entry = fused.setdefault(everything[i]["memory_id"], [0.0, everything[i]])
+                    entry[0] += 1.0 / (60 + rank)
+                selected = [item for _, item in sorted(fused.values(), key=lambda p: p[0],
+                                                       reverse=True)][:limit]
         if not selected:
             return {"status": "UNKNOWN", "reason": "NO_MATCHING_MEMORY",
                     "query": query, "scopes": scope_list or "ALL_REQUESTED_SCOPES",

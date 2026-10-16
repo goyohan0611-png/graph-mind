@@ -4,6 +4,11 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased
+- **OpenCode.** `graph-mind-install` now connects OpenCode too, so any model OpenCode runs that
+  can call tools shares the same memory (OpenCode's free models were tested: see
+  research/opencode_models.py). OpenCode does not pass a server's instructions to the model, so
+  they go in an instructions file its config lists. Its conversations are not captured yet: the
+  model saves what it hears with brain_remember.
 - **Search by meaning could be quietly wrong; now it checks and repairs itself.** The vectors
   cache shared by the capture service and every app's memory server could pair texts with other
   texts' vectors when two processes saved at the same moment (seen on Linux; on Windows the save

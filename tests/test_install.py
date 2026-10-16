@@ -136,6 +136,37 @@ class InstallTests(unittest.TestCase):
                 self.assertNotIn("VS Code", install.other_apps(home))
                 self.assertIn("// my servers", (vscode / "mcp.json").read_text(encoding="utf-8"))
 
+    def test_opencode_gets_the_server_and_the_instructions_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            environment = {"USERPROFILE": str(home), "HOME": str(home), "XDG_CONFIG_HOME": "",
+                           "APPDATA": str(home / "AppData" / "Roaming"),
+                           "GRAPH_MIND_HOME": str(home / ".graph-mind"),
+                           "GRAPH_MIND_CONFIG": str(home / ".graph-mind" / "config.json")}
+            folder = home / ".config" / "opencode"
+            folder.mkdir(parents=True)
+            config = folder / "opencode.jsonc"
+            config.write_text(json.dumps({"model": "opencode/big-pickle",
+                                          "instructions": ["mine.md"]}), encoding="utf-8")
+            with mock.patch.dict(os.environ, environment), \
+                    mock.patch("graph_mind.install.shutil.which", return_value=None):
+                self.assertEqual(install.opencode(home), "OpenCode")
+                settings = json.loads(config.read_text(encoding="utf-8"))
+                server = settings["mcp"]["graph-mind-memory"]
+                self.assertEqual(server["type"], "local")
+                self.assertEqual(server["command"][1:], ["-m", "graph_mind.mcp_server"])
+                guide = str(folder / "graph-mind.md")
+                self.assertEqual(settings["instructions"], ["mine.md", guide])
+                self.assertIn("brain_remember", Path(guide).read_text(encoding="utf-8"))
+                self.assertEqual(settings["model"], "opencode/big-pickle")
+                install.opencode(home)                      # again: no second entry
+                self.assertEqual(json.loads(config.read_text(encoding="utf-8"))["instructions"],
+                                 ["mine.md", guide])
+                install.uninstall([])
+                settings = json.loads(config.read_text(encoding="utf-8"))
+                self.assertNotIn("graph-mind-memory", settings["mcp"])
+                self.assertEqual(settings["instructions"], ["mine.md"])
+
     def test_mangled_code_stops_before_anything_changes(self):
         with self.assertRaises(ValueError):
             install.main(["--skip-packages", "--join", "gm1.%%%"])

@@ -497,6 +497,27 @@ CAPTURED_NOTE = (
     "a fact, record the fact you learned the same way, dated by `effective_at`. Silently. ")
 
 
+GUIDE = (
+    "Call brain_context first when a request may depend on the user's prior conversations, "
+    "facts, preferences, decisions, projects or work, including 'where did we leave off?'. "
+    "It skips unrelated requests and returns a bounded evidence packet instead of "
+    "replaying full history. Use brain_recall to look memories up directly, or with "
+    "`entity` for the history of one thing in order. For code changed in a time range, "
+    "project, file or symbol, use code_activity. brain_folder shows or changes where the "
+    "memory lives and shares it with the user's other PCs. When the user asks to "
+    "delete something from memory, use brain_forget: list first, delete only what the "
+    "user picks. For shared project progress ('이거 프로젝트에 올려줘', '어디까지 "
+    "했어?', '제안서 띄워봐') use brain_checkpoint; publish only when asked. If a "
+    "result carries capture_warnings, tell the user once, plainly: "
+    "conversations from that app are no longer being saved. Preserve provenance.")
+
+
+def instructions(captured: bool) -> str:
+    """What every model is told about the memory: also written to a file for apps that do not
+    pass a server's instructions on to the model (OpenCode's instructions file)."""
+    return (CAPTURED_NOTE if captured else PROACTIVE_NOTE) + GUIDE
+
+
 def type_name(error) -> str:
     return type(error).__name__
 
@@ -507,21 +528,7 @@ def build_server(db_path=None):
         "graph-mind-memory",
         title="Graph-MIND Universal Personal Memory",
         description="User-owned local brain shared across models, sessions and applications.",
-        instructions=(
-            (CAPTURED_NOTE if os.environ.get("GRAPH_MIND_CAPTURED") else PROACTIVE_NOTE) +
-            "Call brain_context first when a request may depend on the user's prior conversations, "
-            "facts, preferences, decisions, projects or work, including 'where did we leave off?'. "
-            "It skips unrelated requests and returns a bounded evidence packet instead of "
-            "replaying full history. Use brain_recall to look memories up directly, or with "
-            "`entity` for the history of one thing in order. For code changed in a time range, "
-            "project, file or symbol, use code_activity. brain_folder shows or changes where the "
-            "memory lives and shares it with the user's other PCs. When the user asks to "
-            "delete something from memory, use brain_forget: list first, delete only what the "
-            "user picks. For shared project progress ('이거 프로젝트에 올려줘', '어디까지 "
-            "했어?', '제안서 띄워봐') use brain_checkpoint; publish only when asked. If a "
-            "result carries capture_warnings, tell the user once, plainly: "
-            "conversations from that app are no longer being saved. Preserve provenance."
-        ),
+        instructions=instructions(bool(os.environ.get("GRAPH_MIND_CAPTURED"))),
         version=SERVER_VERSION,
     )
 

@@ -4,10 +4,10 @@
     graph-mind-install --join gm1.XXXX     # ...and joins the brain another PC shared
 
 It registers the memory server with every MCP client it finds (Claude Code, Claude Desktop,
-Codex, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio), starts the capture service at
-login, and downloads the local embedding model so the first question is not the one that waits
-for it. From a source checkout it first installs the checkout itself (pip install -e). Running it
-again is safe: it re-points every app at this Python.
+Codex, OpenCode, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio), starts the capture
+service at login, and downloads the local embedding model so the first question is not the one
+that waits for it. From a source checkout it first installs the checkout itself (pip install
+-e). Running it again is safe: it re-points every app at this Python.
 """
 from __future__ import annotations
 
@@ -135,6 +135,42 @@ def other_apps(home: Path) -> list[str]:
             # a settings file with comments (VS Code allows them) is not JSON: leave it alone
             step(f"{name}: could not edit {config}; add the server there by hand")
     return done
+
+
+def _opencode_dir(home: Path) -> Path:
+    return Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config") / "opencode"
+
+
+def opencode(home: Path) -> str:
+    """OpenCode: any model it runs that can call tools gets the memory. Its config differs from
+    the others (`mcp`, a command list, `environment`), and it does not pass a server's
+    instructions on to the model, so they go in an instructions file the config lists."""
+    folder = _opencode_dir(home)
+    if not folder.is_dir() and not shutil.which("opencode"):
+        return ""
+    folder.mkdir(parents=True, exist_ok=True)
+    config = next((folder / n for n in ("opencode.jsonc", "opencode.json")
+                   if (folder / n).exists()), folder / "opencode.json")
+    try:
+        settings = json.loads(config.read_text(encoding="utf-8")) if config.exists() else {}
+    except ValueError:                       # comments in the .jsonc: leave the file alone
+        step(f"OpenCode: could not edit {config}; add the server there by hand")
+        return ""
+    from graph_mind.mcp_server import instructions
+    guide = folder / "graph-mind.md"
+    guide.write_text("# Graph-MIND memory\n\n" + instructions(False) + "\n", encoding="utf-8")
+    settings.setdefault("$schema", "https://opencode.ai/config.json")
+    servers = settings.setdefault("mcp", {})
+    servers[NAME] = {"type": "local", "command": [sys.executable, *SERVER], "enabled": True,
+                     "timeout": 30000,
+                     "environment": {**servers.get(NAME, {}).get("environment", {}), **ENV}}
+    listed = settings.setdefault("instructions", [])
+    if str(guide) not in listed:
+        listed.append(str(guide))
+    temporary = config.with_suffix(".graph-mind.tmp")
+    temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(temporary, config)
+    return "OpenCode"
 
 
 def _without_codex_block(text: str) -> str:
@@ -278,7 +314,7 @@ def main(argv=None):
         packages()
     home = Path.home()
     apps = [name for name in [claude_code(home), *claude_desktop(home), codex(home),
-                              *other_apps(home)] if name]
+                              opencode(home), *other_apps(home)] if name]
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
     if args.name:
@@ -317,7 +353,9 @@ def uninstall(argv=None):
     targets = ([("Claude Code", home / ".claude.json", "mcpServers")]
                + [("Claude Desktop", r / "claude_desktop_config.json", "mcpServers")
                   for r in _desktop_roots(home)]
-               + [(name, config, key) for name, _, config, key, _ in _other_apps(home)])
+               + [(name, config, key) for name, _, config, key, _ in _other_apps(home)]
+               + [("OpenCode", _opencode_dir(home) / n, "mcp")
+                  for n in ("opencode.jsonc", "opencode.json")])
     for label, config, key in targets:
         if not config.exists():
             continue
@@ -326,6 +364,9 @@ def uninstall(argv=None):
         except ValueError:
             continue
         if settings.get(key, {}).pop(NAME, None) is not None:
+            guide = str(_opencode_dir(home) / "graph-mind.md")
+            if guide in settings.get("instructions", []):
+                settings["instructions"].remove(guide)
             temporary = config.with_suffix(".graph-mind.tmp")
             temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2),
                                  encoding="utf-8")

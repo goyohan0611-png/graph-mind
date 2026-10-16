@@ -53,7 +53,7 @@ jobs:
         if: ${{ inputs.research }}
         env:
           SCRIPT: ${{ inputs.research }}
-        run: python "research/$SCRIPT" | tee -a research.txt
+        run: python research/$SCRIPT | tee -a research.txt     # unquoted: script + arguments
       - name: Summary
         if: always()
         run: |
@@ -67,4 +67,4 @@ jobs:
           path: |
             *.txt
             bench/baseline/*.json
-            research/runs/graph-v9.2-episodes/
+            research/runs/graph-v9.*/

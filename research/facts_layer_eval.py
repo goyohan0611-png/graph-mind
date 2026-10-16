@@ -34,7 +34,7 @@ import product_answer_eval as pae                            # noqa: E402
 from graph_mind.local_brain import LocalBrainStore, fact_key  # noqa: E402
 from product_recall_eval import iso                          # noqa: E402
 
-OUT = Path("runs/graph-v9.0-facts-layer")
+OUT = Path("runs/graph-v9.1-facts-layer")
 SOURCE = Path("runs/graph-v7.0-full500-30/questions.json")
 TYPES = ("knowledge-update", "single-session-preference")
 CHUNK = 10                                                   # sessions per call
@@ -46,7 +46,8 @@ numbers they track, what they use or bought. Same rules as the tool:
 - about: who or what ("me" for the user, else a name like "Kongi" or "my sister").
 - attribute: which property, a short English snake_case name ("home_city", "favorite_coffee").
   Reuse a name from the facts already recorded when it is the same property, so a new value \
-replaces the old one.
+replaces the old one. Never put the value in the name: "last_family_trip", not \
+"last_family_trip_paris", or the next trip will not replace it.
 - session: the session number it was said in.
 Skip small talk, questions to the assistant and general knowledge."""
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["facts"],

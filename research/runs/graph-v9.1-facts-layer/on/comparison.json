@@ -1,0 +1,30 @@
+{
+ "product_path": "96/108",
+ "benchmark_path": "96/108",
+ "only_product_right": 4,
+ "only_benchmark_right": 4,
+ "exact_mcnemar_p": 1.0,
+ "packet_tokens_median": 3750,
+ "by_type": {
+  "ALL": {
+   "correct": 96,
+   "n": 108,
+   "acc": 0.8889
+  },
+  "abstention": {
+   "correct": 5,
+   "n": 6,
+   "acc": 0.8333
+  },
+  "knowledge-update": {
+   "correct": 69,
+   "n": 72,
+   "acc": 0.9583
+  },
+  "single-session-preference": {
+   "correct": 22,
+   "n": 30,
+   "acc": 0.7333
+  }
+ }
+}

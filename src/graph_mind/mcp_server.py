@@ -532,7 +532,8 @@ def build_server(db_path=None):
         (which property, a short English snake_case name, e.g. "breed", "home_city",
         "favorite_coffee"). A later value with the same `about` and `attribute` replaces this
         one and recall shows both: the value now and what it was before. Use the same
-        `attribute` names every time.
+        `attribute` names every time, and never put the value in the name: "last_trip", not
+        "last_trip_paris", or the next trip will not replace it.
 
         Use it the moment the user mentions anything about their life, work, plans, preferences,
         people, places, meals, purchases, health, decisions or events, e.g. "I had kimchi fried

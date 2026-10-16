@@ -201,6 +201,17 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
     candidates = memories + turns
     if order == "time":
         candidates.sort(key=lambda item: item.get("effective_at") or "", reverse=True)
+    else:
+        # Memories first, but only up to a quarter of the budget, then turns, then the rest of
+        # the memories. Uncapped, 30 short facts took half the packet and pushed out the turns
+        # that answered (facts layer eval: turns 30 -> 16, two preference answers lost).
+        first, share = [], 0
+        for item in memories:
+            share += len(item["content"]) + len(item["title"]) + 120
+            if share > max_chars // 4:
+                break
+            first.append(item)
+        candidates = first + turns + memories[len(first):]
     sections, selected, used = [], [], 0
     for item in candidates:
         separator = 2 if sections else 0

@@ -17,7 +17,10 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   id needed, and the packet shows the value now and what it was before. Order is when each became
   true, so a fact recorded late from an old conversation stays history. The models are asked to
   record such facts as they hear them, and to record the fact behind an answer that came from old
-  conversation turns.
+  conversation turns. Memories take at most a quarter of the packet before conversation turns
+  (uncapped, many short facts pushed out the turns that answered), and an `attribute` never
+  holds the value ("last_trip", not "last_trip_paris"). Measured on 108 knowledge-update and
+  preference questions: 96 with facts, 96 without, so facts do not cost accuracy.
 - **The capture service comes back by itself.** It started only at login, so a crash or a kill
   meant nothing was saved until the next login. Now the memory server of every app that relies on
   it checks once a minute and starts it again; a second one never starts beside it.

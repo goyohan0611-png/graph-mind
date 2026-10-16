@@ -41,8 +41,8 @@ graph-mind-install
 
 - installs the packages (no PyTorch: the embedding model runs on ONNX Runtime);
 - registers the MCP server with every app it finds: Claude Code, Claude Desktop (including the
-  Microsoft Store build), Codex, Cursor, Windsurf, Gemini CLI, VS Code (Copilot), Cline and
-  LM Studio;
+  Microsoft Store build), Codex, OpenCode, Cursor, Windsurf, Gemini CLI, VS Code (Copilot), Cline
+  and LM Studio;
 - starts the capture service at login (Windows Startup folder, a macOS LaunchAgent, or an XDG
   autostart entry on Linux);
 - downloads the embedding model (about 470 MB, once).
@@ -54,6 +54,40 @@ in the [MCP Registry](https://registry.modelcontextprotocol.io) as
 
 The first time a machine hosts a memory or a hub, Graph-MIND downloads Postgres 16 for it once (12
 MB, 46 MB on Windows; checked against a pinned hash) and keeps it in the user's cache folder.
+
+## Models tested through OpenCode
+
+OpenCode connects the memory server and hands its tools to whichever model it runs, so any model
+that can call tools can use the same memory. How well it uses it is the model's own: whether it
+saves a fact without being told to, and looks it up later. `research/opencode_models.py` checks
+both in two fresh sessions, with a throwaway memory: the user mentions their dog in passing, then
+a new session asks *"What breed is my dog, and what's his name?"*.
+
+<!-- results: research/runs/opencode-models.jsonl -->
+Measured 2026-10-16, OpenCode 1.18, its free models:
+
+| model | saved it unasked | found it in a new session |
+|---|---|---|
+| opencode/big-pickle | yes | yes |
+| opencode/deepseek-v4.1-flash-free | yes | yes |
+| opencode/mimo-v2.6-flash-free | yes | yes |
+| opencode/cat-jam-free | yes | yes |
+| opencode/longcat-2.5-preview-free | yes | yes |
+| opencode/muse-spark-1.3-contributor-free | yes | not yet re-run (see below) |
+| opencode/nemotron-3-ultra-free | yes | not yet re-run |
+| opencode/nemotron-3.5-lightning-free | yes | not yet re-run |
+
+Every model saved the fact without being asked and searched for it in the new session. Before
+0.9.0 five of them were then told nothing was saved: they searched "dog", which shares no word
+with "our golden retriever Kongi", and a fresh server gave the model 0.5 s to load before
+skipping search by meaning. Two of those five were re-run after the fix and found it.
+
+Local models (Ollama) connect the same way, but need a PC that can run them: on a laptop with no
+GPU, OpenCode's own prompt (~18,000 tokens) took ~27 minutes per turn with qwen3:4b, and even the
+memory tools alone timed out. Not yet measured on a GPU.
+
+OpenCode's conversations are not captured yet (Claude Code's and Codex's are): there, what the
+model saves with `brain_remember` is the memory.
 
 ## MCP tools
 

@@ -3,7 +3,7 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
+## 0.9.0 — 2026-10-16
 - **OpenCode.** `graph-mind-install` now connects OpenCode too, so any model OpenCode runs that
   can call tools shares the same memory (OpenCode's free models were tested: see
   research/opencode_models.py). OpenCode does not pass a server's instructions to the model, so
@@ -18,8 +18,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 - **Saved memories are found by meaning too.** "What breed is my dog?" now finds "our golden
   retriever Kongi", and a Korean question an English memory; before, a memory needed a shared
   word. Meaning is used when no word matches (the local model scores short Korean memories as
-  all alike, so mixed into word matches it only added noise). This matters most in apps whose conversations are not captured (OpenCode): there, what
-  the model saved is all there is.
+  all alike, so mixed into word matches it only added noise), and then a fresh server waits up
+  to 10 s for the model instead of 0.5 s. This matters most in apps whose conversations are not
+  captured (OpenCode): there, what the model saved is all there is.
 - **Move a whole memory as one file.** Ask "export my memory to a file" on one PC and "import
   this memory file" on another: `brain_folder(export_to=...)` / `brain_folder(import_from=...)`.
   Importing twice adds nothing. Sharing an existing memory (`share_existing`) also stopped

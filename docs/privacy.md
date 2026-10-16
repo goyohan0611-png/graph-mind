@@ -8,7 +8,7 @@
 | Claude Code: terminal, VS Code, Claude desktop's Code tab | every turn |
 | Claude desktop: Cowork | every turn |
 | Claude desktop: chat | what the model saves with `brain_remember` |
-| Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio | what the model saves with `brain_remember` (memory tools connected; their transcripts are not read yet) |
+| OpenCode, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio | what the model saves with `brain_remember` (memory tools connected; their transcripts are not read yet) |
 
 Only what you actually send is captured: the service reads each app's transcript, written after
 you press Enter, so a paste you delete before sending never reaches it.

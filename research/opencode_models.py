@@ -12,13 +12,13 @@ Signed-in providers and their models are the user's own (OpenCode's free models 
 """
 from __future__ import annotations
 
+from pathlib import Path
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
@@ -70,7 +70,15 @@ def check(model):
             "enabled": True, "timeout": 60000,
             "environment": {"PYTHONPATH": str(ROOT / "src"), "PYTHONUTF8": "1",
                             "GRAPH_MIND_HOME": str(home)}}},
-        "instructions": [str(config / "graph-mind.md")]}, indent=1), encoding="utf-8")
+        "instructions": [str(config / "graph-mind.md")],
+        # local models through Ollama: `ollama/<model>`, served at OLLAMA_URL (its default
+        # context is too short for OpenCode's prompt and the tools: run it with
+        # OLLAMA_CONTEXT_LENGTH=16384 or more)
+        **({"provider": {"ollama": {
+            "npm": "@ai-sdk/openai-compatible", "name": "Ollama",
+            "options": {"baseURL": os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434") + "/v1"},
+            "models": {model.split("/", 1)[1]: {"name": model.split("/", 1)[1], "tools": True}}}}}
+           if model.startswith("ollama/") else {})}, indent=1), encoding="utf-8")
     told, _, code1, err1 = session(model, TELL, home, config.parent, work)
     calls = list(session.calls)
     asked, answer, code2, err2 = session(model, ASK, home, config.parent, work)

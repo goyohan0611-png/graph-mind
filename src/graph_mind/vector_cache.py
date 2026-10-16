@@ -22,6 +22,7 @@ from pathlib import Path
 import json
 import os
 import sys
+import threading
 import time
 
 
@@ -37,26 +38,38 @@ class VectorCache:
         self.keys: dict[str, int] = meta.get("keys", {})
         self._rows = rows
         self._dirty = 0
+        # refresh() and put() both append rows; a background embedding thread and a question's
+        # refresh interleaving would pair keys with other texts' rows
+        self._lock = threading.RLock()
 
     def _read(self):
         """(index, rows, index mtime) as saved on disk; empty when nothing is saved yet."""
-        for _ in range(3):                 # a save between reading the index and its blob
+        for _ in range(20):                # a save between reading the index and its blob
             try:
                 stamp = self.index_path.stat().st_mtime_ns
                 meta = json.loads(self.index_path.read_text(encoding="utf-8"))
                 rows = array("f")
-                blob = self.dir / meta.get("blob", "vectors.f32")
-                if blob.exists() and meta.get("dim"):
-                    rows.frombytes(blob.read_bytes())
+                if meta.get("dim"):
+                    rows.frombytes((self.dir / meta.get("blob", "vectors.f32")).read_bytes())
+                # An index whose blob is gone or short (another process saved and removed it in
+                # between) must never load: its keys would point at rows that this process then
+                # fills with other texts' vectors and saves. Every vector silently wrong.
+                if meta.get("keys") and len(rows) < (max(meta["keys"].values()) + 1) * meta["dim"]:
+                    raise ValueError("index ahead of its blob")
                 return meta, rows, stamp
             except FileNotFoundError:
                 if not self.index_path.exists():
                     return {}, array("f"), None
+                time.sleep(0.05)
             except (OSError, ValueError):
                 time.sleep(0.05)
-        return {}, array("f"), None
+        return {}, array("f"), None        # start empty: re-embedding costs time, never accuracy
 
     def refresh(self) -> int:
+        with self._lock:
+            return self._refresh()
+
+    def _refresh(self) -> int:
         """Take in the vectors other processes saved since this one last looked. The capture
         service embeds new turns as it stores them; a memory server that started earlier sees
         them here instead of embedding them all again. Cheap when nothing changed (one stat)."""
@@ -84,13 +97,18 @@ class VectorCache:
         return len(self.keys)
 
     def get(self, key: str):
-        row = self.keys.get(key)
-        if row is None:
-            return None
-        start = row * self.dim
-        return self._rows[start:start + self.dim]
+        with self._lock:
+            row = self.keys.get(key)
+            if row is None:
+                return None
+            start = row * self.dim
+            return self._rows[start:start + self.dim]
 
     def put(self, key: str, vector) -> None:
+        with self._lock:
+            self._put(key, vector)
+
+    def _put(self, key: str, vector) -> None:
         if key in self.keys:
             return
         vector = array("f", vector)
@@ -103,19 +121,30 @@ class VectorCache:
         self._dirty += 1
 
     def flush(self) -> None:
+        with self._lock:
+            self._flush()
+
+    def _flush(self) -> None:
         if not self._dirty and self.blob_path.exists():
             return
         import fasteners
         # One saver at a time, and each merges what is on disk first: otherwise the last writer
         # wins and the vectors only the other process had are dropped and embedded again.
         with fasteners.InterProcessLock(str(self.dir / "save.lock")):
-            self.refresh()
+            self._refresh()
             blob = self.dir / f"vectors-{os.getpid()}-{time.time_ns()}.f32"
             blob.write_bytes(self._rows.tobytes())
             staged = self.dir / f"index.{os.getpid()}.tmp"
             staged.write_text(json.dumps({"dim": self.dim, "model": self.model, "keys": self.keys,
                                           "blob": blob.name}), encoding="utf-8")
-            os.replace(staged, self.index_path)
+            for attempt in range(50):
+                try:
+                    os.replace(staged, self.index_path)
+                    break
+                except PermissionError:      # Windows: a reader has index.json open this instant
+                    if attempt == 49:
+                        raise
+                    time.sleep(0.02)
             self._stamp = self.index_path.stat().st_mtime_ns
         self.blob_path = blob
         for old in self.dir.glob("vectors*.f32"):   # blobs no index points at any more

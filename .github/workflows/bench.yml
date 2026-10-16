@@ -68,3 +68,4 @@ jobs:
             *.txt
             bench/baseline/*.json
             research/runs/graph-v9.*/
+            !research/runs/**/*.vec/**

@@ -187,6 +187,9 @@ def _conversation_item(turn):
     }
 
 
+NOTE_TURNS = 10      # other turns beside a note (phase 6 eval: research/consolidation_eval.py)
+
+
 def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
     """Create a bounded, source-labelled packet instead of replaying full history.
 
@@ -196,8 +199,15 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
     if type(max_chars) is not int or not 256 <= max_chars <= 30000:
         raise ValueError("INVALID_CONTEXT_CHAR_BUDGET")
     memories = [_memory_item(item) for item in recall_result.get("matches", [])]
+    # A note the model wrote after answering from old turns cites them: the note stands in for
+    # those turns, and with a note in the packet fewer other turns are needed.
+    noted = {t for m in recall_result.get("matches", [])
+             for t in (m.get("attributes") or {}).get("from_turns", [])}
     turns = [_conversation_item(item)
-             for item in recall_result.get("conversation_turns", [])]
+             for item in recall_result.get("conversation_turns", [])
+             if item["turn_id"] not in noted]
+    if noted:
+        turns = turns[:NOTE_TURNS]
     candidates = memories + turns
     if order == "time":
         candidates.sort(key=lambda item: item.get("effective_at") or "", reverse=True)

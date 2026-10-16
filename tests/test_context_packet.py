@@ -69,5 +69,19 @@ class UniversalPersonalMemoryTests(unittest.TestCase):
         self.assertTrue(packet["items"][0]["truncated"])
 
 
+    def test_a_note_stands_in_for_the_turns_it_cites(self):
+        def turn(i):
+            return {"turn_id": f"t{i}", "scope": "global", "role": "user", "content": f"turn {i}",
+                    "happened_at": T1, "client": "c", "source_path": "s", "source_ordinal": i}
+        note = {**memory("n1", content="Four film festivals: AFI, Sundance, ..."),
+                "attributes": {"from_turns": ["t0", "t1"]}}
+        packet = build_context_pack({"matches": [note],
+                                     "conversation_turns": [turn(i) for i in range(30)]})
+        ids = [item["id"] for item in packet["items"]]
+        self.assertEqual(ids[0], "n1")
+        self.assertNotIn("t0", ids)
+        self.assertEqual(len(ids), 1 + 10)               # the note + NOTE_TURNS other turns
+
+
 if __name__ == "__main__":
     unittest.main()

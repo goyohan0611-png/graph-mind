@@ -1,0 +1,394 @@
+{
+ "base": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.8956,
+   "turn_coverage": 0.7835,
+   "packet_tokens_median": 3252
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8858,
+   "turn_coverage": 0.7639,
+   "packet_tokens_median": 3258
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.925,
+   "turn_coverage": 0.8398,
+   "packet_tokens_median": 3239
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9444,
+   "packet_tokens_median": 3273
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.888,
+   "turn_coverage": 0.6697,
+   "packet_tokens_median": 3277
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9286,
+   "turn_coverage": 0.9286,
+   "packet_tokens_median": 3256
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.5333,
+   "turn_coverage": 0.5,
+   "packet_tokens_median": 3049
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9688,
+   "turn_coverage": 0.9697,
+   "packet_tokens_median": 3184
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8939,
+   "turn_coverage": 0.8069,
+   "packet_tokens_median": 3262
+  }
+ },
+ "deep": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.904,
+   "turn_coverage": 0.7879,
+   "packet_tokens_median": 3183
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8914,
+   "turn_coverage": 0.7729,
+   "packet_tokens_median": 3186
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9417,
+   "turn_coverage": 0.8312,
+   "packet_tokens_median": 3137
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9514,
+   "packet_tokens_median": 3216
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.912,
+   "turn_coverage": 0.6728,
+   "packet_tokens_median": 3211
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9464,
+   "turn_coverage": 0.9464,
+   "packet_tokens_median": 3197
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.5333,
+   "turn_coverage": 0.5227,
+   "packet_tokens_median": 2960
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9688,
+   "turn_coverage": 0.9697,
+   "packet_tokens_median": 3100
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8939,
+   "turn_coverage": 0.8069,
+   "packet_tokens_median": 3201
+  }
+ },
+ "cap2": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.7745,
+   "turn_coverage": 0.6272,
+   "packet_tokens_median": 3113
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.7632,
+   "turn_coverage": 0.6195,
+   "packet_tokens_median": 3109
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.8083,
+   "turn_coverage": 0.6494,
+   "packet_tokens_median": 3113
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.8611,
+   "turn_coverage": 0.75,
+   "packet_tokens_median": 3093
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.816,
+   "turn_coverage": 0.5413,
+   "packet_tokens_median": 3156
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.5714,
+   "turn_coverage": 0.5714,
+   "packet_tokens_median": 3199
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.4,
+   "turn_coverage": 0.3636,
+   "packet_tokens_median": 3001
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.8438,
+   "turn_coverage": 0.8333,
+   "packet_tokens_median": 3039
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8258,
+   "turn_coverage": 0.6718,
+   "packet_tokens_median": 3105
+  }
+ },
+ "cap3": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.8643,
+   "turn_coverage": 0.7254,
+   "packet_tokens_median": 3092
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8468,
+   "turn_coverage": 0.7128,
+   "packet_tokens_median": 3089
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9167,
+   "turn_coverage": 0.7619,
+   "packet_tokens_median": 3101
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.875,
+   "packet_tokens_median": 3095
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.904,
+   "turn_coverage": 0.6391,
+   "packet_tokens_median": 3139
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.7143,
+   "turn_coverage": 0.7143,
+   "packet_tokens_median": 3175
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.4667,
+   "turn_coverage": 0.4091,
+   "packet_tokens_median": 2959
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9375,
+   "turn_coverage": 0.9242,
+   "packet_tokens_median": 3001
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8864,
+   "turn_coverage": 0.7568,
+   "packet_tokens_median": 3090
+  }
+ },
+ "cap5": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.8935,
+   "turn_coverage": 0.7801,
+   "packet_tokens_median": 3131
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8774,
+   "turn_coverage": 0.7669,
+   "packet_tokens_median": 3143
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9417,
+   "turn_coverage": 0.8182,
+   "packet_tokens_median": 3082
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9444,
+   "packet_tokens_median": 3135
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.912,
+   "turn_coverage": 0.6758,
+   "packet_tokens_median": 3163
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.8929,
+   "turn_coverage": 0.8929,
+   "packet_tokens_median": 3129
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.5333,
+   "turn_coverage": 0.5,
+   "packet_tokens_median": 2970
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9531,
+   "turn_coverage": 0.9545,
+   "packet_tokens_median": 3038
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8864,
+   "turn_coverage": 0.7992,
+   "packet_tokens_median": 3145
+  }
+ },
+ "episode0.5": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.904,
+   "turn_coverage": 0.7701,
+   "packet_tokens_median": 3296
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8914,
+   "turn_coverage": 0.7489,
+   "packet_tokens_median": 3290
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9417,
+   "turn_coverage": 0.8312,
+   "packet_tokens_median": 3331
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9861,
+   "turn_coverage": 0.9097,
+   "packet_tokens_median": 3395
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.904,
+   "turn_coverage": 0.6422,
+   "packet_tokens_median": 3308
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9464,
+   "turn_coverage": 0.9464,
+   "packet_tokens_median": 3239
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.6333,
+   "turn_coverage": 0.6136,
+   "packet_tokens_median": 3049
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9375,
+   "turn_coverage": 0.9394,
+   "packet_tokens_median": 3282
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8864,
+   "turn_coverage": 0.7992,
+   "packet_tokens_median": 3343
+  }
+ },
+ "episode1.0": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.8935,
+   "turn_coverage": 0.7433,
+   "packet_tokens_median": 3330
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8886,
+   "turn_coverage": 0.7338,
+   "packet_tokens_median": 3320
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9083,
+   "turn_coverage": 0.7706,
+   "packet_tokens_median": 3339
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9861,
+   "turn_coverage": 0.9028,
+   "packet_tokens_median": 3392
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.888,
+   "turn_coverage": 0.6024,
+   "packet_tokens_median": 3350
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9286,
+   "turn_coverage": 0.9286,
+   "packet_tokens_median": 3249
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.6333,
+   "turn_coverage": 0.6591,
+   "packet_tokens_median": 3096
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9375,
+   "turn_coverage": 0.9242,
+   "packet_tokens_median": 3281
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.8712,
+   "turn_coverage": 0.7606,
+   "packet_tokens_median": 3364
+  }
+ }
+}

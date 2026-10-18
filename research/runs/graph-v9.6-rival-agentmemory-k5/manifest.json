@@ -1,0 +1,8 @@
+{
+ "source": "https://raw.githubusercontent.com/rohitg00/agentmemory/565c2388a2ac3ef86b9d5c355c2b630db8e4357d/benchmark/data/longmemeval_results_hybrid.json",
+ "sha256": "94f9b00a54205adeeaf76b26b655993a98a8012111b4ac903791f0fbb44d2596",
+ "k": 5,
+ "reader": "gpt-5-mini",
+ "judge": "gpt-4o-2024-08-06",
+ "packet_chars_median": 66178
+}

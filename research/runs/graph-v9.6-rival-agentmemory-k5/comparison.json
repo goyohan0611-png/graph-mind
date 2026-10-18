@@ -1,0 +1,57 @@
+{
+ "agentmemory": "401/499",
+ "graph_mind": "444/499",
+ "untuned": {
+  "agentmemory": "298/379",
+  "graph_mind": "330/379"
+ },
+ "mcnemar": {
+  "questions": 499,
+  "only_graph_mind": 64,
+  "only_agentmemory": 21,
+  "p": 3.28e-06
+ },
+ "packet_chars_median": 66178,
+ "by_type": {
+  "ALL": {
+   "correct": 402,
+   "n": 500,
+   "acc": 0.804
+  },
+  "abstention": {
+   "correct": 27,
+   "n": 30,
+   "acc": 0.9
+  },
+  "knowledge-update": {
+   "correct": 65,
+   "n": 72,
+   "acc": 0.9028
+  },
+  "multi-session": {
+   "correct": 80,
+   "n": 121,
+   "acc": 0.6612
+  },
+  "single-session-assistant": {
+   "correct": 54,
+   "n": 56,
+   "acc": 0.9643
+  },
+  "single-session-preference": {
+   "correct": 22,
+   "n": 30,
+   "acc": 0.7333
+  },
+  "single-session-user": {
+   "correct": 56,
+   "n": 64,
+   "acc": 0.875
+  },
+  "temporal-reasoning": {
+   "correct": 98,
+   "n": 127,
+   "acc": 0.7717
+  }
+ }
+}

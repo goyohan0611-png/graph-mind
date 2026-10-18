@@ -65,9 +65,16 @@ Same 40 questions, same answer model, same official judge, pre-registered before
 | MemPalace 3.10.0 | 57.5% | 0 |
 | Mem0 2.2.1 (open source) | 52.5% | ~640,000 per question |
 
-On all 500 LongMemEval questions: **88.8%**. Every question, answer and verdict is in
-[`research/runs/`](research/runs); method, failures and how to rerun it:
-[docs/benchmarks.md](docs/benchmarks.md).
+On all 500 LongMemEval questions: **88.8%**. Against agentmemory on the same 499, its own
+published retrieval (95.2% R@5) handed to the same answer model and judge:
+
+| | accuracy | text the answer model reads, per question |
+|---|---|---|
+| **Graph-MIND** | **89.0%** | **3.4k tokens** |
+| agentmemory (its 5 sessions) | 80.4% | ~16.5k tokens |
+
+Every question, answer and verdict is in [`research/runs/`](research/runs); method, failures and
+how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
 
 > [!NOTE]
 > **Alpha.** Used daily on Windows. macOS and Linux pass every test in CI but have not seen daily

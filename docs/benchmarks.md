@@ -28,12 +28,34 @@ Graph-MIND ran its shipped path with the earlier 20-item packet; Mem0 2.2.1 was 
 open-source release on PyPI. The lead over both is significant (exact McNemar p = 0.002 and
 0.003); with 40 questions each score has an interval of about ±14 points.
 
+## agentmemory, all 499 questions
+
+agentmemory publishes 95.2% on LongMemEval_S and states it is retrieval recall (recall_any@5),
+not answer accuracy; it also publishes the sessions its hybrid search returned for each question.
+Its first 5 sessions, every turn in full, went to the same answer model, prompt and official
+judge as the 88.8% run. Only the retrieval differs. Its results file is pinned by commit and
+hash in [`research/rival_agentmemory.py`](../research/rival_agentmemory.py); one question failed
+to get an answer on retry and is left out of both columns.
+
+| | accuracy | never used for tuning (379) | text the answer model reads |
+|---|---|---|---|
+| **Graph-MIND** | **89.0%** (444/499) | **87.1%** (330/379) | 3.4k tokens |
+| agentmemory | 80.4% (401/499) | 78.6% (298/379) | ~16.5k tokens (66k characters) |
+
+Graph-MIND alone was right on 64 questions, agentmemory alone on 20 (exact McNemar
+p = 3.3e-6). By type, Graph-MIND / agentmemory: multi-session 80.8 / 65.8, temporal reasoning
+88.9 / 77.0, single-session user 98.4 / 87.5, knowledge update 94.4 / 90.3, preference
+75.0 / 71.4, abstention 93.3 / 90.0, single-session assistant 94.6 / 96.4.
+Five whole sessions are agentmemory's unit of retrieval and its best case here: the answer model
+reads about five times what Graph-MIND gives it. Per-question files:
+[`research/runs/graph-v9.6-rival-agentmemory-k5`](../research/runs/graph-v9.6-rival-agentmemory-k5).
+
 ## Reading other published numbers
 
 They measure different things, so they do not compare directly:
 
-- **MemPalace's 96.6%** is retrieval recall (R@5): is the right session among the five returned?
-  This page measures whether the final answer is correct.
+- **MemPalace's 96.6% and agentmemory's 95.2%** are retrieval recall (R@5): is the right session
+  among the five returned? This page measures whether the final answer is correct.
 - **Mem0's 94.4%** is its managed cloud platform, with proprietary components; the open-source
   package tested here is a different system.
 - **Mastra (94.87%), Emergence (86%), Supermemory (85.2%) and Zep (71.2%)** report their own

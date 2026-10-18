@@ -590,6 +590,15 @@ class OpenCodeConversationCapture(ClaudeCodeConversationCapture):
         return {"status": "BASELINE_CREATED", "file_count": 0, "state_path": str(self.state_path)}
 
 
+class HookConversationCapture(OpenCodeConversationCapture):
+    """Gemini CLI, Cursor, Copilot CLI: Graph-MIND's hooks (hook.py) write the same records,
+    one folder per agent under ~/.graph-mind/hooks, stored under that agent's name."""
+
+    def __init__(self, client, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.CLIENT = client
+
+
 def opencode_root():
     from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "opencode"

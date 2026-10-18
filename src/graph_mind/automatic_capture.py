@@ -16,6 +16,7 @@ from graph_mind.conversation_memory import (
     ClaudeCoworkConversationCapture,
     CodexConversationCapture,
     ConversationMemoryStore,
+    HookConversationCapture,
     OpenCodeConversationCapture,
     cowork_root,
     opencode_root,
@@ -196,6 +197,13 @@ class AutomaticCaptureService:
         if opencode.is_dir():
             sources.append(("opencode", OpenCodeConversationCapture(
                 opencode, store, state_path=self.opencode_cursor, **hooks), self.opencode_cursor))
+        from graph_mind.hook import hooks_root
+        agents = Path(self.config.get("hooks_root") or hooks_root())
+        for folder in sorted(agents.iterdir()) if agents.is_dir() else []:
+            if folder.is_dir():
+                cursor = self.state_dir / f"{folder.name}-session-cursor.json"
+                sources.append((folder.name, HookConversationCapture(
+                    folder.name, folder, store, state_path=cursor, **hooks), cursor))
         return sources
 
     def baseline(self):

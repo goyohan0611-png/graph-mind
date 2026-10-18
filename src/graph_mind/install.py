@@ -4,7 +4,8 @@
     graph-mind-install --join gm1.XXXX     # ...and joins the brain another PC shared
 
 It registers the memory server with every MCP client it finds (Claude Code, Claude Desktop,
-Codex, OpenCode, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio), starts the capture
+Codex, OpenCode, Cursor, Windsurf, Gemini CLI, Copilot CLI, VS Code, Cline, LM Studio), adds
+hooks that save the conversation where an app has them, starts the capture
 service at login, and downloads the local embedding model so the first question is not the one
 that waits for it. From a source checkout it first installs the checkout itself (pip install
 -e). Running it again is safe: it re-points every app at this Python.
@@ -113,6 +114,8 @@ def _other_apps(home: Path) -> list:
         ("Windsurf", home / ".codeium" / "windsurf",
          home / ".codeium" / "windsurf" / "mcp_config.json", "mcpServers", {}),
         ("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", "mcpServers", {}),
+        ("Copilot CLI", home / ".copilot", home / ".copilot" / "mcp-config.json", "mcpServers",
+         {"type": "local", "tools": ["*"]}),
         ("LM Studio", home / ".lmstudio", home / ".lmstudio" / "mcp.json", "mcpServers", {}),
         ("VS Code", vscode, vscode / "mcp.json", "servers", {"type": "stdio"}),
         ("Cline", vscode / "globalStorage" / "saoudrizwan.claude-dev",
@@ -134,6 +137,70 @@ def other_apps(home: Path) -> list[str]:
         except ValueError:
             # a settings file with comments (VS Code allows them) is not JSON: leave it alone
             step(f"{name}: could not edit {config}; add the server there by hand")
+    return done
+
+
+def _hook_command(agent: str, event: str) -> str:
+    # ponytail: quoted only when the path has a space; that form is for cmd and sh, not PowerShell
+    python = f'"{sys.executable}"' if " " in sys.executable else sys.executable
+    return f"{python} -m graph_mind.hook {agent} {event}"
+
+
+def _ours(entry) -> bool:
+    return "graph_mind.hook" in json.dumps(entry)
+
+
+def _hook_files(home: Path) -> list:
+    """(app, folder, hooks file, {event: entry}) for agents whose hooks save the conversation."""
+    gemini = {event: {"matcher": "*", "hooks": [{
+        "type": "command", "name": "graph-mind", "timeout": 20000,
+        "command": _hook_command("gemini-cli", event)}]}
+        for event in ("BeforeAgent", "AfterAgent")}
+    cursor = {event: {"command": _hook_command("cursor", event), "timeout": 20}
+              for event in ("beforeSubmitPrompt", "afterAgentResponse")}
+    copilot = {"userPromptSubmitted": {"type": "command", "timeoutSec": 10,
+                                       "command": _hook_command("copilot-cli",
+                                                                "userPromptSubmitted")}}
+    return [("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", gemini),
+            ("Cursor", home / ".cursor", home / ".cursor" / "hooks.json", cursor),
+            ("Copilot CLI", home / ".copilot", home / ".copilot" / "hooks" / "graph-mind.json",
+             copilot)]
+
+
+def _write_hooks(path: Path, entries: dict) -> None:
+    """Our entry for each event, in place of an older one of ours; everyone else's kept."""
+    settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if path.name != "settings.json":
+        settings.setdefault("version", 1)
+    hooks = settings.setdefault("hooks", {})
+    for event in list(hooks):
+        hooks[event] = [entry for entry in hooks[event] if not _ours(entry)]
+        if not hooks[event]:
+            del hooks[event]
+    for event, entry in entries.items():
+        hooks.setdefault(event, []).append(entry)
+    if not hooks and path.name == "graph-mind.json":
+        path.unlink(missing_ok=True)
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".graph-mind.tmp")
+    temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def agent_hooks(home: Path, remove: bool = False) -> list[str]:
+    """Gemini CLI, Cursor and Copilot CLI keep no transcript we read: their hooks hand each
+    message to graph_mind.hook, which saves it for the capture service (and, in Gemini CLI,
+    adds the memory before the model answers)."""
+    done = []
+    for name, folder, path, entries in _hook_files(home):
+        if not folder.is_dir() or (remove and not path.exists()):
+            continue
+        try:
+            _write_hooks(path, {} if remove else entries)
+            done.append(name)
+        except ValueError:
+            step(f"{name}: could not edit {path}; its hooks were left alone")
     return done
 
 
@@ -325,6 +392,9 @@ def main(argv=None):
                               opencode(home), *other_apps(home)] if name]
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
+    hooked = agent_hooks(home)
+    if hooked:
+        step("conversations saved through hooks: " + ", ".join(hooked))
     if args.name:
         from graph_mind.sharing import _save
         _save({"user_name": " ".join(args.name.split())[:40]})
@@ -387,6 +457,7 @@ def uninstall(argv=None):
         if text != _without_codex_block(text):
             codex_config.write_text(_without_codex_block(text), encoding="utf-8")
             removed.append("Codex")
+    removed += agent_hooks(home, remove=True)
     step("memory removed from: " + (", ".join(dict.fromkeys(removed)) or "no app had it"))
     item = _login_item()
     if item.exists():

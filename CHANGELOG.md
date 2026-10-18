@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **Gemini CLI, Cursor and Copilot CLI conversations are saved too**, through their hooks
+  (`python -m graph_mind.hook`), so what is said there reaches the other agents without the
+  model calling brain_remember. `graph-mind-install` adds the hooks beside the user's own and
+  `graph-mind-uninstall` removes only ours. Gemini CLI also gets the memory that bears on each
+  message before it answers (as OpenCode does). Cursor's hooks cannot add context, and Copilot
+  CLI's carry only the user's side: there the reply is not saved yet.
+- Copilot CLI is connected to the memory server (`~/.copilot/mcp-config.json`).
+
 ## 0.9.1 — 2026-10-18
 - **OpenCode conversations are saved, and every message brings its memory.** The installer adds
   a plugin: it records what is said for the capture service (stored like Claude Code's turns,

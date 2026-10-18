@@ -3,13 +3,20 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
-- **Gemini CLI, Cursor and Copilot CLI conversations are saved too**, through their hooks
-  (`python -m graph_mind.hook`), so what is said there reaches the other agents without the
-  model calling brain_remember. `graph-mind-install` adds the hooks beside the user's own and
-  `graph-mind-uninstall` removes only ours. Gemini CLI also gets the memory that bears on each
-  message before it answers (as OpenCode does). Cursor's hooks cannot add context, and Copilot
-  CLI's carry only the user's side: there the reply is not saved yet.
+## 0.9.2 — 2026-10-18
+- **Gemini CLI, Copilot CLI and Cursor conversations are saved too**, so what is said there
+  reaches the other agents without the model calling brain_remember. Each was tried for real
+  on Windows (Gemini CLI 0.64.0, Copilot CLI 1.0.98, Cursor's CLI agent): a fact said in one
+  session was stored, both sides, and a new Gemini or Copilot session answered it. (Cursor's
+  new session could not call any MCP tool on the test PC: another tool's broken hook blocked
+  them.)
+  - Copilot CLI and Cursor: their own transcripts are read (`~/.copilot/session-state`,
+    `~/.cursor/projects/*/agent-transcripts`). Cursor's prompt and reply hooks do not run in
+    its CLI, and Copilot's never carry the reply.
+  - Gemini CLI keeps no transcript to read: `graph-mind-install` adds hooks
+    (`python -m graph_mind.hook`) beside the user's own, and `graph-mind-uninstall` removes
+    only ours. Its BeforeAgent hook also adds the memory that bears on each message before the
+    model answers (as OpenCode's plugin does): the new session answered without a tool call.
 - Copilot CLI is connected to the memory server (`~/.copilot/mcp-config.json`).
 
 ## 0.9.1 — 2026-10-18

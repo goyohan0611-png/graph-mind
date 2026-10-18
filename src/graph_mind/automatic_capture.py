@@ -15,10 +15,14 @@ from graph_mind.conversation_memory import (
     ClaudeCodeConversationCapture,
     ClaudeCoworkConversationCapture,
     CodexConversationCapture,
+    CopilotConversationCapture,
+    CursorConversationCapture,
     ConversationMemoryStore,
     HookConversationCapture,
     OpenCodeConversationCapture,
+    copilot_root,
     cowork_root,
+    cursor_root,
     opencode_root,
 )
 from graph_mind.paths import default_coding_state_dir, default_development_db, graph_mind_home
@@ -197,6 +201,16 @@ class AutomaticCaptureService:
         if opencode.is_dir():
             sources.append(("opencode", OpenCodeConversationCapture(
                 opencode, store, state_path=self.opencode_cursor, **hooks), self.opencode_cursor))
+        copilot = Path(self.config.get("copilot_root") or copilot_root())
+        if copilot.is_dir():
+            cursor = self.state_dir / "copilot-cli-session-cursor.json"
+            sources.append(("copilot-cli", CopilotConversationCapture(
+                copilot, store, state_path=cursor, **hooks), cursor))
+        cursor_projects = Path(self.config.get("cursor_root") or cursor_root())
+        if cursor_projects.is_dir():
+            cursor = self.state_dir / "cursor-session-cursor.json"
+            sources.append(("cursor", CursorConversationCapture(
+                cursor_projects, store, state_path=cursor, **hooks), cursor))
         from graph_mind.hook import hooks_root
         agents = Path(self.config.get("hooks_root") or hooks_root())
         for folder in sorted(agents.iterdir()) if agents.is_dir() else []:

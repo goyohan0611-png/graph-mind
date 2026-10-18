@@ -156,22 +156,12 @@ def _hook_files(home: Path) -> list:
         "type": "command", "name": "graph-mind", "timeout": 20000,
         "command": _hook_command("gemini-cli", event)}]}
         for event in ("BeforeAgent", "AfterAgent")}
-    cursor = {event: {"command": _hook_command("cursor", event), "timeout": 20}
-              for event in ("beforeSubmitPrompt", "afterAgentResponse")}
-    copilot = {"userPromptSubmitted": {"type": "command", "timeoutSec": 10,
-                                       "command": _hook_command("copilot-cli",
-                                                                "userPromptSubmitted")}}
-    return [("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", gemini),
-            ("Cursor", home / ".cursor", home / ".cursor" / "hooks.json", cursor),
-            ("Copilot CLI", home / ".copilot", home / ".copilot" / "hooks" / "graph-mind.json",
-             copilot)]
+    return [("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", gemini)]
 
 
 def _write_hooks(path: Path, entries: dict) -> None:
     """Our entry for each event, in place of an older one of ours; everyone else's kept."""
     settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    if path.name != "settings.json":
-        settings.setdefault("version", 1)
     hooks = settings.setdefault("hooks", {})
     for event in list(hooks):
         hooks[event] = [entry for entry in hooks[event] if not _ours(entry)]
@@ -179,9 +169,6 @@ def _write_hooks(path: Path, entries: dict) -> None:
             del hooks[event]
     for event, entry in entries.items():
         hooks.setdefault(event, []).append(entry)
-    if not hooks and path.name == "graph-mind.json":
-        path.unlink(missing_ok=True)
-        return
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".graph-mind.tmp")
     temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -189,7 +176,7 @@ def _write_hooks(path: Path, entries: dict) -> None:
 
 
 def agent_hooks(home: Path, remove: bool = False) -> list[str]:
-    """Gemini CLI, Cursor and Copilot CLI keep no transcript we read: their hooks hand each
+    """Gemini CLI keeps no transcript we read: its hooks hand each
     message to graph_mind.hook, which saves it for the capture service (and, in Gemini CLI,
     adds the memory before the model answers)."""
     done = []

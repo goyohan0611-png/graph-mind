@@ -1,4 +1,5 @@
-"""Hooks for agents that run a command per message but keep no transcript Graph-MIND can read:
+"""Hooks for agents that run a command per message but keep no transcript Graph-MIND can read
+(Gemini CLI; Cursor's and Copilot CLI's own transcripts are read instead):
 what was said is appended, in Claude Code's record shape, to ~/.graph-mind/hooks/<agent>/, and
 the capture service stores it like every other conversation. Where the hook can add context
 (Gemini CLI's BeforeAgent), the memory that bears on the message goes in before the model
@@ -19,10 +20,6 @@ import uuid
 # agent -> event -> (who said it, the field that holds the text)
 EVENTS = {
     "gemini-cli": {"BeforeAgent": ("user", "prompt"), "AfterAgent": ("assistant", "prompt_response")},
-    "cursor": {"beforeSubmitPrompt": ("user", "prompt"), "afterAgentResponse": ("assistant", "text")},
-    # ponytail: Copilot CLI's hooks never carry the reply (agentStop gives only a transcript
-    # path, format undocumented); the user's side alone is stored until that is read too
-    "copilot-cli": {"userPromptSubmitted": ("user", "prompt")},
 }
 
 
@@ -37,13 +34,11 @@ def record(agent: str, event_name: str, event: dict) -> str | None:
     text = event.get(field)
     if not isinstance(text, str) or not text.strip():
         return None
-    session = str(event.get("session_id") or event.get("conversation_id")
-                  or event.get("sessionId") or "default")
-    roots = event.get("workspace_roots") or []
+    session = str(event.get("session_id") or "default")
     folder = hooks_root() / agent
     folder.mkdir(parents=True, exist_ok=True)
     line = {"type": role, "uuid": str(uuid.uuid4()), "sessionId": session,
-            "cwd": event.get("cwd") or (roots[0] if roots else None),
+            "cwd": event.get("cwd"),
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "message": {"content": text}}
     with (folder / f"{''.join(c for c in session if c.isalnum() or c in '-_')}.jsonl").open(
@@ -60,8 +55,6 @@ def reply(agent: str, event_name: str, text: str | None) -> dict:
         if memory:
             return {"hookSpecificOutput": {"hookEventName": "BeforeAgent",
                                            "additionalContext": memory}}
-    if agent == "cursor" and event_name == "beforeSubmitPrompt":
-        return {"continue": True}
     return {}
 
 

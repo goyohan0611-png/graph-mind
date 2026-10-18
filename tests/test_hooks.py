@@ -1,6 +1,6 @@
-"""Gemini CLI, Cursor, Copilot CLI: their hook payloads (as documented) are saved through
-graph_mind.hook and stored once under each agent's name; the installer adds our hooks next to
-the user's own and takes only ours away again."""
+"""Gemini CLI: its hook payloads (as documented) are saved through graph_mind.hook and stored
+once; the installer adds our hooks next to the user's own and takes only ours away again.
+Copilot CLI and Cursor: their own transcripts are read, in the shape they were seen to write."""
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from unittest import mock
@@ -11,7 +11,8 @@ import tempfile
 import unittest
 
 from graph_mind import hook, install
-from graph_mind.conversation_memory import ConversationMemoryStore, HookConversationCapture
+from graph_mind.conversation_memory import (ConversationMemoryStore, CopilotConversationCapture,
+                                            CursorConversationCapture, HookConversationCapture)
 
 
 def run(agent, event, payload):
@@ -25,7 +26,7 @@ def run(agent, event, payload):
 
 
 class HookTests(unittest.TestCase):
-    def test_each_agent_is_saved_under_its_own_name(self):
+    def test_gemini_cli_is_saved_once(self):
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}):
             run("gemini-cli", "BeforeAgent", {"session_id": "g1", "cwd": directory,
@@ -33,13 +34,7 @@ class HookTests(unittest.TestCase):
                                               "prompt": "our golden retriever Kongi turned three"})
             run("gemini-cli", "AfterAgent", {"session_id": "g1", "cwd": directory,
                                              "prompt": "x", "prompt_response": "Happy birthday!"})
-            self.assertEqual(run("cursor", "beforeSubmitPrompt", {
-                "conversation_id": "c1", "workspace_roots": [directory],
-                "prompt": "I moved to Busan"}), {"continue": True})
-            run("cursor", "afterAgentResponse", {"conversation_id": "c1", "text": "Nice!"})
-            run("copilot-cli", "userPromptSubmitted", {"sessionId": "p1", "cwd": directory,
-                                                       "prompt": "my sister is Mina"})
-            self.assertEqual(run("cursor", "afterAgentResponse", {"text": ""}), {})
+            self.assertEqual(run("gemini-cli", "AfterAgent", {"prompt_response": ""}), {})
             rows = []
             with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
                 for folder in sorted(hook.hooks_root().iterdir()):
@@ -53,9 +48,77 @@ class HookTests(unittest.TestCase):
                 rows = sorted(tuple(r) for r in rows.fetchall())
         self.assertEqual(rows, sorted([
             ("gemini-cli", "user", "our golden retriever Kongi turned three"),
-            ("gemini-cli", "assistant", "Happy birthday!"),
-            ("cursor", "user", "I moved to Busan"), ("cursor", "assistant", "Nice!"),
-            ("copilot-cli", "user", "my sister is Mina")]))
+            ("gemini-cli", "assistant", "Happy birthday!")]))
+
+    def test_cursor_transcript_is_read_as_said(self):
+        """As the Cursor CLI agent wrote it: the typed text inside <user_query>, the reply's
+        text blocks; a brain_forget call through CallDynamicTool drops the exchange."""
+        with tempfile.TemporaryDirectory() as directory:
+            chat = Path(directory) / "projects" / "C-work" / "agent-transcripts" / "t1"
+            chat.mkdir(parents=True)
+            def say(role, *blocks):
+                return {"role": role, "message": {"content": list(blocks)}}
+            records = [
+                say("user", {"type": "text", "text": "<timestamp>Sunday, Oct 18, 2026</timestamp>"
+                             "\n<user_query>\nI moved to Busan\n</user_query>"}),
+                say("assistant", {"type": "text", "text": "Saving that."},
+                    {"type": "tool_use", "name": "CallDynamicTool",
+                     "input": {"namespace": "graph-mind-memory", "toolName": "brain_remember"}}),
+                say("assistant", {"type": "text", "text": "Busan is lovely."}),
+                {"type": "turn_ended", "status": "success"}]
+            (chat / "t1.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records),
+                                           encoding="utf-8")
+            with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
+                capture = CursorConversationCapture(Path(directory) / "projects", store,
+                                                    state_path=Path(directory) / "c.json")
+                capture._write_state({})
+                capture.scan()
+                capture.scan()
+                rows = store.db.execute("SELECT client, client_session_id, role, "
+                                        "content_redacted FROM conversation_turns "
+                                        "ORDER BY rowid").fetchall()
+                self.assertFalse(capture._forget_call(records[1]))
+                self.assertTrue(capture._forget_call(say("assistant", {
+                    "type": "tool_use", "name": "CallDynamicTool",
+                    "input": {"toolName": "brain_forget"}})))
+        self.assertEqual([tuple(r) for r in rows],
+                         [("cursor", "t1", "user", "I moved to Busan"),
+                          ("cursor", "t1", "assistant", "Saving that."),
+                          ("cursor", "t1", "assistant", "Busan is lovely.")])
+
+    def test_copilot_cli_session_is_read_as_said(self):
+        """Records as Copilot CLI 1.0.98 writes them: what was typed (not transformedContent),
+        the reply's text, nothing from hooks or a reply that only calls a tool."""
+        with tempfile.TemporaryDirectory() as directory:
+            session = Path(directory) / "state" / "s1"
+            session.mkdir(parents=True)
+            at = "2026-10-18T05:38:11.000Z"
+            records = [
+                {"type": "session.start", "id": "e0", "timestamp": at,
+                 "data": {"sessionId": "s1", "context": {"cwd": directory}}},
+                {"type": "hook.start", "id": "e1", "timestamp": at,
+                 "data": {"input": {"prompt": "my sister is Mina"}}},
+                {"type": "user.message", "id": "e2", "timestamp": at,
+                 "data": {"content": "my sister is Mina",
+                          "transformedContent": "<current_datetime>...</current_datetime>"}},
+                {"type": "assistant.message", "id": "e3", "timestamp": at,
+                 "data": {"content": "", "toolRequests": [{"name": "view"}]}},
+                {"type": "assistant.message", "id": "e4", "timestamp": at,
+                 "data": {"content": "Nice to know about Mina.", "toolRequests": []}}]
+            (session / "events.jsonl").write_text(
+                "".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+            with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
+                capture = CopilotConversationCapture(Path(directory) / "state", store,
+                                                     state_path=Path(directory) / "c.json")
+                capture._write_state({})                  # read from the start
+                capture.scan()
+                capture.scan()
+                rows = store.db.execute("SELECT client, client_session_id, role, "
+                                        "content_redacted FROM conversation_turns "
+                                        "ORDER BY rowid").fetchall()
+        self.assertEqual([tuple(r) for r in rows],
+                         [("copilot-cli", "s1", "user", "my sister is Mina"),
+                          ("copilot-cli", "s1", "assistant", "Nice to know about Mina.")])
 
     def test_gemini_gets_the_memory_before_it_answers(self):
         with mock.patch("graph_mind.inject.context", return_value="Graph-MIND memory: Kongi"):
@@ -66,34 +129,23 @@ class HookTests(unittest.TestCase):
     def test_installer_adds_ours_beside_the_users_and_removes_only_ours(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
-            for name in (".gemini", ".cursor", ".copilot"):
-                (home / name).mkdir()
-            theirs = {"command": "C:/their/hook.exe", "timeout": 10}
-            (home / ".cursor" / "hooks.json").write_text(json.dumps(
-                {"version": 1, "hooks": {"beforeSubmitPrompt": [theirs]}}), encoding="utf-8")
-            (home / ".gemini" / "settings.json").write_text(json.dumps({"theme": "Dracula"}),
-                                                            encoding="utf-8")
+            (home / ".gemini").mkdir()
+            theirs = {"hooks": [{"type": "command", "command": "C:/their/hook.exe"}]}
+            (home / ".gemini" / "settings.json").write_text(json.dumps(
+                {"theme": "Dracula", "hooks": {"BeforeAgent": [theirs]}}), encoding="utf-8")
             for _ in range(2):                                   # again: still one of ours
-                self.assertEqual(install.agent_hooks(home),
-                                 ["Gemini CLI", "Cursor", "Copilot CLI"])
+                self.assertEqual(install.agent_hooks(home), ["Gemini CLI"])
 
-            def read(*parts):
-                return json.loads(home.joinpath(*parts).read_text(encoding="utf-8"))
-            cursor = read(".cursor", "hooks.json")["hooks"]
-            self.assertEqual(cursor["beforeSubmitPrompt"][0], theirs)
-            self.assertEqual(len(cursor["beforeSubmitPrompt"]), 2)
-            self.assertIn("graph_mind.hook cursor afterAgentResponse",
-                          cursor["afterAgentResponse"][0]["command"])
-            gemini = read(".gemini", "settings.json")
+            def read():
+                return json.loads((home / ".gemini" / "settings.json").read_text(encoding="utf-8"))
+            gemini = read()
             self.assertEqual(gemini["theme"], "Dracula")
-            self.assertEqual(len(gemini["hooks"]["BeforeAgent"]), 1)
-            self.assertIn("userPromptSubmitted",
-                          read(".copilot", "hooks", "graph-mind.json")["hooks"])
+            self.assertEqual(gemini["hooks"]["BeforeAgent"][0], theirs)
+            self.assertEqual(len(gemini["hooks"]["BeforeAgent"]), 2)
+            self.assertIn("graph_mind.hook gemini-cli AfterAgent",
+                          gemini["hooks"]["AfterAgent"][0]["hooks"][0]["command"])
             install.agent_hooks(home, remove=True)
-            self.assertEqual(read(".cursor", "hooks.json")["hooks"],
-                             {"beforeSubmitPrompt": [theirs]})
-            self.assertEqual(read(".gemini", "settings.json")["hooks"], {})
-            self.assertFalse((home / ".copilot" / "hooks" / "graph-mind.json").exists())
+            self.assertEqual(read()["hooks"], {"BeforeAgent": [theirs]})
 
 
 if __name__ == "__main__":

@@ -590,6 +590,89 @@ class OpenCodeConversationCapture(ClaudeCodeConversationCapture):
         return {"status": "BASELINE_CREATED", "file_count": 0, "state_path": str(self.state_path)}
 
 
+class CopilotConversationCapture(CodexConversationCapture):
+    """GitHub Copilot CLI: one events.jsonl per session under ~/.copilot/session-state/<id>/.
+    Only user.message (what was typed, not the CLI's transformedContent with its injected
+    datetime and reminders) and assistant.message text are kept; hooks, tool calls and usage
+    records are skipped."""
+
+    CLIENT = "copilot-cli"
+
+    def _files(self):
+        return sorted(self.sessions_root.glob("*/events.jsonl"))
+
+    def _session_meta(self, path):
+        cwd = None
+        try:
+            with path.open(encoding="utf-8", errors="replace") as handle:
+                first = json.loads(handle.readline())
+            cwd = ((first.get("data") or {}).get("context") or {}).get("cwd")
+        except (OSError, ValueError, TypeError):
+            pass
+        resolved_cwd = str(Path(cwd).resolve()) if isinstance(cwd, str) and cwd else None
+        return path.parent.name, cwd, self.workspace_scopes.get(resolved_cwd, "global")
+
+    def _identity(self, item, ordinal):
+        return item.get("id") or ordinal
+
+    def _forget_call(self, item):
+        if item.get("type") != "assistant.message":
+            return False
+        return any(str((request or {}).get("name", "")).endswith(self.FORGET_TOOL)
+                   for request in (item.get("data") or {}).get("toolRequests") or [])
+
+    def _message(self, item):
+        role = {"user.message": "user", "assistant.message": "assistant"}.get(item.get("type"))
+        text = (item.get("data") or {}).get("content")
+        return (role, text) if role and isinstance(text, str) else None
+
+
+CURSOR_QUERY = re.compile(r"<user_query>\s*(.*?)\s*</user_query>", re.S)
+
+
+class CursorConversationCapture(CodexConversationCapture):
+    """Cursor (the CLI agent; the editor's agent writes the same files): one JSONL per chat
+    under ~/.cursor/projects/<project>/agent-transcripts/. Its hooks for the prompt and the reply
+    do not run in the CLI, so the transcript is read. A user record wraps what was typed in
+    <user_query>; only that is kept, and only the text blocks of a reply."""
+
+    CLIENT = "cursor"
+
+    def _files(self):
+        return sorted(self.sessions_root.glob("*/agent-transcripts/**/*.jsonl"))
+
+    def _session_meta(self, path):
+        return path.stem, None, "global"
+
+    def _forget_call(self, item):
+        if item.get("role") != "assistant":
+            return False
+        return any(isinstance(block, dict) and block.get("type") == "tool_use" and (
+            str(block.get("name", "")).endswith(self.FORGET_TOOL)
+            or str((block.get("input") or {}).get("toolName", "")).endswith(self.FORGET_TOOL))
+            for block in (item.get("message") or {}).get("content") or [])
+
+    def _message(self, item):
+        role = item.get("role")
+        content = (item.get("message") or {}).get("content")
+        if role not in {"user", "assistant"} or not isinstance(content, list):
+            return None
+        text = "\n".join(block.get("text", "") for block in content
+                         if isinstance(block, dict) and block.get("type") == "text")
+        if role == "user":
+            query = CURSOR_QUERY.search(text)
+            text = query.group(1) if query else re.sub(r"<timestamp>.*?</timestamp>", "", text)
+        return role, text
+
+
+def cursor_root():
+    return Path.home() / ".cursor" / "projects"
+
+
+def copilot_root():
+    return Path(os.environ.get("COPILOT_HOME") or Path.home() / ".copilot") / "session-state"
+
+
 class HookConversationCapture(OpenCodeConversationCapture):
     """Gemini CLI, Cursor, Copilot CLI: Graph-MIND's hooks (hook.py) write the same records,
     one folder per agent under ~/.graph-mind/hooks, stored under that agent's name."""

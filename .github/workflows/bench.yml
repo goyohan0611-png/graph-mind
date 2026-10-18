@@ -37,10 +37,13 @@ jobs:
           curl -fsSL -o research/external/longmemeval/longmemeval_s_cleaned.json \
             https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json
           echo "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442  research/external/longmemeval/longmemeval_s_cleaned.json" | sha256sum -c
-      - uses: actions/cache@v4
+      # restore and save apart: the combined action saves only when the job succeeds, and a
+      # cold cache (all of LongMemEval_S to embed) ran into the 6 h limit at 479 of 500 and
+      # lost every vector. Saved always, each run under its own key, the newest restored.
+      - uses: actions/cache/restore@v4
         with:
           path: bench/.cache
-          key: bench2-${{ github.sha }}
+          key: bench2-${{ github.run_id }}
           restore-keys: bench2-
       - name: Recovery
         if: ${{ !inputs.research }}
@@ -50,12 +53,18 @@ jobs:
         run: python bench/latency.py --baseline | tee -a latency.txt
       - name: Evidence
         if: ${{ !inputs.research }}
+        timeout-minutes: 330       # before the job's 360, so the cache below is still saved
         run: python bench/evidence.py --baseline | tee -a evidence.txt
       - name: Research
         if: ${{ inputs.research }}
         env:
           SCRIPT: ${{ inputs.research }}
         run: python research/$SCRIPT | tee -a research.txt     # unquoted: script + arguments
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: bench/.cache
+          key: bench2-${{ github.run_id }}
       - name: Summary
         if: always()
         run: |

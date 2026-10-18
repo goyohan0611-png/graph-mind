@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.3 — 2026-10-18
+- Package and registry descriptions name the agents it works with, so a search for "Claude Code
+  memory" or "Gemini CLI memory" can find it. No code changes.
+- README and docs/benchmarks.md: agentmemory on the same 499 LongMemEval questions, its own
+  published retrieval through the same answer model and judge: 80.4% against Graph-MIND's 89.0%,
+  reading about 5x more text per question.
+
 ## 0.9.2 — 2026-10-18
 - **Gemini CLI, Copilot CLI and Cursor conversations are saved too**, so what is said there
   reaches the other agents without the model calling brain_remember. Each was tried for real

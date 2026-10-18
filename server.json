@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.goyohan0611-png/graph-mind",
   "title": "Graph-MIND",
-  "description": "Local-first memory for Claude Code, Codex and Claude Desktop, kept verbatim on your own PC.",
+  "description": "Shared memory for Claude Code, Codex, Cursor, Gemini CLI and more, kept verbatim on your own PC.",
   "repository": {
     "url": "https://github.com/goyohan0611-png/graph-mind",
     "source": "github"
   },
-  "version": "0.9.2",
+  "version": "0.9.3",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "graph-mind-memory",
-      "version": "0.9.2",
+      "version": "0.9.3",
       "transport": {
         "type": "stdio"
       }

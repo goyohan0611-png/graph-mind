@@ -1,0 +1,520 @@
+{
+ "base": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.9749,
+   "turn_coverage": 0.9241,
+   "packet_tokens_median": 3358,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.9749,
+   "turn_coverage": 0.9053,
+   "packet_tokens_median": 3345,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.975,
+   "turn_coverage": 0.9784,
+   "packet_tokens_median": 3374,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3361,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.984,
+   "turn_coverage": 0.8869,
+   "packet_tokens_median": 3417,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9643,
+   "turn_coverage": 0.9643,
+   "packet_tokens_median": 3356,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.9333,
+   "turn_coverage": 0.8864,
+   "packet_tokens_median": 3098,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3200,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.9545,
+   "turn_coverage": 0.9073,
+   "packet_tokens_median": 3395,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  }
+ },
+ "deep": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.977,
+   "turn_coverage": 0.9252,
+   "packet_tokens_median": 3277,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.9777,
+   "turn_coverage": 0.9098,
+   "packet_tokens_median": 3286,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.975,
+   "turn_coverage": 0.9697,
+   "packet_tokens_median": 3269,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3270,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 1.0,
+   "turn_coverage": 0.893,
+   "packet_tokens_median": 3331,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9464,
+   "turn_coverage": 0.9464,
+   "packet_tokens_median": 3281,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.9,
+   "turn_coverage": 0.8636,
+   "packet_tokens_median": 3083,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 1.0,
+   "turn_coverage": 0.9848,
+   "packet_tokens_median": 3140,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.9621,
+   "turn_coverage": 0.9151,
+   "packet_tokens_median": 3327,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  }
+ },
+ "cap2": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.8497,
+   "turn_coverage": 0.7812,
+   "packet_tokens_median": 3130,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.844,
+   "turn_coverage": 0.7759,
+   "packet_tokens_median": 3116,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.8667,
+   "turn_coverage": 0.7965,
+   "packet_tokens_median": 3148,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9583,
+   "turn_coverage": 0.9236,
+   "packet_tokens_median": 3112,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.96,
+   "turn_coverage": 0.7615,
+   "packet_tokens_median": 3221,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.2321,
+   "turn_coverage": 0.2321,
+   "packet_tokens_median": 3207,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.7667,
+   "turn_coverage": 0.6136,
+   "packet_tokens_median": 3013,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9531,
+   "turn_coverage": 0.9394,
+   "packet_tokens_median": 3057,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.9167,
+   "turn_coverage": 0.834,
+   "packet_tokens_median": 3141,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  }
+ },
+ "cap3": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.8977,
+   "turn_coverage": 0.8493,
+   "packet_tokens_median": 3141,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.8914,
+   "turn_coverage": 0.8376,
+   "packet_tokens_median": 3125,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9167,
+   "turn_coverage": 0.8831,
+   "packet_tokens_median": 3171,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9861,
+   "turn_coverage": 0.9722,
+   "packet_tokens_median": 3084,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.984,
+   "turn_coverage": 0.8471,
+   "packet_tokens_median": 3238,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.4107,
+   "turn_coverage": 0.4107,
+   "packet_tokens_median": 3192,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.8667,
+   "turn_coverage": 0.7727,
+   "packet_tokens_median": 2973,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 0.9688,
+   "turn_coverage": 0.9394,
+   "packet_tokens_median": 3048,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.947,
+   "turn_coverage": 0.8687,
+   "packet_tokens_median": 3162,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  }
+ },
+ "cap5": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.9436,
+   "turn_coverage": 0.9029,
+   "packet_tokens_median": 3184,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.9387,
+   "turn_coverage": 0.8872,
+   "packet_tokens_median": 3170,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9583,
+   "turn_coverage": 0.9481,
+   "packet_tokens_median": 3208,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 0.9861,
+   "turn_coverage": 0.9861,
+   "packet_tokens_median": 3157,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.992,
+   "turn_coverage": 0.8869,
+   "packet_tokens_median": 3224,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.75,
+   "turn_coverage": 0.75,
+   "packet_tokens_median": 3259,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.8667,
+   "turn_coverage": 0.7955,
+   "packet_tokens_median": 3045,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 1.0,
+   "turn_coverage": 0.9697,
+   "packet_tokens_median": 3067,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.947,
+   "turn_coverage": 0.9112,
+   "packet_tokens_median": 3223,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  }
+ },
+ "episode0.5": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.9708,
+   "turn_coverage": 0.9163,
+   "packet_tokens_median": 3427,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.9721,
+   "turn_coverage": 0.9068,
+   "packet_tokens_median": 3419,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9667,
+   "turn_coverage": 0.9437,
+   "packet_tokens_median": 3464,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 1.0,
+   "turn_coverage": 0.9931,
+   "packet_tokens_median": 3446,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.992,
+   "turn_coverage": 0.8746,
+   "packet_tokens_median": 3476,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9643,
+   "turn_coverage": 0.9643,
+   "packet_tokens_median": 3374,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.8667,
+   "turn_coverage": 0.8636,
+   "packet_tokens_median": 3145,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3318,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.947,
+   "turn_coverage": 0.9035,
+   "packet_tokens_median": 3549,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  }
+ },
+ "episode1.0": {
+  "all": {
+   "questions": 479,
+   "question_recall": 0.9687,
+   "turn_coverage": 0.9107,
+   "packet_tokens_median": 3450,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "untuned": {
+   "questions": 359,
+   "question_recall": 0.9694,
+   "turn_coverage": 0.8992,
+   "packet_tokens_median": 3442,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "tuned": {
+   "questions": 120,
+   "question_recall": 0.9667,
+   "turn_coverage": 0.9437,
+   "packet_tokens_median": 3471,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "knowledge-update": {
+   "questions": 72,
+   "question_recall": 1.0,
+   "turn_coverage": 0.9931,
+   "packet_tokens_median": 3458,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "multi-session": {
+   "questions": 125,
+   "question_recall": 0.992,
+   "turn_coverage": 0.8685,
+   "packet_tokens_median": 3462,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-assistant": {
+   "questions": 56,
+   "question_recall": 0.9643,
+   "turn_coverage": 0.9643,
+   "packet_tokens_median": 3340,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-preference": {
+   "questions": 30,
+   "question_recall": 0.8333,
+   "turn_coverage": 0.8182,
+   "packet_tokens_median": 3177,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "single-session-user": {
+   "questions": 64,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3309,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  },
+  "temporal-reasoning": {
+   "questions": 132,
+   "question_recall": 0.947,
+   "turn_coverage": 0.8996,
+   "packet_tokens_median": 3572,
+   "recall_any@5": 0.0,
+   "recall_any@10": 0.0
+  }
+ }
+}

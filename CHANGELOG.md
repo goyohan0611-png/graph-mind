@@ -3,7 +3,7 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
+## 0.9.6 — 2026-10-19
 - **"Delete the password I typed" is no longer kept when asked in Gemini CLI or OpenCode.** The
   conversation about deleting is meant to go too (docs/privacy.md), but their hook and plugin
   recorded only text, so the brain_forget call was invisible and the request, secret and all,

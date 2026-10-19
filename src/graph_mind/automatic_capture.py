@@ -15,9 +15,9 @@ from graph_mind.conversation_memory import (
     ClaudeCodeConversationCapture,
     ClaudeCoworkConversationCapture,
     CodexConversationCapture,
+    ConversationMemoryStore,
     CopilotConversationCapture,
     CursorConversationCapture,
-    ConversationMemoryStore,
     HookConversationCapture,
     OpenCodeConversationCapture,
     copilot_root,
@@ -213,12 +213,12 @@ class AutomaticCaptureService:
                 cursor_projects, store, state_path=cursor, **hooks), cursor))
         from graph_mind.hook import hooks_root
         agents = Path(self.config.get("hooks_root") or hooks_root())
-        for folder in sorted(agents.iterdir()) if agents.is_dir() else []:
-            if folder.is_dir():
+        for agent_dir in sorted(agents.iterdir()) if agents.is_dir() else []:
+            if agent_dir.is_dir():
                 # "hook-": never the same file as a transcript source of the same agent
-                cursor = self.state_dir / f"hook-{folder.name}-session-cursor.json"
-                sources.append((folder.name, HookConversationCapture(
-                    folder.name, folder, store, state_path=cursor, **hooks), cursor))
+                cursor = self.state_dir / f"hook-{agent_dir.name}-session-cursor.json"
+                sources.append((agent_dir.name, HookConversationCapture(
+                    agent_dir.name, agent_dir, store, state_path=cursor, **hooks), cursor))
         return sources
 
     def baseline(self):

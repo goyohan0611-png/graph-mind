@@ -19,7 +19,8 @@ import uuid
 
 # agent -> event -> (who said it, the field that holds the text)
 EVENTS = {
-    "gemini-cli": {"BeforeAgent": ("user", "prompt"), "AfterAgent": ("assistant", "prompt_response")},
+    "gemini-cli": {"BeforeAgent": ("user", "prompt"),
+                   "AfterAgent": ("assistant", "prompt_response")},
 }
 
 

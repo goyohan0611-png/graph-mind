@@ -34,7 +34,8 @@ class HookTests(unittest.TestCase):
                                               "prompt": "our golden retriever Kongi turned three"})
             for _ in range(2):                     # fired again for the same reply: kept once
                 run("gemini-cli", "AfterAgent", {"session_id": "g1", "cwd": directory,
-                                                 "prompt": "x", "prompt_response": "Happy birthday!"})
+                                                 "prompt": "x",
+                                                 "prompt_response": "Happy birthday!"})
             self.assertEqual(run("gemini-cli", "AfterAgent", {"prompt_response": ""}), {})
             rows = []
             with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
@@ -60,7 +61,8 @@ class HookTests(unittest.TestCase):
             def say(role, *blocks):
                 return {"role": role, "message": {"content": list(blocks)}}
             records = [
-                say("user", {"type": "text", "text": "<timestamp>Sunday, Oct 18, 2026, 2:46 PM (UTC+9)</timestamp>"
+                say("user", {"type": "text",
+                             "text": "<timestamp>Sunday, Oct 18, 2026, 2:46 PM (UTC+9)</timestamp>"
                              "\n<user_query>\nI moved to Busan\n</user_query>"}),
                 say("assistant", {"type": "text", "text": "Saving that."},
                     {"type": "tool_use", "name": "CallDynamicTool",

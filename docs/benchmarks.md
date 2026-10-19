@@ -42,7 +42,7 @@ to get an answer on retry and is left out of both columns.
 | **Graph-MIND** | **89.0%** (444/499) | **87.1%** (330/379) | 3.4k tokens |
 | agentmemory | 80.4% (401/499) | 78.6% (298/379) | ~16.5k tokens (66k characters) |
 
-Graph-MIND alone was right on 64 questions, agentmemory alone on 20 (exact McNemar
+Graph-MIND alone was right on 64 questions, agentmemory alone on 21 (exact McNemar
 p = 3.3e-6). By type, Graph-MIND / agentmemory: multi-session 80.8 / 65.8, temporal reasoning
 88.9 / 77.0, single-session user 98.4 / 87.5, knowledge update 94.4 / 90.3, preference
 75.0 / 71.4, abstention 93.3 / 90.0, single-session assistant 94.6 / 96.4.

@@ -31,6 +31,7 @@ from graph_mind.warmup import warm_turns  # noqa: E402
 OUT = Path(__file__).resolve().parent / "runs/graph-v9.10-aggregate"
 AGGREGATE = re.compile(r"\b(how many|how much|total|in all|altogether|combined|sum of)\b", re.I)
 ARMS = {"base": (CONTEXT_LIMIT, CONTEXT_CHARS), "wide": (50, 25000)}
+TYPE = None        # --type: every question of one type instead of the wording cue
 
 
 def build():
@@ -41,7 +42,7 @@ def build():
     found = []
     with tempfile.TemporaryDirectory() as directory:
         for row in stream_instances(DATA):
-            if not AGGREGATE.search(row["question"]):
+            if (row["question_type"] != TYPE) if TYPE else not AGGREGATE.search(row["question"]):
                 continue
             store = Path(directory) / f"{row['question_id']}.sqlite"
             wanted = fill(store, row)
@@ -98,4 +99,8 @@ def answer():
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--answer", action="store_true")
-    answer() if parser.parse_args().answer else build()
+    parser.add_argument("--type", help="all questions of this type (folder of its own)")
+    args = parser.parse_args()
+    if args.type:
+        TYPE, OUT = args.type, OUT.with_name(f"graph-v9.11-wide-{args.type}")
+    answer() if args.answer else build()

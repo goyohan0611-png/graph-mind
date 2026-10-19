@@ -21,10 +21,10 @@ HEADER = ("Graph-MIND memory: what the user said or saved before that may bear o
 
 def context(query: str) -> str:
     from graph_mind.context_packet import build_context_pack, decide_recall
+    if not query.strip() or decide_recall(query, "auto")["mode"] == "SKIP":
+        return ""                             # before the heavy imports: most messages end here
     from graph_mind.local_embedder import LocalEmbedder
     from graph_mind.mcp_server import _now, configured_db_path, embedder_for, gather
-    if not query.strip() or decide_recall(query, "auto")["mode"] == "SKIP":
-        return ""
     LocalEmbedder.USE_SERVICE = True          # the capture service's loaded model, if running
     LocalEmbedder.WAIT_FOR_MODEL = 2.0
     database = configured_db_path()

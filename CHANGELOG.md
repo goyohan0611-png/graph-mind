@@ -14,6 +14,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   connected the memory (telling the model its chats are saved) before adding the hooks; when the
   hooks could not be written, nothing saved Gemini's chats and the model was told not to. Hooks
   now go first, the mark depends on them, and a stale mark from an earlier install is removed.
+- A message with no sign of the past (most of them) is let through in about half the time:
+  the memory lookup decided to skip it only after loading the search code (Gemini CLI waits for
+  this hook before answering; 1.2 s to 0.5 s here).
 - docs/privacy.md and docs/install.md list what each app now has captured (Copilot CLI, Cursor's
   CLI agent, Gemini CLI, OpenCode); the privacy page still said their transcripts were not read.
 

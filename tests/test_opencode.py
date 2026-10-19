@@ -35,6 +35,38 @@ class OpenCodeTests(unittest.TestCase):
                          [("opencode", "user", "our golden retriever Kongi turned three"),
                           ("opencode", "assistant", "Happy birthday to Kongi!")])
 
+    def test_a_finished_session_file_is_deleted_once_stored(self):
+        """It holds what was typed before masking: gone once every line is stored and an hour
+        passed; a session that goes on starts a new file, read from its start."""
+        import os
+        import time
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "opencode"
+            root.mkdir()
+            path = root / "ses_1.jsonl"
+
+            def say(uuid, text):
+                with path.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"type": "user", "uuid": uuid, "sessionId": "ses_1",
+                                             "cwd": directory, "message": {"content": text},
+                                             "timestamp": "2026-10-16T05:00:00.000Z"}) + "\n")
+            say("m1", "my password is Hunter2!xy")
+            with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
+                capture = OpenCodeConversationCapture(
+                    root, store, state_path=Path(directory) / "cursor.json")
+                capture.initialize_baseline()
+                capture.scan()
+                self.assertTrue(path.exists())                     # just written: kept
+                old = time.time() - 2 * capture.DONE_AFTER
+                os.utime(path, (old, old))
+                capture.scan()
+                self.assertFalse(path.exists())
+                say("m2", "the session goes on")
+                capture.scan()
+                said = [r[0] for r in store.db.execute(
+                    "SELECT content_redacted FROM conversation_turns ORDER BY rowid")]
+        self.assertEqual(said, ["my password is [REDACTED]", "the session goes on"])
+
     def test_a_message_with_no_sign_of_the_past_gets_nothing(self):
         self.assertEqual(context("write a quicksort in rust"), "")
         self.assertEqual(context("   "), "")

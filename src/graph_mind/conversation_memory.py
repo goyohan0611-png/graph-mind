@@ -10,6 +10,7 @@ import math
 import os
 import re
 import sqlite3
+import time
 
 from graph_mind.clock import timestamp
 from graph_mind.forget import erase
@@ -613,6 +614,29 @@ class OpenCodeConversationCapture(ClaudeCodeConversationCapture):
         end of the files would skip."""
         self._write_state({})
         return {"status": "BASELINE_CREATED", "file_count": 0, "state_path": str(self.state_path)}
+
+    DONE_AFTER = 3600          # seconds without a new line: the session is over
+
+    def scan(self):
+        """Then delete the files Graph-MIND's own plugin and hooks wrote once every line is
+        stored: they hold what was typed before masking, so a password masked in memory, or
+        deleted with brain_forget, stayed on disk in them. A session that goes on later starts
+        a new file, read from its start."""
+        result = super().scan()
+        offsets, now, removed = self._load_state(), time.time(), False
+        for path in self._files():
+            try:
+                info = path.stat()
+                if (offsets.get(str(path)) == info.st_size
+                        and now - info.st_mtime > self.DONE_AFTER):
+                    path.unlink()
+                    offsets.pop(str(path))
+                    removed = True
+            except OSError:
+                continue                   # still being written, or gone already
+        if removed:
+            self._write_state(offsets)
+        return result
 
 
 class CopilotConversationCapture(CodexConversationCapture):

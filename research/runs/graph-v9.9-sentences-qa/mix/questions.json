@@ -1,0 +1,2883 @@
+[
+ {
+  "question_id": "e47becba",
+  "question_type": "single-session-user",
+  "question": "What degree did I graduate with?",
+  "question_date": "2023/05/30 (Tue) 23:40",
+  "answer": "Business Administration",
+  "answer_session_ids": [
+   "answer_280352e9"
+  ]
+ },
+ {
+  "question_id": "118b2229",
+  "question_type": "single-session-user",
+  "question": "How long is my daily commute to work?",
+  "question_date": "2023/05/30 (Tue) 20:36",
+  "answer": "45 minutes each way",
+  "answer_session_ids": [
+   "answer_40a90d51"
+  ]
+ },
+ {
+  "question_id": "51a45a95",
+  "question_type": "single-session-user",
+  "question": "Where did I redeem a $5 coupon on coffee creamer?",
+  "question_date": "2023/05/30 (Tue) 20:42",
+  "answer": "Target",
+  "answer_session_ids": [
+   "answer_d61669c7"
+  ]
+ },
+ {
+  "question_id": "58bf7951",
+  "question_type": "single-session-user",
+  "question": "What play did I attend at the local community theater?",
+  "question_date": "2023/05/30 (Tue) 22:53",
+  "answer": "The Glass Menagerie",
+  "answer_session_ids": [
+   "answer_355c48bb"
+  ]
+ },
+ {
+  "question_id": "1e043500",
+  "question_type": "single-session-user",
+  "question": "What is the name of the playlist I created on Spotify?",
+  "question_date": "2023/05/30 (Tue) 19:19",
+  "answer": "Summer Vibes",
+  "answer_session_ids": [
+   "answer_3e012175"
+  ]
+ },
+ {
+  "question_id": "c5e8278d",
+  "question_type": "single-session-user",
+  "question": "What was my last name before I changed it?",
+  "question_date": "2023/05/30 (Tue) 22:36",
+  "answer": "Johnson",
+  "answer_session_ids": [
+   "answer_f6168136"
+  ]
+ },
+ {
+  "question_id": "6ade9755",
+  "question_type": "single-session-user",
+  "question": "Where do I take yoga classes?",
+  "question_date": "2023/05/30 (Tue) 21:04",
+  "answer": "Serenity Yoga",
+  "answer_session_ids": [
+   "answer_9398da02"
+  ]
+ },
+ {
+  "question_id": "6f9b354f",
+  "question_type": "single-session-user",
+  "question": "What color did I repaint my bedroom walls?",
+  "question_date": "2023/05/30 (Tue) 22:42",
+  "answer": "a lighter shade of gray",
+  "answer_session_ids": [
+   "answer_feb5200f"
+  ]
+ },
+ {
+  "question_id": "58ef2f1c",
+  "question_type": "single-session-user",
+  "question": "When did I volunteer at the local animal shelter's fundraising dinner?",
+  "question_date": "2023/04/02 (Sun) 23:49",
+  "answer": "February 14th",
+  "answer_session_ids": [
+   "answer_59547700"
+  ]
+ },
+ {
+  "question_id": "f8c5f88b",
+  "question_type": "single-session-user",
+  "question": "Where did I buy my new tennis racket from?",
+  "question_date": "2023/05/30 (Tue) 23:39",
+  "answer": "the sports store downtown",
+  "answer_session_ids": [
+   "answer_c3567066"
+  ]
+ },
+ {
+  "question_id": "5d3d2817",
+  "question_type": "single-session-user",
+  "question": "What was my previous occupation?",
+  "question_date": "2023/05/30 (Tue) 20:08",
+  "answer": "Marketing specialist at a small startup",
+  "answer_session_ids": [
+   "answer_235eb6fb"
+  ]
+ },
+ {
+  "question_id": "7527f7e2",
+  "question_type": "single-session-user",
+  "question": "How much did I spend on a designer handbag?",
+  "question_date": "2023/05/30 (Tue) 23:20",
+  "answer": "$800",
+  "answer_session_ids": [
+   "answer_7cb94507"
+  ]
+ },
+ {
+  "question_id": "c960da58",
+  "question_type": "single-session-user",
+  "question": "How many playlists do I have on Spotify?",
+  "question_date": "2023/05/30 (Tue) 18:45",
+  "answer": "20",
+  "answer_session_ids": [
+   "answer_e05e4612"
+  ]
+ },
+ {
+  "question_id": "3b6f954b",
+  "question_type": "single-session-user",
+  "question": "Where did I attend for my study abroad program?",
+  "question_date": "2023/05/30 (Tue) 16:24",
+  "answer": "University of Melbourne in Australia",
+  "answer_session_ids": [
+   "answer_94030872"
+  ]
+ },
+ {
+  "question_id": "726462e0",
+  "question_type": "single-session-user",
+  "question": "What was the discount I got on my first purchase from the new clothing brand?",
+  "question_date": "2023/05/30 (Tue) 23:15",
+  "answer": "10%",
+  "answer_session_ids": [
+   "answer_f38f679b"
+  ]
+ },
+ {
+  "question_id": "94f70d80",
+  "question_type": "single-session-user",
+  "question": "How long did it take me to assemble the IKEA bookshelf?",
+  "question_date": "2023/05/30 (Tue) 23:11",
+  "answer": "4 hours",
+  "answer_session_ids": [
+   "answer_c63c0458"
+  ]
+ },
+ {
+  "question_id": "66f24dbb",
+  "question_type": "single-session-user",
+  "question": "What did I buy for my sister's birthday gift?",
+  "question_date": "2023/05/30 (Tue) 17:09",
+  "answer": "a yellow dress",
+  "answer_session_ids": [
+   "answer_fea2e4d3"
+  ]
+ },
+ {
+  "question_id": "ad7109d1",
+  "question_type": "single-session-user",
+  "question": "What speed is my new internet plan?",
+  "question_date": "2023/05/30 (Tue) 21:56",
+  "answer": "500 Mbps",
+  "answer_session_ids": [
+   "answer_679840f8"
+  ]
+ },
+ {
+  "question_id": "af8d2e46",
+  "question_type": "single-session-user",
+  "question": "How many shirts did I pack for my 5-day trip to Costa Rica?",
+  "question_date": "2023/05/30 (Tue) 14:18",
+  "answer": "7",
+  "answer_session_ids": [
+   "answer_82a04f59"
+  ]
+ },
+ {
+  "question_id": "dccbc061",
+  "question_type": "single-session-user",
+  "question": "What was my previous stance on spirituality?",
+  "question_date": "2023/05/30 (Tue) 19:10",
+  "answer": "A staunch atheist",
+  "answer_session_ids": [
+   "answer_8f276838"
+  ]
+ },
+ {
+  "question_id": "c8c3f81d",
+  "question_type": "single-session-user",
+  "question": "What brand are my favorite running shoes?",
+  "question_date": "2023/05/30 (Tue) 23:27",
+  "answer": "Nike",
+  "answer_session_ids": [
+   "answer_761acef8"
+  ]
+ },
+ {
+  "question_id": "8ebdbe50",
+  "question_type": "single-session-user",
+  "question": "What certification did I complete last month?",
+  "question_date": "2023/05/30 (Tue) 18:44",
+  "answer": "Data Science",
+  "answer_session_ids": [
+   "answer_8ad8a34f"
+  ]
+ },
+ {
+  "question_id": "6b168ec8",
+  "question_type": "single-session-user",
+  "question": "How many bikes do I own?",
+  "question_date": "2023/05/30 (Tue) 20:24",
+  "answer": "three",
+  "answer_session_ids": [
+   "answer_e623ae87"
+  ]
+ },
+ {
+  "question_id": "75499fd8",
+  "question_type": "single-session-user",
+  "question": "What breed is my dog?",
+  "question_date": "2023/05/30 (Tue) 20:25",
+  "answer": "Golden Retriever",
+  "answer_session_ids": [
+   "answer_723bf11f"
+  ]
+ },
+ {
+  "question_id": "21436231",
+  "question_type": "single-session-user",
+  "question": "How many largemouth bass did I catch on my fishing trip to Lake Michigan?",
+  "question_date": "2023/05/30 (Tue) 19:25",
+  "answer": "12",
+  "answer_session_ids": [
+   "answer_1e6d4567"
+  ]
+ },
+ {
+  "question_id": "95bcc1c8",
+  "question_type": "single-session-user",
+  "question": "How many amateur comedians did I watch perform at the open mic night?",
+  "question_date": "2023/05/30 (Tue) 22:04",
+  "answer": "10",
+  "answer_session_ids": [
+   "answer_cb742a61"
+  ]
+ },
+ {
+  "question_id": "0862e8bf",
+  "question_type": "single-session-user",
+  "question": "What is the name of my cat?",
+  "question_date": "2023/05/30 (Tue) 12:18",
+  "answer": "Luna",
+  "answer_session_ids": [
+   "answer_c6fd8ebd"
+  ]
+ },
+ {
+  "question_id": "853b0a1d",
+  "question_type": "single-session-user",
+  "question": "How old was I when my grandma gave me the silver necklace?",
+  "question_date": "2023/05/30 (Tue) 21:54",
+  "answer": "18",
+  "answer_session_ids": [
+   "answer_69811d4a"
+  ]
+ },
+ {
+  "question_id": "a06e4cfe",
+  "question_type": "single-session-user",
+  "question": "What is my preferred gin-to-vermouth ratio for a classic gin martini?",
+  "question_date": "2023/05/30 (Tue) 23:48",
+  "answer": "3:1",
+  "answer_session_ids": [
+   "answer_6fe9fb49"
+  ]
+ },
+ {
+  "question_id": "37d43f65",
+  "question_type": "single-session-user",
+  "question": "How much RAM did I upgrade my laptop to?",
+  "question_date": "2023/05/30 (Tue) 17:03",
+  "answer": "16GB",
+  "answer_session_ids": [
+   "answer_55161935"
+  ]
+ },
+ {
+  "question_id": "b86304ba",
+  "question_type": "single-session-user",
+  "question": "How much is the painting of a sunset worth in terms of the amount I paid for it?",
+  "question_date": "2023/05/30 (Tue) 23:18",
+  "answer": "The painting is worth triple what I paid for it.",
+  "answer_session_ids": [
+   "answer_645b0329"
+  ]
+ },
+ {
+  "question_id": "d52b4f67",
+  "question_type": "single-session-user",
+  "question": "Where did I attend my cousin's wedding?",
+  "question_date": "2023/05/30 (Tue) 23:57",
+  "answer": "The Grand Ballroom",
+  "answer_session_ids": [
+   "answer_0df6aa4b"
+  ]
+ },
+ {
+  "question_id": "25e5aa4f",
+  "question_type": "single-session-user",
+  "question": "Where did I complete my Bachelor's degree in Computer Science?",
+  "question_date": "2023/05/30 (Tue) 15:02",
+  "answer": "University of California, Los Angeles (UCLA)",
+  "answer_session_ids": [
+   "answer_986de8c3"
+  ]
+ },
+ {
+  "question_id": "caf9ead2",
+  "question_type": "single-session-user",
+  "question": "How long did it take to move to the new apartment?",
+  "question_date": "2023/05/30 (Tue) 22:44",
+  "answer": "5 hours",
+  "answer_session_ids": [
+   "answer_0714183a"
+  ]
+ },
+ {
+  "question_id": "8550ddae",
+  "question_type": "single-session-user",
+  "question": "What type of cocktail recipe did I try last weekend?",
+  "question_date": "2023/05/30 (Tue) 23:51",
+  "answer": "lavender gin fizz",
+  "answer_session_ids": [
+   "answer_c8354ae9"
+  ]
+ },
+ {
+  "question_id": "60d45044",
+  "question_type": "single-session-user",
+  "question": "What type of rice is my favorite?",
+  "question_date": "2023/05/30 (Tue) 20:46",
+  "answer": "Japanese short-grain rice",
+  "answer_session_ids": [
+   "answer_9cddca88"
+  ]
+ },
+ {
+  "question_id": "3f1e9474",
+  "question_type": "single-session-user",
+  "question": "Who did I have a conversation with about destiny?",
+  "question_date": "2023/05/30 (Tue) 22:08",
+  "answer": "Sarah",
+  "answer_session_ids": [
+   "answer_57fc1954"
+  ]
+ },
+ {
+  "question_id": "86b68151",
+  "question_type": "single-session-user",
+  "question": "Where did I buy my new bookshelf from?",
+  "question_date": "2023/05/30 (Tue) 18:56",
+  "answer": "IKEA",
+  "answer_session_ids": [
+   "answer_dc11c1eb"
+  ]
+ },
+ {
+  "question_id": "577d4d32",
+  "question_type": "single-session-user",
+  "question": "What time do I stop checking work emails and messages?",
+  "question_date": "2023/05/30 (Tue) 23:54",
+  "answer": "7 pm",
+  "answer_session_ids": [
+   "answer_0dd4d99a"
+  ]
+ },
+ {
+  "question_id": "ec81a493",
+  "question_type": "single-session-user",
+  "question": "How many copies of my favorite artist's debut album were released worldwide?",
+  "question_date": "2023/05/30 (Tue) 17:14",
+  "answer": "500",
+  "answer_session_ids": [
+   "answer_ed1982fc"
+  ]
+ },
+ {
+  "question_id": "15745da0",
+  "question_type": "single-session-user",
+  "question": "How long have I been collecting vintage cameras?",
+  "question_date": "2023/05/30 (Tue) 21:43",
+  "answer": "three months",
+  "answer_session_ids": [
+   "answer_586de428"
+  ]
+ },
+ {
+  "question_id": "e01b8e2f",
+  "question_type": "single-session-user",
+  "question": "Where did I go on a week-long trip with my family?",
+  "question_date": "2023/05/30 (Tue) 21:42",
+  "answer": "Hawaii",
+  "answer_session_ids": [
+   "answer_5ca6cd28"
+  ]
+ },
+ {
+  "question_id": "bc8a6e93",
+  "question_type": "single-session-user",
+  "question": "What did I bake for my niece's birthday party?",
+  "question_date": "2023/05/30 (Tue) 13:46",
+  "answer": "a lemon blueberry cake",
+  "answer_session_ids": [
+   "answer_e6143162"
+  ]
+ },
+ {
+  "question_id": "ccb36322",
+  "question_type": "single-session-user",
+  "question": "What is the name of the music streaming service have I been using lately?",
+  "question_date": "2023/05/30 (Tue) 23:26",
+  "answer": "Spotify",
+  "answer_session_ids": [
+   "answer_f1fbb330"
+  ]
+ },
+ {
+  "question_id": "001be529",
+  "question_type": "single-session-user",
+  "question": "How long did I wait for the decision on my asylum application?",
+  "question_date": "2023/05/30 (Tue) 10:18",
+  "answer": "over a year",
+  "answer_session_ids": [
+   "answer_530960c1"
+  ]
+ },
+ {
+  "question_id": "b320f3f8",
+  "question_type": "single-session-user",
+  "question": "What type of action figure did I buy from a thrift store?",
+  "question_date": "2023/05/30 (Tue) 17:49",
+  "answer": "a blue Snaggletooth",
+  "answer_session_ids": [
+   "answer_5cc9b056"
+  ]
+ },
+ {
+  "question_id": "19b5f2b3",
+  "question_type": "single-session-user",
+  "question": "How long was I in Japan for?",
+  "question_date": "2023/05/30 (Tue) 20:50",
+  "answer": "two weeks",
+  "answer_session_ids": [
+   "answer_5ff494b9"
+  ]
+ },
+ {
+  "question_id": "4fd1909e",
+  "question_type": "single-session-user",
+  "question": "Where did I attend the Imagine Dragons concert?",
+  "question_date": "2023/05/30 (Tue) 18:25",
+  "answer": "Xfinity Center",
+  "answer_session_ids": [
+   "answer_2952aee4"
+  ]
+ },
+ {
+  "question_id": "545bd2b5",
+  "question_type": "single-session-user",
+  "question": "How much screen time have I been averaging on Instagram per day?",
+  "question_date": "2023/05/30 (Tue) 23:30",
+  "answer": "2 hours",
+  "answer_session_ids": [
+   "answer_47ffab4c"
+  ]
+ },
+ {
+  "question_id": "8a137a7f",
+  "question_type": "single-session-user",
+  "question": "What type of bulb did I replace in my bedside lamp?",
+  "question_date": "2023/05/30 (Tue) 14:18",
+  "answer": "Philips LED bulb",
+  "answer_session_ids": [
+   "answer_15d63a22"
+  ]
+ },
+ {
+  "question_id": "76d63226",
+  "question_type": "single-session-user",
+  "question": "What size is my new Samsung TV?",
+  "question_date": "2023/05/30 (Tue) 16:56",
+  "answer": "55-inch",
+  "answer_session_ids": [
+   "answer_bbdc7b0a"
+  ]
+ },
+ {
+  "question_id": "86f00804",
+  "question_type": "single-session-user",
+  "question": "What book am I currently reading?",
+  "question_date": "2023/05/30 (Tue) 18:40",
+  "answer": "The Seven Husbands of Evelyn Hugo",
+  "answer_session_ids": [
+   "answer_96b8c9ee"
+  ]
+ },
+ {
+  "question_id": "8e9d538c",
+  "question_type": "single-session-user",
+  "question": "How many skeins of worsted weight yarn did I find in my stash?",
+  "question_date": "2023/05/30 (Tue) 18:03",
+  "answer": "17",
+  "answer_session_ids": [
+   "answer_7bdcbd23"
+  ]
+ },
+ {
+  "question_id": "311778f1",
+  "question_type": "single-session-user",
+  "question": "How many hours did I spend watching documentaries on Netflix last month?",
+  "question_date": "2023/05/30 (Tue) 15:40",
+  "answer": "10",
+  "answer_session_ids": [
+   "answer_e40b054e"
+  ]
+ },
+ {
+  "question_id": "c19f7a0b",
+  "question_type": "single-session-user",
+  "question": "What time do I usually get home from work on weeknights?",
+  "question_date": "2023/05/30 (Tue) 22:19",
+  "answer": "6:30 pm",
+  "answer_session_ids": [
+   "answer_f442ccbe"
+  ]
+ },
+ {
+  "question_id": "4100d0a0",
+  "question_type": "single-session-user",
+  "question": "What is my ethnicity?",
+  "question_date": "2023/05/30 (Tue) 18:19",
+  "answer": "A mix of Irish and Italian",
+  "answer_session_ids": [
+   "answer_83c13ff9"
+  ]
+ },
+ {
+  "question_id": "29f2956b",
+  "question_type": "single-session-user",
+  "question": "How much time do I dedicate to practicing guitar every day?",
+  "question_date": "2023/05/30 (Tue) 20:45",
+  "answer": "30 minutes",
+  "answer_session_ids": [
+   "answer_7cc5362f"
+  ]
+ },
+ {
+  "question_id": "1faac195",
+  "question_type": "single-session-user",
+  "question": "Where does my sister Emily live?",
+  "question_date": "2023/05/30 (Tue) 19:50",
+  "answer": "Denver",
+  "answer_session_ids": [
+   "answer_d01949bf"
+  ]
+ },
+ {
+  "question_id": "faba32e5",
+  "question_type": "single-session-user",
+  "question": "How long did Alex marinate the BBQ ribs in special sauce?",
+  "question_date": "2023/05/30 (Tue) 22:10",
+  "answer": "24 hours",
+  "answer_session_ids": [
+   "answer_39b12014"
+  ]
+ },
+ {
+  "question_id": "f4f1d8a4",
+  "question_type": "single-session-user",
+  "question": "Who gave me a new stand mixer as a birthday gift?",
+  "question_date": "2023/05/30 (Tue) 20:29",
+  "answer": "my sister",
+  "answer_session_ids": [
+   "answer_f5b33470"
+  ]
+ },
+ {
+  "question_id": "c14c00dd",
+  "question_type": "single-session-user",
+  "question": "What brand of shampoo do I currently use?",
+  "question_date": "2023/05/30 (Tue) 19:01",
+  "answer": "Trader Joe's",
+  "answer_session_ids": [
+   "answer_304511ce"
+  ]
+ },
+ {
+  "question_id": "36580ce8",
+  "question_type": "single-session-user",
+  "question": "What health issue did I initially think was just a cold?",
+  "question_date": "2023/05/30 (Tue) 22:09",
+  "answer": "bronchitis",
+  "answer_session_ids": [
+   "answer_93e1bd22"
+  ]
+ },
+ {
+  "question_id": "3d86fd0a",
+  "question_type": "single-session-user",
+  "question": "Where did I meet Sophia?",
+  "question_date": "2023/05/30 (Tue) 11:59",
+  "answer": "a coffee shop in the city",
+  "answer_session_ids": [
+   "answer_19c24c11"
+  ]
+ },
+ {
+  "question_id": "a82c026e",
+  "question_type": "single-session-user",
+  "question": "What game did I finally beat last weekend?",
+  "question_date": "2023/05/30 (Tue) 21:26",
+  "answer": "Dark Souls 3 DLC",
+  "answer_session_ids": [
+   "answer_787e6a6d"
+  ]
+ },
+ {
+  "question_id": "0a995998",
+  "question_type": "multi-session",
+  "question": "How many items of clothing do I need to pick up or return from a store?",
+  "question_date": "2023/02/15 (Wed) 23:50",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_afa9873b_2",
+   "answer_afa9873b_3",
+   "answer_afa9873b_1"
+  ]
+ },
+ {
+  "question_id": "6d550036",
+  "question_type": "multi-session",
+  "question": "How many projects have I led or am currently leading?",
+  "question_date": "2023/05/30 (Tue) 23:32",
+  "answer": 2,
+  "answer_session_ids": [
+   "answer_ec904b3c_1",
+   "answer_ec904b3c_4",
+   "answer_ec904b3c_3",
+   "answer_ec904b3c_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_59c863d7",
+  "question_type": "multi-session",
+  "question": "How many model kits have I worked on or bought?",
+  "question_date": "2023/05/30 (Tue) 20:57",
+  "answer": "I have worked on or bought five model kits. The scales of the models are: Revell F-15 Eagle (scale not mentioned), Tamiya 1/48 scale Spitfire Mk.V, 1/16 scale German Tiger I tank, 1/72 scale B-29 bomber, and 1/24 scale '69 Camaro.",
+  "answer_session_ids": [
+   "answer_593bdffd_4",
+   "answer_593bdffd_1",
+   "answer_593bdffd_3",
+   "answer_593bdffd_2"
+  ]
+ },
+ {
+  "question_id": "b5ef892d",
+  "question_type": "multi-session",
+  "question": "How many days did I spend on camping trips in the United States this year?",
+  "question_date": "2023/04/29 (Sat) 23:45",
+  "answer": "8 days.",
+  "answer_session_ids": [
+   "answer_a8b4290f_3",
+   "answer_a8b4290f_1",
+   "answer_a8b4290f_2"
+  ]
+ },
+ {
+  "question_id": "e831120c",
+  "question_type": "multi-session",
+  "question": "How many weeks did it take me to watch all the Marvel Cinematic Universe movies and the main Star Wars films?",
+  "question_date": "2023/05/30 (Tue) 18:41",
+  "answer": "3.5 weeks",
+  "answer_session_ids": [
+   "answer_86c505e7_1",
+   "answer_86c505e7_2"
+  ]
+ },
+ {
+  "question_id": "3a704032",
+  "question_type": "multi-session",
+  "question": "How many plants did I acquire in the last month?",
+  "question_date": "2023/05/30 (Tue) 21:51",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_c2204106_2",
+   "answer_c2204106_3",
+   "answer_c2204106_1"
+  ]
+ },
+ {
+  "question_id": "gpt4_d84a3211",
+  "question_type": "multi-session",
+  "question": "How much total money have I spent on bike-related expenses since the start of the year?",
+  "question_date": "2023/05/05 (Fri) 23:56",
+  "answer": "$185",
+  "answer_session_ids": [
+   "answer_2880eb6c_2",
+   "answer_2880eb6c_4",
+   "answer_2880eb6c_1",
+   "answer_2880eb6c_3"
+  ]
+ },
+ {
+  "question_id": "aae3761f",
+  "question_type": "multi-session",
+  "question": "How many hours in total did I spend driving to my three road trip destinations combined?",
+  "question_date": "2023/05/30 (Tue) 19:37",
+  "answer": "15 hours for getting to the three destinations (or 30 hours for the round trip)",
+  "answer_session_ids": [
+   "answer_526354c8_1",
+   "answer_526354c8_3",
+   "answer_526354c8_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_f2262a51",
+  "question_type": "multi-session",
+  "question": "How many different doctors did I visit?",
+  "question_date": "2023/05/30 (Tue) 21:43",
+  "answer": "I visited three different doctors: a primary care physician, an ENT specialist, and a dermatologist.",
+  "answer_session_ids": [
+   "answer_55a6940c_3",
+   "answer_55a6940c_1",
+   "answer_55a6940c_2"
+  ]
+ },
+ {
+  "question_id": "dd2973ad",
+  "question_type": "multi-session",
+  "question": "What time did I go to bed on the day before I had a doctor's appointment?",
+  "question_date": "2023/05/30 (Tue) 21:28",
+  "answer": "2 AM",
+  "answer_session_ids": [
+   "answer_f9de4602_2",
+   "answer_f9de4602_1"
+  ]
+ },
+ {
+  "question_id": "c4a1ceb8",
+  "question_type": "multi-session",
+  "question": "How many different types of citrus fruits have I used in my cocktail recipes?",
+  "question_date": "2023/05/30 (Tue) 23:22",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_56d02cab_3",
+   "answer_56d02cab_4",
+   "answer_56d02cab_2",
+   "answer_56d02cab_1"
+  ]
+ },
+ {
+  "question_id": "gpt4_a56e767c",
+  "question_type": "multi-session",
+  "question": "How many movie festivals that I attended?",
+  "question_date": "2023/05/30 (Tue) 20:53",
+  "answer": "I attended four movie festivals.",
+  "answer_session_ids": [
+   "answer_cf9e3940_2",
+   "answer_cf9e3940_1",
+   "answer_cf9e3940_3"
+  ]
+ },
+ {
+  "question_id": "6cb6f249",
+  "question_type": "multi-session",
+  "question": "How many days did I take social media breaks in total?",
+  "question_date": "2023/03/14 (Tue) 23:56",
+  "answer": "17 days",
+  "answer_session_ids": [
+   "answer_a4204937_2",
+   "answer_a4204937_1"
+  ]
+ },
+ {
+  "question_id": "46a3abf7",
+  "question_type": "multi-session",
+  "question": "How many tanks do I currently have, including the one I set up for my friend's kid?",
+  "question_date": "2023/05/30 (Tue) 21:36",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_c65042d7_3",
+   "answer_c65042d7_2",
+   "answer_c65042d7_1"
+  ]
+ },
+ {
+  "question_id": "36b9f61e",
+  "question_type": "multi-session",
+  "question": "What is the total amount I spent on luxury items in the past few months?",
+  "question_date": "2023/05/30 (Tue) 22:52",
+  "answer": "$2,500",
+  "answer_session_ids": [
+   "answer_ef74281f_2",
+   "answer_ef74281f_1",
+   "answer_ef74281f_3"
+  ]
+ },
+ {
+  "question_id": "28dc39ac",
+  "question_type": "multi-session",
+  "question": "How many hours have I spent playing games in total?",
+  "question_date": "2023/05/30 (Tue) 23:42",
+  "answer": "140 hours",
+  "answer_session_ids": [
+   "answer_8d015d9d_3",
+   "answer_8d015d9d_5",
+   "answer_8d015d9d_2",
+   "answer_8d015d9d_4",
+   "answer_8d015d9d_1"
+  ]
+ },
+ {
+  "question_id": "gpt4_2f8be40d",
+  "question_type": "multi-session",
+  "question": "How many weddings have I attended in this year?",
+  "question_date": "2023/10/15 (Sun) 23:47",
+  "answer": "I attended three weddings. The couples were Rachel and Mike, Emily and Sarah, and Jen and Tom.",
+  "answer_session_ids": [
+   "answer_e7b0637e_2",
+   "answer_e7b0637e_1",
+   "answer_e7b0637e_3"
+  ]
+ },
+ {
+  "question_id": "2e6d26dc",
+  "question_type": "multi-session",
+  "question": "How many babies were born to friends and family members in the last few months?",
+  "question_date": "2023/05/13 (Sat) 23:55",
+  "answer": 5,
+  "answer_session_ids": [
+   "answer_fa526fc0_4",
+   "answer_fa526fc0_3",
+   "answer_fa526fc0_1",
+   "answer_fa526fc0_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_15e38248",
+  "question_type": "multi-session",
+  "question": "How many pieces of furniture did I buy, assemble, sell, or fix in the past few months?",
+  "question_date": "2023/05/30 (Tue) 15:31",
+  "answer": "4",
+  "answer_session_ids": [
+   "answer_8858d9dc_3",
+   "answer_8858d9dc_1",
+   "answer_8858d9dc_4",
+   "answer_8858d9dc_2"
+  ]
+ },
+ {
+  "question_id": "88432d0a",
+  "question_type": "multi-session",
+  "question": "How many times did I bake something in the past two weeks?",
+  "question_date": "2023/05/30 (Tue) 23:45",
+  "answer": 4,
+  "answer_session_ids": [
+   "answer_733e443a_3",
+   "answer_733e443a_4",
+   "answer_733e443a_2",
+   "answer_733e443a_1"
+  ]
+ },
+ {
+  "question_id": "80ec1f4f",
+  "question_type": "multi-session",
+  "question": "How many different museums or galleries did I visit in the month of February?",
+  "question_date": "2023/03/03 (Fri) 23:25",
+  "answer": 2,
+  "answer_session_ids": [
+   "answer_990c8992_2",
+   "answer_990c8992_1",
+   "answer_990c8992_3"
+  ]
+ },
+ {
+  "question_id": "d23cf73b",
+  "question_type": "multi-session",
+  "question": "How many different cuisines have I learned to cook or tried out in the past few months?",
+  "question_date": "2023/05/30 (Tue) 16:04",
+  "answer": 4,
+  "answer_session_ids": [
+   "answer_5a0d28f8_4",
+   "answer_5a0d28f8_2",
+   "answer_5a0d28f8_3",
+   "answer_5a0d28f8_1"
+  ]
+ },
+ {
+  "question_id": "gpt4_7fce9456",
+  "question_type": "multi-session",
+  "question": "How many properties did I view before making an offer on the townhouse in the Brookside neighborhood?",
+  "question_date": "2023/03/08 (Wed) 23:58",
+  "answer": "I viewed four properties before making an offer on the townhouse in the Brookside neighborhood. The reasons I didn't make an offer on them were: the kitchen of the bungalow needed serious renovation, the property in Cedar Creek was out of my budget, the noise from the highway was a deal-breaker for the 1-bedroom condo, and my offer on the 2-bedroom condo was rejected due to a higher bid.",
+  "answer_session_ids": [
+   "answer_a679a86a_5",
+   "answer_a679a86a_4",
+   "answer_a679a86a_2",
+   "answer_a679a86a_3",
+   "answer_a679a86a_1"
+  ]
+ },
+ {
+  "question_id": "d682f1a2",
+  "question_type": "multi-session",
+  "question": "How many different types of food delivery services have I used recently?",
+  "question_date": "2023/05/30 (Tue) 23:30",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_c008e5df_1",
+   "answer_c008e5df_2",
+   "answer_c008e5df_3"
+  ]
+ },
+ {
+  "question_id": "7024f17c",
+  "question_type": "multi-session",
+  "question": "How many hours of jogging and yoga did I do last week?",
+  "question_date": "2023/05/30 (Tue) 21:24",
+  "answer": "0.5 hours",
+  "answer_session_ids": [
+   "answer_a21f3697_1",
+   "answer_a21f3697_2",
+   "answer_a21f3697_3"
+  ]
+ },
+ {
+  "question_id": "gpt4_5501fe77",
+  "question_type": "multi-session",
+  "question": "Which social media platform did I gain the most followers on over the past month?",
+  "question_date": "2023/05/30 (Tue) 22:43",
+  "answer": "TikTok",
+  "answer_session_ids": [
+   "answer_203bf3fa_1",
+   "answer_203bf3fa_3",
+   "answer_203bf3fa_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_2ba83207",
+  "question_type": "multi-session",
+  "question": "Which grocery store did I spend the most money at in the past month?",
+  "question_date": "2023/05/30 (Tue) 22:59",
+  "answer": "Thrive Market",
+  "answer_session_ids": [
+   "answer_6a3b5c13_3",
+   "answer_6a3b5c13_1",
+   "answer_6a3b5c13_2",
+   "answer_6a3b5c13_4"
+  ]
+ },
+ {
+  "question_id": "2318644b",
+  "question_type": "multi-session",
+  "question": "How much more did I spend on accommodations per night in Hawaii compared to Tokyo?",
+  "question_date": "2023/05/30 (Tue) 22:16",
+  "answer": "$270",
+  "answer_session_ids": [
+   "answer_eaa8e3ef_1",
+   "answer_eaa8e3ef_2"
+  ]
+ },
+ {
+  "question_id": "2ce6a0f2",
+  "question_type": "multi-session",
+  "question": "How many different art-related events did I attend in the past month?",
+  "question_date": "2023/03/08 (Wed) 23:27",
+  "answer": 4,
+  "answer_session_ids": [
+   "answer_901a6763_2",
+   "answer_901a6763_4",
+   "answer_901a6763_1",
+   "answer_901a6763_3"
+  ]
+ },
+ {
+  "question_id": "gpt4_d12ceb0e",
+  "question_type": "multi-session",
+  "question": "What is the average age of me, my parents, and my grandparents?",
+  "question_date": "2023/05/30 (Tue) 22:44",
+  "answer": "59.6",
+  "answer_session_ids": [
+   "answer_2504635e_3",
+   "answer_2504635e_2",
+   "answer_2504635e_1"
+  ]
+ },
+ {
+  "question_id": "00ca467f",
+  "question_type": "multi-session",
+  "question": "How many doctor's appointments did I go to in March?",
+  "question_date": "2023/03/27 (Mon) 23:35",
+  "answer": 2,
+  "answer_session_ids": [
+   "answer_39900a0a_3",
+   "answer_39900a0a_2",
+   "answer_39900a0a_1"
+  ]
+ },
+ {
+  "question_id": "b3c15d39",
+  "question_type": "multi-session",
+  "question": "How many days did it take for me to receive the new remote shutter release after I ordered it?",
+  "question_date": "2023/03/01 (Wed) 23:48",
+  "answer": "5 days. 6 days (including the last day) is also acceptable.",
+  "answer_session_ids": [
+   "answer_05d808e6_1",
+   "answer_05d808e6_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_31ff4165",
+  "question_type": "multi-session",
+  "question": "How many health-related devices do I use in a day?",
+  "question_date": "2023/05/30 (Tue) 23:38",
+  "answer": "4",
+  "answer_session_ids": [
+   "answer_02b63d04_1",
+   "answer_02b63d04_5",
+   "answer_02b63d04_2",
+   "answer_02b63d04_3",
+   "answer_02b63d04_4"
+  ]
+ },
+ {
+  "question_id": "eeda8a6d",
+  "question_type": "multi-session",
+  "question": "How many fish are there in total in both of my aquariums?",
+  "question_date": "2023/05/30 (Tue) 20:36",
+  "answer": 17,
+  "answer_session_ids": [
+   "answer_3e5fea0e_1",
+   "answer_3e5fea0e_2"
+  ]
+ },
+ {
+  "question_id": "2788b940",
+  "question_type": "multi-session",
+  "question": "How many fitness classes do I attend in a typical week?",
+  "question_date": "2023/05/30 (Tue) 20:00",
+  "answer": 5,
+  "answer_session_ids": [
+   "answer_8f6b938d_1",
+   "answer_8f6b938d_3",
+   "answer_8f6b938d_4",
+   "answer_8f6b938d_2"
+  ]
+ },
+ {
+  "question_id": "60bf93ed",
+  "question_type": "multi-session",
+  "question": "How many days did it take for my laptop backpack to arrive after I bought it?",
+  "question_date": "2023/01/24 (Tue) 23:56",
+  "answer": "5 days. 6 days (including the last day) is also acceptable.",
+  "answer_session_ids": [
+   "answer_e0956e0a_1",
+   "answer_e0956e0a_2"
+  ]
+ },
+ {
+  "question_id": "9d25d4e0",
+  "question_type": "multi-session",
+  "question": "How many pieces of jewelry did I acquire in the last two months?",
+  "question_date": "2023/05/30 (Tue) 15:43",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_fcff2dc4_2",
+   "answer_fcff2dc4_1",
+   "answer_fcff2dc4_3"
+  ]
+ },
+ {
+  "question_id": "129d1232",
+  "question_type": "multi-session",
+  "question": "How much money did I raise in total through all the charity events I participated in?",
+  "question_date": "2023/05/01 (Mon) 23:45",
+  "answer": "$5,850",
+  "answer_session_ids": [
+   "answer_1de862d6_1",
+   "answer_1de862d6_3",
+   "answer_1de862d6_2"
+  ]
+ },
+ {
+  "question_id": "60472f9c",
+  "question_type": "multi-session",
+  "question": "How many projects have I been working on simultaneously, excluding my thesis?",
+  "question_date": "2023/05/30 (Tue) 23:41",
+  "answer": 2,
+  "answer_session_ids": [
+   "answer_e7fe8c8b_1",
+   "answer_e7fe8c8b_2",
+   "answer_e7fe8c8b_3"
+  ]
+ },
+ {
+  "question_id": "gpt4_194be4b3",
+  "question_type": "multi-session",
+  "question": "How many musical instruments do I currently own?",
+  "question_date": "2023/05/30 (Tue) 23:29",
+  "answer": "I currently own 4 musical instruments. I've had the Fender Stratocaster electric guitar for 5 years, the Yamaha FG800 acoustic guitar for 8 years, the 5-piece Pearl Export drum set for an unspecified amount of time, and the Korg B1 piano for 3 years.",
+  "answer_session_ids": [
+   "answer_3826dc55_1",
+   "answer_3826dc55_3",
+   "answer_3826dc55_5",
+   "answer_3826dc55_2",
+   "answer_3826dc55_4"
+  ]
+ },
+ {
+  "question_id": "a9f6b44c",
+  "question_type": "multi-session",
+  "question": "How many bikes did I service or plan to service in March?",
+  "question_date": "2023/03/20 (Mon) 23:57",
+  "answer": 2,
+  "answer_session_ids": [
+   "answer_cc021f81_2",
+   "answer_cc021f81_3",
+   "answer_cc021f81_1"
+  ]
+ },
+ {
+  "question_id": "d851d5ba",
+  "question_type": "multi-session",
+  "question": "How much money did I raise for charity in total?",
+  "question_date": "2023/03/20 (Mon) 23:59",
+  "answer": "$3,750",
+  "answer_session_ids": [
+   "answer_5cdf9bd2_2",
+   "answer_5cdf9bd2_1",
+   "answer_5cdf9bd2_3",
+   "answer_5cdf9bd2_4"
+  ]
+ },
+ {
+  "question_id": "5a7937c8",
+  "question_type": "multi-session",
+  "question": "How many days did I spend participating in faith-related activities in December?",
+  "question_date": "2024/01/10 (Wed) 23:41",
+  "answer": "3 days.",
+  "answer_session_ids": [
+   "answer_4cef8a3c_3",
+   "answer_4cef8a3c_1",
+   "answer_4cef8a3c_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_ab202e7f",
+  "question_type": "multi-session",
+  "question": "How many kitchen items did I replace or fix?",
+  "question_date": "2023/05/30 (Tue) 22:20",
+  "answer": "I replaced or fixed five items: the kitchen faucet, the kitchen mat, the toaster, the coffee maker, and the kitchen shelves.",
+  "answer_session_ids": [
+   "answer_728deb4d_5",
+   "answer_728deb4d_2",
+   "answer_728deb4d_3",
+   "answer_728deb4d_1",
+   "answer_728deb4d_4"
+  ]
+ },
+ {
+  "question_id": "gpt4_e05b82a6",
+  "question_type": "multi-session",
+  "question": "How many times did I ride rollercoasters across all the events I attended from July to October?",
+  "question_date": "2023/11/04 (Sat) 23:49",
+  "answer": "10 times",
+  "answer_session_ids": [
+   "answer_6350aa4f_1",
+   "answer_6350aa4f_2",
+   "answer_6350aa4f_3",
+   "answer_6350aa4f_4"
+  ]
+ },
+ {
+  "question_id": "gpt4_731e37d7",
+  "question_type": "multi-session",
+  "question": "How much total money did I spend on attending workshops in the last four months?",
+  "question_date": "2023/02/26 (Sun) 23:35",
+  "answer": "$720",
+  "answer_session_ids": [
+   "answer_826d51da_3",
+   "answer_826d51da_4",
+   "answer_826d51da_2",
+   "answer_826d51da_1"
+  ]
+ },
+ {
+  "question_id": "edced276",
+  "question_type": "multi-session",
+  "question": "How many days did I spend in total traveling in Hawaii and in New York City?",
+  "question_date": "2023/05/30 (Tue) 14:53",
+  "answer": "15 days",
+  "answer_session_ids": [
+   "answer_60e8941a_2",
+   "answer_60e8941a_1"
+  ]
+ },
+ {
+  "question_id": "10d9b85a",
+  "question_type": "multi-session",
+  "question": "How many days did I spend attending workshops, lectures, and conferences in April?",
+  "question_date": "2023/05/01 (Mon) 23:15",
+  "answer": "3 days",
+  "answer_session_ids": [
+   "answer_e0585cb5_2",
+   "answer_e0585cb5_1"
+  ]
+ },
+ {
+  "question_id": "e3038f8c",
+  "question_type": "multi-session",
+  "question": "How many rare items do I have in total?",
+  "question_date": "2023/05/30 (Tue) 20:48",
+  "answer": 99,
+  "answer_session_ids": [
+   "answer_b6018747_2",
+   "answer_b6018747_4",
+   "answer_b6018747_1",
+   "answer_b6018747_3"
+  ]
+ },
+ {
+  "question_id": "2b8f3739",
+  "question_type": "multi-session",
+  "question": "What is the total amount of money I earned from selling my products at the markets?",
+  "question_date": "2023/06/01 (Thu) 23:37",
+  "answer": "$495",
+  "answer_session_ids": [
+   "answer_23759615_2",
+   "answer_23759615_3",
+   "answer_23759615_1"
+  ]
+ },
+ {
+  "question_id": "1a8a66a6",
+  "question_type": "multi-session",
+  "question": "How many magazine subscriptions do I currently have?",
+  "question_date": "2023/04/01 (Sat) 23:49",
+  "answer": 2,
+  "answer_session_ids": [
+   "answer_2bd23659_3",
+   "answer_2bd23659_2",
+   "answer_2bd23659_4",
+   "answer_2bd23659_1"
+  ]
+ },
+ {
+  "question_id": "c2ac3c61",
+  "question_type": "multi-session",
+  "question": "How many online courses have I completed in total?",
+  "question_date": "2023/05/30 (Tue) 16:30",
+  "answer": 5,
+  "answer_session_ids": [
+   "answer_923c0221_1",
+   "answer_923c0221_2"
+  ]
+ },
+ {
+  "question_id": "bf659f65",
+  "question_type": "multi-session",
+  "question": "How many music albums or EPs have I purchased or downloaded?",
+  "question_date": "2023/05/30 (Tue) 21:58",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_7726e7e9_1",
+   "answer_7726e7e9_3",
+   "answer_7726e7e9_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_372c3eed",
+  "question_type": "multi-session",
+  "question": "How many years in total did I spend in formal education from high school to the completion of my Bachelor's degree?",
+  "question_date": "2021/08/20 (Fri) 23:34",
+  "answer": "10 years",
+  "answer_session_ids": [
+   "answer_35c5419d_3",
+   "answer_35c5419d_2",
+   "answer_35c5419d_1"
+  ]
+ },
+ {
+  "question_id": "gpt4_2f91af09",
+  "question_type": "multi-session",
+  "question": "How many total pieces of writing have I completed since I started writing again three weeks ago, including short stories, poems, and pieces for the writing challenge?",
+  "question_date": "2023/05/30 (Tue) 17:14",
+  "answer": "23",
+  "answer_session_ids": [
+   "answer_669318cf_2",
+   "answer_669318cf_1",
+   "answer_669318cf_3"
+  ]
+ },
+ {
+  "question_id": "81507db6",
+  "question_type": "multi-session",
+  "question": "How many graduation ceremonies have I attended in the past three months?",
+  "question_date": "2023/07/21 (Fri) 23:33",
+  "answer": 3,
+  "answer_session_ids": [
+   "answer_da3c1266_3",
+   "answer_da3c1266_4",
+   "answer_da3c1266_1",
+   "answer_da3c1266_5",
+   "answer_da3c1266_2"
+  ]
+ },
+ {
+  "question_id": "edced276_abs",
+  "question_type": "multi-session",
+  "question": "How many days did I spend in total traveling in Hawaii and in Seattle?",
+  "question_date": "2023/05/30 (Tue) 20:59",
+  "answer": "The information provided is not enough. You mentioned traveling for 10 days in Hawaii but did not mention abything about the trip to Seattle.",
+  "answer_session_ids": [
+   "answer_60e8941a_abs_1",
+   "answer_60e8941a_abs_2"
+  ]
+ },
+ {
+  "question_id": "d3ab962e",
+  "question_type": "multi-session",
+  "question": "What is the total distance of the hikes I did on two consecutive weekends?",
+  "question_date": "2022/09/24 (Sat) 23:49",
+  "answer": "8 miles",
+  "answer_session_ids": [
+   "answer_5237bb0b_2",
+   "answer_5237bb0b_1"
+  ]
+ },
+ {
+  "question_id": "2311e44b",
+  "question_type": "multi-session",
+  "question": "How many pages do I have left to read in 'The Nightingale'?",
+  "question_date": "2023/05/30 (Tue) 22:55",
+  "answer": "190",
+  "answer_session_ids": [
+   "answer_bf633415_2",
+   "answer_bf633415_1"
+  ]
+ },
+ {
+  "question_id": "cc06de0d",
+  "question_type": "multi-session",
+  "question": "For my daily commute, how much more expensive was the taxi ride compared to the train fare?",
+  "question_date": "2023/05/30 (Tue) 23:25",
+  "answer": "$6",
+  "answer_session_ids": [
+   "answer_4fb01417_2",
+   "answer_4fb01417_1"
+  ]
+ },
+ {
+  "question_id": "a11281a2",
+  "question_type": "multi-session",
+  "question": "What was the approximate increase in Instagram followers I experienced in two weeks?",
+  "question_date": "2023/05/30 (Tue) 23:16",
+  "answer": "100",
+  "answer_session_ids": [
+   "answer_c69ee1f9_2",
+   "answer_c69ee1f9_1"
+  ]
+ },
+ {
+  "question_id": "4f54b7c9",
+  "question_type": "multi-session",
+  "question": "How many antique items did I inherit or acquire from my family members?",
+  "question_date": "2023/05/30 (Tue) 23:47",
+  "answer": "5",
+  "answer_session_ids": [
+   "answer_50940cb7_2",
+   "answer_50940cb7_1"
+  ]
+ },
+ {
+  "question_id": "85fa3a3f",
+  "question_type": "multi-session",
+  "question": "What is the total cost of the new food bowl, measuring cup, dental chews, and flea and tick collar I got for Max?",
+  "question_date": "2023/05/30 (Tue) 19:55",
+  "answer": "$50",
+  "answer_session_ids": [
+   "answer_dcb18b9b_2",
+   "answer_dcb18b9b_1"
+  ]
+ },
+ {
+  "question_id": "9aaed6a3",
+  "question_type": "multi-session",
+  "question": "How much cashback did I earn at SaveMart last Thursday?",
+  "question_date": "2023/05/30 (Tue) 23:17",
+  "answer": "$0.75",
+  "answer_session_ids": [
+   "answer_353d3c6d_2",
+   "answer_353d3c6d_1"
+  ]
+ },
+ {
+  "question_id": "1f2b8d4f",
+  "question_type": "multi-session",
+  "question": "What is the difference in price between my luxury boots and the similar pair found at the budget store?",
+  "question_date": "2023/05/30 (Tue) 21:36",
+  "answer": "$750",
+  "answer_session_ids": [
+   "answer_d8454588_1",
+   "answer_d8454588_2"
+  ]
+ },
+ {
+  "question_id": "e6041065",
+  "question_type": "multi-session",
+  "question": "What percentage of packed shoes did I wear on my last trip?",
+  "question_date": "2023/05/30 (Tue) 23:35",
+  "answer": "40%",
+  "answer_session_ids": [
+   "answer_4eb6d671_2",
+   "answer_4eb6d671_1"
+  ]
+ },
+ {
+  "question_id": "51c32626",
+  "question_type": "multi-session",
+  "question": "When did I submit my research paper on sentiment analysis?",
+  "question_date": "2023/05/30 (Tue) 16:23",
+  "answer": "February 1st",
+  "answer_session_ids": [
+   "answer_58820c75_1",
+   "answer_58820c75_2"
+  ]
+ },
+ {
+  "question_id": "d905b33f",
+  "question_type": "multi-session",
+  "question": "What percentage discount did I get on the book from my favorite author?",
+  "question_date": "2023/05/30 (Tue) 21:08",
+  "answer": "20%",
+  "answer_session_ids": [
+   "answer_85a77c48_2",
+   "answer_85a77c48_1"
+  ]
+ },
+ {
+  "question_id": "7405e8b1",
+  "question_type": "multi-session",
+  "question": "Did I receive a higher percentage discount on my first order from HelloFresh, compared to my first UberEats order?",
+  "question_date": "2023/05/30 (Tue) 21:33",
+  "answer": "Yes.",
+  "answer_session_ids": [
+   "answer_80323f3f_1",
+   "answer_80323f3f_2"
+  ]
+ },
+ {
+  "question_id": "f35224e0",
+  "question_type": "multi-session",
+  "question": "What is the total number of episodes I've listened to from 'How I Built This' and 'My Favorite Murder'?",
+  "question_date": "2023/05/30 (Tue) 23:58",
+  "answer": "27",
+  "answer_session_ids": [
+   "answer_e9bb9500_2",
+   "answer_e9bb9500_1"
+  ]
+ },
+ {
+  "question_id": "6456829e",
+  "question_type": "multi-session",
+  "question": "How many plants did I initially plant for tomatoes and cucumbers?",
+  "question_date": "2023/05/30 (Tue) 23:46",
+  "answer": "8",
+  "answer_session_ids": [
+   "answer_743f03a1_2",
+   "answer_743f03a1_1"
+  ]
+ },
+ {
+  "question_id": "a4996e51",
+  "question_type": "multi-session",
+  "question": "How many hours do I work in a typical week during peak campaign seasons?",
+  "question_date": "2023/05/30 (Tue) 15:17",
+  "answer": "50",
+  "answer_session_ids": [
+   "answer_feb5f98a_1",
+   "answer_feb5f98a_2"
+  ]
+ },
+ {
+  "question_id": "3c1045c8",
+  "question_type": "multi-session",
+  "question": "How much older am I than the average age of employees in my department?",
+  "question_date": "2023/05/30 (Tue) 23:08",
+  "answer": "2.5 years",
+  "answer_session_ids": [
+   "answer_c8cc60d6_2",
+   "answer_c8cc60d6_1"
+  ]
+ },
+ {
+  "question_id": "60036106",
+  "question_type": "multi-session",
+  "question": "What was the total number of people reached by my Facebook ad campaign and Instagram influencer collaboration?",
+  "question_date": "2023/05/30 (Tue) 11:00",
+  "answer": "12,000",
+  "answer_session_ids": [
+   "answer_e552e1f9_1",
+   "answer_e552e1f9_2"
+  ]
+ },
+ {
+  "question_id": "681a1674",
+  "question_type": "multi-session",
+  "question": "How many Marvel movies did I re-watch?",
+  "question_date": "2023/05/30 (Tue) 21:31",
+  "answer": "2",
+  "answer_session_ids": [
+   "answer_3be95d43_1",
+   "answer_3be95d43_2"
+  ]
+ },
+ {
+  "question_id": "e25c3b8d",
+  "question_type": "multi-session",
+  "question": "How much did I save on the designer handbag at TK Maxx?",
+  "question_date": "2023/05/30 (Tue) 15:02",
+  "answer": "$300",
+  "answer_session_ids": [
+   "answer_6702277b_1",
+   "answer_6702277b_2"
+  ]
+ },
+ {
+  "question_id": "4adc0475",
+  "question_type": "multi-session",
+  "question": "What is the total number of goals and assists I have in the recreational indoor soccer league?",
+  "question_date": "2023/05/30 (Tue) 18:44",
+  "answer": "5",
+  "answer_session_ids": [
+   "answer_6efce493_1",
+   "answer_6efce493_2"
+  ]
+ },
+ {
+  "question_id": "4bc144e2",
+  "question_type": "multi-session",
+  "question": "How much did I spend on car wash and parking ticket?",
+  "question_date": "2023/05/30 (Tue) 22:46",
+  "answer": "$65",
+  "answer_session_ids": [
+   "answer_9ef115d4_1",
+   "answer_9ef115d4_2"
+  ]
+ },
+ {
+  "question_id": "ef66a6e5",
+  "question_type": "multi-session",
+  "question": "How many sports have I played competitively in the past?",
+  "question_date": "2023/05/30 (Tue) 20:36",
+  "answer": "two",
+  "answer_session_ids": [
+   "answer_f7fd1029_2",
+   "answer_f7fd1029_1"
+  ]
+ },
+ {
+  "question_id": "5025383b",
+  "question_type": "multi-session",
+  "question": "What are the two hobbies that led me to join online communities?",
+  "question_date": "2023/05/30 (Tue) 19:49",
+  "answer": "photography and cooking",
+  "answer_session_ids": [
+   "answer_688f9a3f_1",
+   "answer_688f9a3f_2"
+  ]
+ },
+ {
+  "question_id": "a1cc6108",
+  "question_type": "multi-session",
+  "question": "How old was I when Alex was born?",
+  "question_date": "2023/05/30 (Tue) 20:23",
+  "answer": "11",
+  "answer_session_ids": [
+   "answer_17dc2f5b_2",
+   "answer_17dc2f5b_1"
+  ]
+ },
+ {
+  "question_id": "9ee3ecd6",
+  "question_type": "multi-session",
+  "question": "How many points do I need to earn to redeem a free skincare product at Sephora?",
+  "question_date": "2023/05/30 (Tue) 21:46",
+  "answer": "100",
+  "answer_session_ids": [
+   "answer_66c23110_1",
+   "answer_66c23110_2"
+  ]
+ },
+ {
+  "question_id": "3fdac837",
+  "question_type": "multi-session",
+  "question": "What is the total number of days I spent in Japan and Chicago?",
+  "question_date": "2023/05/30 (Tue) 19:13",
+  "answer": "11 days (or 12 days, if April 15th to 22nd is considered as 8 days)",
+  "answer_session_ids": [
+   "answer_419d21d5_2",
+   "answer_419d21d5_1"
+  ]
+ },
+ {
+  "question_id": "91b15a6e",
+  "question_type": "multi-session",
+  "question": "What is the minimum amount I could get if I sold the vintage diamond necklace and the antique vanity?",
+  "question_date": "2023/05/30 (Tue) 20:17",
+  "answer": "$5,150",
+  "answer_session_ids": [
+   "answer_5404a208_1",
+   "answer_5404a208_2"
+  ]
+ },
+ {
+  "question_id": "27016adc",
+  "question_type": "multi-session",
+  "question": "What percentage of the countryside property's price is the cost of the renovations I plan to do on my current house?",
+  "question_date": "2023/05/30 (Tue) 18:29",
+  "answer": "10%",
+  "answer_session_ids": [
+   "answer_a37bdf22_2",
+   "answer_a37bdf22_1"
+  ]
+ },
+ {
+  "question_id": "720133ac",
+  "question_type": "multi-session",
+  "question": "What is the total cost of Lola's vet visit and flea medication?",
+  "question_date": "2023/05/30 (Tue) 18:40",
+  "answer": "$75",
+  "answer_session_ids": [
+   "answer_c9dfeaea_1",
+   "answer_c9dfeaea_2"
+  ]
+ },
+ {
+  "question_id": "77eafa52",
+  "question_type": "multi-session",
+  "question": "How much more did I have to pay for the trip after the initial quote?",
+  "question_date": "2023/05/30 (Tue) 20:07",
+  "answer": "$300",
+  "answer_session_ids": [
+   "answer_33c251f0_2",
+   "answer_33c251f0_1"
+  ]
+ },
+ {
+  "question_id": "8979f9ec",
+  "question_type": "multi-session",
+  "question": "What is the total number of lunch meals I got from the chicken fajitas and lentil soup?",
+  "question_date": "2023/05/30 (Tue) 21:03",
+  "answer": "8 meals",
+  "answer_session_ids": [
+   "answer_35e36341_1",
+   "answer_35e36341_2"
+  ]
+ },
+ {
+  "question_id": "0100672e",
+  "question_type": "multi-session",
+  "question": "How much did I spend on each coffee mug for my coworkers?",
+  "question_date": "2023/05/30 (Tue) 03:16",
+  "answer": "$12",
+  "answer_session_ids": [
+   "answer_35c9798c_2",
+   "answer_35c9798c_1"
+  ]
+ },
+ {
+  "question_id": "a96c20ee",
+  "question_type": "multi-session",
+  "question": "At which university did I present a poster on my thesis research?",
+  "question_date": "2023/05/30 (Tue) 21:47",
+  "answer": "Harvard University",
+  "answer_session_ids": [
+   "answer_ef84b994_1",
+   "answer_ef84b994_2"
+  ]
+ },
+ {
+  "question_id": "92a0aa75",
+  "question_type": "multi-session",
+  "question": "How long have I been working in my current role?",
+  "question_date": "2023/05/30 (Tue) 21:25",
+  "answer": "1 year and 5 months",
+  "answer_session_ids": [
+   "answer_6cb8f792_1",
+   "answer_6cb8f792_2"
+  ]
+ },
+ {
+  "question_id": "3fe836c9",
+  "question_type": "multi-session",
+  "question": "How much more was the pre-approval amount than the final sale price of the house?",
+  "question_date": "2023/05/30 (Tue) 18:41",
+  "answer": "$25,000",
+  "answer_session_ids": [
+   "answer_1bb63ea5_2",
+   "answer_1bb63ea5_1"
+  ]
+ },
+ {
+  "question_id": "1c549ce4",
+  "question_type": "multi-session",
+  "question": "What is the total cost of the car cover and detailing spray I purchased?",
+  "question_date": "2023/05/30 (Tue) 23:21",
+  "answer": "$140",
+  "answer_session_ids": [
+   "answer_4cb841a8_1",
+   "answer_4cb841a8_2"
+  ]
+ },
+ {
+  "question_id": "6c49646a",
+  "question_type": "multi-session",
+  "question": "What is the total distance I covered in my four road trips?",
+  "question_date": "2023/05/30 (Tue) 22:17",
+  "answer": "3,000 miles",
+  "answer_session_ids": [
+   "answer_cc1ced21_2",
+   "answer_cc1ced21_1"
+  ]
+ },
+ {
+  "question_id": "1192316e",
+  "question_type": "multi-session",
+  "question": "What is the total time it takes I to get ready and commute to work?",
+  "question_date": "2023/05/30 (Tue) 19:00",
+  "answer": "an hour and a half",
+  "answer_session_ids": [
+   "answer_e184e4c3_2",
+   "answer_e184e4c3_1"
+  ]
+ },
+ {
+  "question_id": "0ea62687",
+  "question_type": "multi-session",
+  "question": "How much more miles per gallon was my car getting a few months ago compared to now?",
+  "question_date": "2023/05/30 (Tue) 23:51",
+  "answer": "2",
+  "answer_session_ids": [
+   "answer_dc5e537d_1",
+   "answer_dc5e537d_2"
+  ]
+ },
+ {
+  "question_id": "67e0d0f2",
+  "question_type": "multi-session",
+  "question": "What is the total number of online courses I've completed?",
+  "question_date": "2023/05/30 (Tue) 23:23",
+  "answer": "20",
+  "answer_session_ids": [
+   "answer_3a5010af_2",
+   "answer_3a5010af_1"
+  ]
+ },
+ {
+  "question_id": "bb7c3b45",
+  "question_type": "multi-session",
+  "question": "How much did I save on the Jimmy Choo heels?",
+  "question_date": "2023/05/30 (Tue) 23:31",
+  "answer": "$300",
+  "answer_session_ids": [
+   "answer_de64539a_1",
+   "answer_de64539a_2"
+  ]
+ },
+ {
+  "question_id": "ba358f49",
+  "question_type": "multi-session",
+  "question": "How many years will I be when my friend Rachel gets married?",
+  "question_date": "2022/09/01 (Thu) 23:52",
+  "answer": "33",
+  "answer_session_ids": [
+   "answer_cbd08e3c_1",
+   "answer_cbd08e3c_2"
+  ]
+ },
+ {
+  "question_id": "61f8c8f8",
+  "question_type": "multi-session",
+  "question": "How much faster did I finish the 5K run compared to my previous year's time?",
+  "question_date": "2023/10/01 (Sun) 23:53",
+  "answer": "10 minutes",
+  "answer_session_ids": [
+   "answer_872e8da2_2",
+   "answer_872e8da2_1"
+  ]
+ },
+ {
+  "question_id": "60159905",
+  "question_type": "multi-session",
+  "question": "How many dinner parties have I attended in the past month?",
+  "question_date": "2023/05/30 (Tue) 14:40",
+  "answer": "three",
+  "answer_session_ids": [
+   "answer_75eca223_2",
+   "answer_75eca223_1"
+  ]
+ },
+ {
+  "question_id": "ef9cf60a",
+  "question_type": "multi-session",
+  "question": "How much did I spend on gifts for my sister?",
+  "question_date": "2023/05/30 (Tue) 22:48",
+  "answer": "$300",
+  "answer_session_ids": [
+   "answer_87e3a1cb_1",
+   "answer_87e3a1cb_2"
+  ]
+ },
+ {
+  "question_id": "73d42213",
+  "question_type": "multi-session",
+  "question": "What time did I reach the clinic on Monday?",
+  "question_date": "2023/05/30 (Tue) 22:10",
+  "answer": "9:00 AM",
+  "answer_session_ids": [
+   "answer_1881e7db_1",
+   "answer_1881e7db_2"
+  ]
+ },
+ {
+  "question_id": "bc149d6b",
+  "question_type": "multi-session",
+  "question": "What is the total weight of the new feed I purchased in the past two months?",
+  "question_date": "2023/05/30 (Tue) 22:02",
+  "answer": "70 pounds",
+  "answer_session_ids": [
+   "answer_92147866_1",
+   "answer_92147866_2"
+  ]
+ },
+ {
+  "question_id": "099778bb",
+  "question_type": "multi-session",
+  "question": "What percentage of leadership positions do women hold in the my company?",
+  "question_date": "2023/05/30 (Tue) 22:26",
+  "answer": "20%",
+  "answer_session_ids": [
+   "answer_80d6d664_2",
+   "answer_80d6d664_1"
+  ]
+ },
+ {
+  "question_id": "09ba9854",
+  "question_type": "multi-session",
+  "question": "How much will I save by taking the train from the airport to my hotel instead of a taxi?",
+  "question_date": "2023/05/30 (Tue) 11:49",
+  "answer": "$50",
+  "answer_session_ids": [
+   "answer_96c743d0_2",
+   "answer_96c743d0_1"
+  ]
+ },
+ {
+  "question_id": "d6062bb9",
+  "question_type": "multi-session",
+  "question": "What is the total number of views on my most popular videos on YouTube and TikTok?",
+  "question_date": "2023/05/30 (Tue) 17:57",
+  "answer": "1,998",
+  "answer_session_ids": [
+   "answer_23f3a657_2",
+   "answer_23f3a657_1"
+  ]
+ },
+ {
+  "question_id": "157a136e",
+  "question_type": "multi-session",
+  "question": "How many years older is my grandma than me?",
+  "question_date": "2024/02/05 (Mon) 23:49",
+  "answer": "43",
+  "answer_session_ids": [
+   "answer_8de18468_2",
+   "answer_8de18468_1"
+  ]
+ },
+ {
+  "question_id": "c18a7dc8",
+  "question_type": "multi-session",
+  "question": "How many years older am I than when I graduated from college?",
+  "question_date": "2023/05/30 (Tue) 23:37",
+  "answer": "7",
+  "answer_session_ids": [
+   "answer_2e2085fa_2",
+   "answer_2e2085fa_1"
+  ]
+ },
+ {
+  "question_id": "a3332713",
+  "question_type": "multi-session",
+  "question": "What is the total amount I spent on gifts for my coworker and brother?",
+  "question_date": "2023/05/30 (Tue) 21:10",
+  "answer": "$200",
+  "answer_session_ids": [
+   "answer_16ece55f_2",
+   "answer_16ece55f_1"
+  ]
+ },
+ {
+  "question_id": "55241a1f",
+  "question_type": "multi-session",
+  "question": "What is the total number of comments on my recent Facebook Live session and my most popular YouTube video?",
+  "question_date": "2023/05/30 (Tue) 21:57",
+  "answer": "33",
+  "answer_session_ids": [
+   "answer_fa08bf49_1",
+   "answer_fa08bf49_2"
+  ]
+ },
+ {
+  "question_id": "a08a253f",
+  "question_type": "multi-session",
+  "question": "How many days a week do I attend fitness classes?",
+  "question_date": "2023/05/30 (Tue) 23:16",
+  "answer": "4 days.",
+  "answer_session_ids": [
+   "answer_47152166_2",
+   "answer_47152166_1"
+  ]
+ },
+ {
+  "question_id": "f0e564bc",
+  "question_type": "multi-session",
+  "question": "What is the total amount I spent on the designer handbag and high-end skincare products?",
+  "question_date": "2023/05/30 (Tue) 22:07",
+  "answer": "$1,300",
+  "answer_session_ids": [
+   "answer_cfcf5340_1",
+   "answer_cfcf5340_2"
+  ]
+ },
+ {
+  "question_id": "078150f1",
+  "question_type": "multi-session",
+  "question": "How much more money did I raise than my initial goal in the charity cycling event?",
+  "question_date": "2023/05/30 (Tue) 23:36",
+  "answer": "$50",
+  "answer_session_ids": [
+   "answer_254d8b09_1",
+   "answer_254d8b09_2"
+  ]
+ },
+ {
+  "question_id": "8cf4d046",
+  "question_type": "multi-session",
+  "question": "What is the average GPA of my undergraduate and graduate studies?",
+  "question_date": "2023/05/30 (Tue) 18:42",
+  "answer": "3.83",
+  "answer_session_ids": [
+   "answer_e2278b24_1",
+   "answer_e2278b24_2"
+  ]
+ },
+ {
+  "question_id": "a346bb18",
+  "question_type": "multi-session",
+  "question": "How many minutes did I exceed my target time by in the marathon?",
+  "question_date": "2023/05/30 (Tue) 22:30",
+  "answer": "12",
+  "answer_session_ids": [
+   "answer_4934b2d7_2",
+   "answer_4934b2d7_1"
+  ]
+ },
+ {
+  "question_id": "37f165cf",
+  "question_type": "multi-session",
+  "question": "What was the page count of the two novels I finished in January and March?",
+  "question_date": "2023/05/30 (Tue) 19:21",
+  "answer": "856",
+  "answer_session_ids": [
+   "answer_6b9b2b1e_2",
+   "answer_6b9b2b1e_1"
+  ]
+ },
+ {
+  "question_id": "8e91e7d9",
+  "question_type": "multi-session",
+  "question": "What is the total number of siblings I have?",
+  "question_date": "2023/05/30 (Tue) 09:50",
+  "answer": "4",
+  "answer_session_ids": [
+   "answer_477ae455_1",
+   "answer_477ae455_2"
+  ]
+ },
+ {
+  "question_id": "87f22b4a",
+  "question_type": "multi-session",
+  "question": "How much have I made from selling eggs this month?",
+  "question_date": "2023/05/30 (Tue) 09:50",
+  "answer": "$120",
+  "answer_session_ids": [
+   "answer_f56e6152_2",
+   "answer_f56e6152_1"
+  ]
+ },
+ {
+  "question_id": "e56a43b9",
+  "question_type": "multi-session",
+  "question": "How much discount will I get on my next purchase at FreshMart?",
+  "question_date": "2023/05/30 (Tue) 18:15",
+  "answer": "$5",
+  "answer_session_ids": [
+   "answer_430d0a87_1",
+   "answer_430d0a87_2"
+  ]
+ },
+ {
+  "question_id": "efc3f7c2",
+  "question_type": "multi-session",
+  "question": "How much earlier do I wake up on Fridays compared to other weekdays?",
+  "question_date": "2023/05/30 (Tue) 16:24",
+  "answer": "30 minutes",
+  "answer_session_ids": [
+   "answer_fc81d1a2_1",
+   "answer_fc81d1a2_2"
+  ]
+ },
+ {
+  "question_id": "21d02d0d",
+  "question_type": "multi-session",
+  "question": "How many fun runs did I miss in March due to work commitments?",
+  "question_date": "2023/04/26 (Wed) 23:58",
+  "answer": "2",
+  "answer_session_ids": [
+   "answer_2c637141_2",
+   "answer_2c637141_1"
+  ]
+ },
+ {
+  "question_id": "6456829e_abs",
+  "question_type": "multi-session",
+  "question": "How many plants did I initially plant for tomatoes and chili peppers?",
+  "question_date": "2023/05/30 (Tue) 14:24",
+  "answer": "The information provided is not enough. You mentioned planting 5 plants for tomatoes but you did not mention chili peppers.",
+  "answer_session_ids": [
+   "answer_743f03a1_abs_1",
+   "answer_743f03a1_abs_2"
+  ]
+ },
+ {
+  "question_id": "e5ba910e_abs",
+  "question_type": "multi-session",
+  "question": "What is the total cost of my recently purchased headphones and the iPad?",
+  "question_date": "2023/05/30 (Tue) 17:19",
+  "answer": "The information provided is not enough. You mentioned purchasing a headphone, but you did not mention the iPad.",
+  "answer_session_ids": [
+   "answer_e49ed9d3_abs_1",
+   "answer_e49ed9d3_abs_2"
+  ]
+ },
+ {
+  "question_id": "09ba9854_abs",
+  "question_type": "multi-session",
+  "question": "How much will I save by taking the bus from the airport to my hotel instead of a taxi?",
+  "question_date": "2023/05/30 (Tue) 22:56",
+  "answer": "The information provided is not enough. You did not mention how much will the bus take.",
+  "answer_session_ids": [
+   "answer_96c743d0_abs_1",
+   "answer_96c743d0_abs_2"
+  ]
+ },
+ {
+  "question_id": "6a1eabeb",
+  "question_type": "knowledge-update",
+  "question": "What was my personal best time in the charity 5K run?",
+  "question_date": "2023/06/25 (Sun) 13:22",
+  "answer": "25 minutes and 50 seconds (or 25:50)",
+  "answer_session_ids": [
+   "answer_a25d4a91_1",
+   "answer_a25d4a91_2"
+  ]
+ },
+ {
+  "question_id": "6aeb4375",
+  "question_type": "knowledge-update",
+  "question": "How many Korean restaurants have I tried in my city?",
+  "question_date": "2023/10/22 (Sun) 15:38",
+  "answer": "four",
+  "answer_session_ids": [
+   "answer_3f9693b7_1",
+   "answer_3f9693b7_2"
+  ]
+ },
+ {
+  "question_id": "830ce83f",
+  "question_type": "knowledge-update",
+  "question": "Where did Rachel move to after her recent relocation?",
+  "question_date": "2023/06/13 (Tue) 15:15",
+  "answer": "the suburbs",
+  "answer_session_ids": [
+   "answer_0b1a0942_1",
+   "answer_0b1a0942_2"
+  ]
+ },
+ {
+  "question_id": "852ce960",
+  "question_type": "knowledge-update",
+  "question": "What was the amount I was pre-approved for when I got my mortgage from Wells Fargo?",
+  "question_date": "2023/12/18 (Mon) 04:17",
+  "answer": "$400,000",
+  "answer_session_ids": [
+   "answer_3a6f1e82_1",
+   "answer_3a6f1e82_2"
+  ]
+ },
+ {
+  "question_id": "945e3d21",
+  "question_type": "knowledge-update",
+  "question": "How often do I attend yoga classes to help with my anxiety?",
+  "question_date": "2023/12/14 (Thu) 06:32",
+  "answer": "Three times a week.",
+  "answer_session_ids": [
+   "answer_6a4f8626_1",
+   "answer_6a4f8626_2"
+  ]
+ },
+ {
+  "question_id": "d7c942c3",
+  "question_type": "knowledge-update",
+  "question": "Is my mom using the same grocery list method as me?",
+  "question_date": "2023/05/14 (Sun) 09:58",
+  "answer": "Yes.",
+  "answer_session_ids": [
+   "answer_eecb10d9_1",
+   "answer_eecb10d9_2"
+  ]
+ },
+ {
+  "question_id": "71315a70",
+  "question_type": "knowledge-update",
+  "question": "How many hours have I spent on my abstract ocean sculpture?",
+  "question_date": "2023/06/18 (Sun) 19:47",
+  "answer": "10-12 hours",
+  "answer_session_ids": [
+   "answer_c44b9df4_1",
+   "answer_c44b9df4_2"
+  ]
+ },
+ {
+  "question_id": "89941a93",
+  "question_type": "knowledge-update",
+  "question": "How many bikes do I currently own?",
+  "question_date": "2023/10/27 (Fri) 13:00",
+  "answer": "4",
+  "answer_session_ids": [
+   "answer_e1403127_1",
+   "answer_e1403127_2"
+  ]
+ },
+ {
+  "question_id": "ce6d2d27",
+  "question_type": "knowledge-update",
+  "question": "What day of the week do I take a cocktail-making class?",
+  "question_date": "2023/07/15 (Sat) 22:19",
+  "answer": "Friday",
+  "answer_session_ids": [
+   "answer_73540165_1",
+   "answer_73540165_2"
+  ]
+ },
+ {
+  "question_id": "9ea5eabc",
+  "question_type": "knowledge-update",
+  "question": "Where did I go on my most recent family trip?",
+  "question_date": "2023/06/08 (Thu) 10:33",
+  "answer": "Paris",
+  "answer_session_ids": [
+   "answer_02e66dec_1",
+   "answer_02e66dec_2"
+  ]
+ },
+ {
+  "question_id": "07741c44",
+  "question_type": "knowledge-update",
+  "question": "Where do I initially keep my old sneakers?",
+  "question_date": "2023/11/30 (Thu) 23:52",
+  "answer": "under my bed",
+  "answer_session_ids": [
+   "answer_7e9ad7b4_1",
+   "answer_7e9ad7b4_2"
+  ]
+ },
+ {
+  "question_id": "a1eacc2a",
+  "question_type": "knowledge-update",
+  "question": "How many short stories have I written since I started writing regularly?",
+  "question_date": "2023/06/20 (Tue) 17:03",
+  "answer": "seven",
+  "answer_session_ids": [
+   "answer_0eb23770_1",
+   "answer_0eb23770_2"
+  ]
+ },
+ {
+  "question_id": "184da446",
+  "question_type": "knowledge-update",
+  "question": "How many pages of 'A Short History of Nearly Everything' have I read so far?",
+  "question_date": "2023/06/17 (Sat) 04:02",
+  "answer": "220",
+  "answer_session_ids": [
+   "answer_e2f4f947_1",
+   "answer_e2f4f947_2"
+  ]
+ },
+ {
+  "question_id": "031748ae",
+  "question_type": "knowledge-update",
+  "question": "How many engineers do I lead when I just started my new role as Senior Software Engineer? How many engineers do I lead now?",
+  "question_date": "2023/11/10 (Fri) 04:20",
+  "answer": "When you just started your new role as Senior Software Engineer, you led 4 engineers. Now, you lead 5 engineers",
+  "answer_session_ids": [
+   "answer_8748f791_1",
+   "answer_8748f791_2"
+  ]
+ },
+ {
+  "question_id": "4d6b87c8",
+  "question_type": "knowledge-update",
+  "question": "How many titles are currently on my to-watch list?",
+  "question_date": "2023/06/03 (Sat) 15:47",
+  "answer": "25",
+  "answer_session_ids": [
+   "answer_766ab8da_1",
+   "answer_766ab8da_2"
+  ]
+ },
+ {
+  "question_id": "0f05491a",
+  "question_type": "knowledge-update",
+  "question": "How many stars do I need to reach the gold level on my Starbucks Rewards app?",
+  "question_date": "2023/08/01 (Tue) 22:29",
+  "answer": 120,
+  "answer_session_ids": [
+   "answer_d6d2eba8_1",
+   "answer_d6d2eba8_2"
+  ]
+ },
+ {
+  "question_id": "08e075c7",
+  "question_type": "knowledge-update",
+  "question": "How long have I been using my Fitbit Charge 3?",
+  "question_date": "2023/09/04 (Mon) 17:07",
+  "answer": "9 months",
+  "answer_session_ids": [
+   "answer_cdbe2250_1",
+   "answer_cdbe2250_2"
+  ]
+ },
+ {
+  "question_id": "f9e8c073",
+  "question_type": "knowledge-update",
+  "question": "How many sessions of the bereavement support group did I attend?",
+  "question_date": "2023/11/07 (Tue) 04:54",
+  "answer": "five",
+  "answer_session_ids": [
+   "answer_b191df5b_1",
+   "answer_b191df5b_2"
+  ]
+ },
+ {
+  "question_id": "41698283",
+  "question_type": "knowledge-update",
+  "question": "What type of camera lens did I purchase most recently?",
+  "question_date": "2023/09/21 (Thu) 08:41",
+  "answer": "a 70-200mm zoom lens",
+  "answer_session_ids": [
+   "answer_c7ddc051_1",
+   "answer_c7ddc051_2"
+  ]
+ },
+ {
+  "question_id": "2698e78f",
+  "question_type": "knowledge-update",
+  "question": "How often do I see my therapist, Dr. Smith?",
+  "question_date": "2023/11/10 (Fri) 00:38",
+  "answer": "every week",
+  "answer_session_ids": [
+   "answer_9282283d_1",
+   "answer_9282283d_2"
+  ]
+ },
+ {
+  "question_id": "b6019101",
+  "question_type": "knowledge-update",
+  "question": "How many MCU films did I watch in the last 3 months?",
+  "question_date": "2023/06/17 (Sat) 16:20",
+  "answer": "5",
+  "answer_session_ids": [
+   "answer_67074b4b_1",
+   "answer_67074b4b_2"
+  ]
+ },
+ {
+  "question_id": "45dc21b6",
+  "question_type": "knowledge-update",
+  "question": "How many of Emma's recipes have I tried out?",
+  "question_date": "2023/06/16 (Fri) 17:33",
+  "answer": "3",
+  "answer_session_ids": [
+   "answer_07664d43_1",
+   "answer_07664d43_2"
+  ]
+ },
+ {
+  "question_id": "5a4f22c0",
+  "question_type": "knowledge-update",
+  "question": "What company is Rachel, an old colleague from my previous company, currently working at?",
+  "question_date": "2023/06/21 (Wed) 13:02",
+  "answer": "TechCorp",
+  "answer_session_ids": [
+   "answer_b0f3dfff_1",
+   "answer_b0f3dfff_2"
+  ]
+ },
+ {
+  "question_id": "6071bd76",
+  "question_type": "knowledge-update",
+  "question": "For the coffee-to-water ratio in my French press, did I switch to more water per tablespoon of coffee, or less?",
+  "question_date": "2023/07/30 (Sun) 05:53",
+  "answer": "You switched to less water (5 ounces) per tablespoon of coffee.",
+  "answer_session_ids": [
+   "answer_4dac77cb_1",
+   "answer_4dac77cb_2"
+  ]
+ },
+ {
+  "question_id": "e493bb7c",
+  "question_type": "knowledge-update",
+  "question": "Where is the painting 'Ethereal Dreams' by Emma Taylor currently hanging?",
+  "question_date": "2023/11/18 (Sat) 19:24",
+  "answer": "in my bedroom",
+  "answer_session_ids": [
+   "answer_1a374afa_1",
+   "answer_1a374afa_2"
+  ]
+ },
+ {
+  "question_id": "618f13b2",
+  "question_type": "knowledge-update",
+  "question": "How many times have I worn my new black Converse Chuck Taylor All Star sneakers?",
+  "question_date": "2023/06/18 (Sun) 22:29",
+  "answer": "six",
+  "answer_session_ids": [
+   "answer_caf5b52e_1",
+   "answer_caf5b52e_2"
+  ]
+ },
+ {
+  "question_id": "72e3ee87",
+  "question_type": "knowledge-update",
+  "question": "How many episodes of the Science series have I completed on Crash Course?",
+  "question_date": "2023/06/27 (Tue) 19:26",
+  "answer": "50",
+  "answer_session_ids": [
+   "answer_d7de9a6a_1",
+   "answer_d7de9a6a_2"
+  ]
+ },
+ {
+  "question_id": "c4ea545c",
+  "question_type": "knowledge-update",
+  "question": "Do I go to the gym more frequently than I did previously?",
+  "question_date": "2023/09/01 (Fri) 19:15",
+  "answer": "Yes",
+  "answer_session_ids": [
+   "answer_d3bf812b_1",
+   "answer_d3bf812b_2"
+  ]
+ },
+ {
+  "question_id": "01493427",
+  "question_type": "knowledge-update",
+  "question": "How many new postcards have I added to my collection since I started collecting again?",
+  "question_date": "2023/12/21 (Thu) 21:31",
+  "answer": "25",
+  "answer_session_ids": [
+   "answer_a7b44747_1",
+   "answer_a7b44747_2"
+  ]
+ },
+ {
+  "question_id": "6a27ffc2",
+  "question_type": "knowledge-update",
+  "question": "How many videos of Corey Schafer's Python programming series have I completed so far?",
+  "question_date": "2023/06/09 (Fri) 01:44",
+  "answer": "30",
+  "answer_session_ids": [
+   "answer_77f32504_1",
+   "answer_77f32504_2"
+  ]
+ },
+ {
+  "question_id": "2133c1b5",
+  "question_type": "knowledge-update",
+  "question": "How long have I been living in my current apartment in Harajuku?",
+  "question_date": "2023/10/15 (Sun) 08:39",
+  "answer": "3 months",
+  "answer_session_ids": [
+   "answer_52382508_1",
+   "answer_52382508_2"
+  ]
+ },
+ {
+  "question_id": "18bc8abd",
+  "question_type": "knowledge-update",
+  "question": "What brand of BBQ sauce am I currently obsessed with?",
+  "question_date": "2023/07/15 (Sat) 07:37",
+  "answer": "Kansas City Masterpiece",
+  "answer_session_ids": [
+   "answer_fff743f5_1",
+   "answer_fff743f5_2"
+  ]
+ },
+ {
+  "question_id": "db467c8c",
+  "question_type": "knowledge-update",
+  "question": "How long have my parents been staying with me in the US?",
+  "question_date": "2023/10/22 (Sun) 09:15",
+  "answer": "nine months",
+  "answer_session_ids": [
+   "answer_611b6e83_1",
+   "answer_611b6e83_2"
+  ]
+ },
+ {
+  "question_id": "7a87bd0c",
+  "question_type": "knowledge-update",
+  "question": "How long have I been sticking to my daily tidying routine?",
+  "question_date": "2023/09/30 (Sat) 23:15",
+  "answer": "4 weeks",
+  "answer_session_ids": [
+   "answer_d08a934d_1",
+   "answer_d08a934d_2"
+  ]
+ },
+ {
+  "question_id": "e61a7584",
+  "question_type": "knowledge-update",
+  "question": "How long have I had my cat, Luna?",
+  "question_date": "2023/11/30 (Thu) 12:46",
+  "answer": "9 months",
+  "answer_session_ids": [
+   "answer_f25c32f5_1",
+   "answer_f25c32f5_2"
+  ]
+ },
+ {
+  "question_id": "1cea1afa",
+  "question_type": "knowledge-update",
+  "question": "How many Instagram followers do I currently have?",
+  "question_date": "2023/06/14 (Wed) 13:43",
+  "answer": "600",
+  "answer_session_ids": [
+   "answer_79c395a9_1",
+   "answer_79c395a9_2"
+  ]
+ },
+ {
+  "question_id": "ed4ddc30",
+  "question_type": "knowledge-update",
+  "question": "How many dozen eggs do we currently have stocked up in our refrigerator?",
+  "question_date": "2023/03/16 (Thu) 14:24",
+  "answer": "20",
+  "answer_session_ids": [
+   "answer_babbaccb_1",
+   "answer_babbaccb_2"
+  ]
+ },
+ {
+  "question_id": "8fb83627",
+  "question_type": "knowledge-update",
+  "question": "How many issues of National Geographic have I finished reading?",
+  "question_date": "2023/08/14 (Mon) 23:19",
+  "answer": "Five",
+  "answer_session_ids": [
+   "answer_966cecbb_1",
+   "answer_966cecbb_2"
+  ]
+ },
+ {
+  "question_id": "b01defab",
+  "question_type": "knowledge-update",
+  "question": "Did I finish reading 'The Nightingale' by Kristin Hannah?",
+  "question_date": "2023/04/12 (Wed) 06:37",
+  "answer": "Yes",
+  "answer_session_ids": [
+   "answer_8c0712af_1",
+   "answer_8c0712af_2"
+  ]
+ },
+ {
+  "question_id": "22d2cb42",
+  "question_type": "knowledge-update",
+  "question": "Where did I get my guitar serviced?",
+  "question_date": "2023/06/24 (Sat) 09:01",
+  "answer": "The music shop on Main St.",
+  "answer_session_ids": [
+   "answer_bcce0b73_1",
+   "answer_bcce0b73_2"
+  ]
+ },
+ {
+  "question_id": "0e4e4c46",
+  "question_type": "knowledge-update",
+  "question": "What is my current highest score in Ticket to Ride?",
+  "question_date": "2023/06/10 (Sat) 16:46",
+  "answer": "132 points",
+  "answer_session_ids": [
+   "answer_f2f998c7_1",
+   "answer_f2f998c7_2"
+  ]
+ },
+ {
+  "question_id": "4b24c848",
+  "question_type": "knowledge-update",
+  "question": "How many tops have I bought from H&M so far?",
+  "question_date": "2023/10/20 (Fri) 08:09",
+  "answer": "five",
+  "answer_session_ids": [
+   "answer_2cec623b_1",
+   "answer_2cec623b_2"
+  ]
+ },
+ {
+  "question_id": "7e974930",
+  "question_type": "knowledge-update",
+  "question": "How much did I earn at the Downtown Farmers Market on my most recent visit?",
+  "question_date": "2023/10/26 (Thu) 11:44",
+  "answer": "$420",
+  "answer_session_ids": [
+   "answer_c9f5693c_1",
+   "answer_c9f5693c_2"
+  ]
+ },
+ {
+  "question_id": "603deb26",
+  "question_type": "knowledge-update",
+  "question": "How many times have I tried making a Negroni at home since my friend Emma showed me how to make it?",
+  "question_date": "2023/12/05 (Tue) 02:37",
+  "answer": "10",
+  "answer_session_ids": [
+   "answer_8afdebac_1",
+   "answer_8afdebac_2"
+  ]
+ },
+ {
+  "question_id": "59524333",
+  "question_type": "knowledge-update",
+  "question": "What time do I usually go to the gym?",
+  "question_date": "2023/06/06 (Tue) 16:35",
+  "answer": "6:00 pm",
+  "answer_session_ids": [
+   "answer_b28f2c7a_1",
+   "answer_b28f2c7a_2"
+  ]
+ },
+ {
+  "question_id": "5831f84d",
+  "question_type": "knowledge-update",
+  "question": "How many Crash Course videos have I watched in the past few weeks?",
+  "question_date": "2023/10/05 (Thu) 05:19",
+  "answer": "15",
+  "answer_session_ids": [
+   "answer_8d63a897_1",
+   "answer_8d63a897_2"
+  ]
+ },
+ {
+  "question_id": "eace081b",
+  "question_type": "knowledge-update",
+  "question": "Where am I planning to stay for my birthday trip to Hawaii?",
+  "question_date": "2023/06/06 (Tue) 04:18",
+  "answer": "Oahu",
+  "answer_session_ids": [
+   "answer_8a791264_1",
+   "answer_8a791264_2"
+  ]
+ },
+ {
+  "question_id": "affe2881",
+  "question_type": "knowledge-update",
+  "question": "How many different species of birds have I seen in my local park?",
+  "question_date": "2023/06/07 (Wed) 02:42",
+  "answer": "32",
+  "answer_session_ids": [
+   "answer_90de9b4d_1",
+   "answer_90de9b4d_2"
+  ]
+ },
+ {
+  "question_id": "50635ada",
+  "question_type": "knowledge-update",
+  "question": "What was my previous frequent flyer status on United Airlines before I got the current status?",
+  "question_date": "2023/06/29 (Thu) 04:09",
+  "answer": "Premier Silver",
+  "answer_session_ids": [
+   "answer_dcd74827_1",
+   "answer_dcd74827_2"
+  ]
+ },
+ {
+  "question_id": "e66b632c",
+  "question_type": "knowledge-update",
+  "question": "What was my previous personal best time for the charity 5K run?",
+  "question_date": "2023/08/25 (Fri) 05:19",
+  "answer": "27 minutes and 45 seconds",
+  "answer_session_ids": [
+   "answer_ac0140ce_1",
+   "answer_ac0140ce_2"
+  ]
+ },
+ {
+  "question_id": "0ddfec37",
+  "question_type": "knowledge-update",
+  "question": "How many autographed baseballs have I added to my collection in the first three months of collection?",
+  "question_date": "2024/01/08 (Mon) 09:27",
+  "answer": "15",
+  "answer_session_ids": [
+   "answer_a22b654d_1",
+   "answer_a22b654d_2"
+  ]
+ },
+ {
+  "question_id": "f685340e",
+  "question_type": "knowledge-update",
+  "question": "How often do I play tennis with my friends at the local park previously? How often do I play now?",
+  "question_date": "2023/07/31 (Mon) 11:43",
+  "answer": "Previously, you play tennis with your friends at the local park every week (on Sunday). Currently, you play tennis every other week (on Sunday).",
+  "answer_session_ids": [
+   "answer_25df025b_1",
+   "answer_25df025b_2"
+  ]
+ },
+ {
+  "question_id": "cc5ded98",
+  "question_type": "knowledge-update",
+  "question": "How much time do I dedicate to coding exercises each day?",
+  "question_date": "2023/06/13 (Tue) 01:30",
+  "answer": "about two hours",
+  "answer_session_ids": [
+   "answer_a5b68517_1",
+   "answer_a5b68517_2"
+  ]
+ },
+ {
+  "question_id": "dfde3500",
+  "question_type": "knowledge-update",
+  "question": "What day of the week did I meet with my previous language exchange tutor Juan?",
+  "question_date": "2023/06/20 (Tue) 14:46",
+  "answer": "Wednesday",
+  "answer_session_ids": [
+   "answer_35d6c0be_1",
+   "answer_35d6c0be_2"
+  ]
+ },
+ {
+  "question_id": "69fee5aa",
+  "question_type": "knowledge-update",
+  "question": "How many pre-1920 American coins do I have in my collection?",
+  "question_date": "2023/06/09 (Fri) 11:14",
+  "answer": "38",
+  "answer_session_ids": [
+   "answer_d6028d6e_1",
+   "answer_d6028d6e_2"
+  ]
+ },
+ {
+  "question_id": "7401057b",
+  "question_type": "knowledge-update",
+  "question": "How many free night's stays can I redeem at any Hilton property with my accumulated points?",
+  "question_date": "2023/06/16 (Fri) 09:50",
+  "answer": "Two",
+  "answer_session_ids": [
+   "answer_94650bfa_1",
+   "answer_94650bfa_2"
+  ]
+ },
+ {
+  "question_id": "cf22b7bf",
+  "question_type": "knowledge-update",
+  "question": "How much weight have I lost since I started going to the gym consistently?",
+  "question_date": "2023/06/23 (Fri) 03:15",
+  "answer": "10 pounds",
+  "answer_session_ids": [
+   "answer_ae3a122b_1",
+   "answer_ae3a122b_2"
+  ]
+ },
+ {
+  "question_id": "a2f3aa27",
+  "question_type": "knowledge-update",
+  "question": "How many followers do I have on Instagram now?",
+  "question_date": "2023/06/15 (Thu) 23:26",
+  "answer": 1300,
+  "answer_session_ids": [
+   "answer_5126c02d_1",
+   "answer_5126c02d_2"
+  ]
+ },
+ {
+  "question_id": "c7dc5443",
+  "question_type": "knowledge-update",
+  "question": "What is my current record in the recreational volleyball league?",
+  "question_date": "2023/07/21 (Fri) 20:30",
+  "answer": "5-2",
+  "answer_session_ids": [
+   "answer_0cdbca92_1",
+   "answer_0cdbca92_2"
+  ]
+ },
+ {
+  "question_id": "06db6396",
+  "question_type": "knowledge-update",
+  "question": "How many projects have I completed since starting painting classes?",
+  "question_date": "2023/11/08 (Wed) 09:08",
+  "answer": "5",
+  "answer_session_ids": [
+   "answer_da72b1b4_1",
+   "answer_da72b1b4_2"
+  ]
+ },
+ {
+  "question_id": "3ba21379",
+  "question_type": "knowledge-update",
+  "question": "What type of vehicle model am I currently working on?",
+  "question_date": "2023/06/01 (Thu) 05:09",
+  "answer": "Ford F-150 pickup truck",
+  "answer_session_ids": [
+   "answer_cd345582_1",
+   "answer_cd345582_2"
+  ]
+ },
+ {
+  "question_id": "9bbe84a2",
+  "question_type": "knowledge-update",
+  "question": "What was my previous goal for my Apex Legends level before I updated my goal?",
+  "question_date": "2023/10/08 (Sun) 15:29",
+  "answer": "level 100",
+  "answer_session_ids": [
+   "answer_c6a0c6c2_1",
+   "answer_c6a0c6c2_2"
+  ]
+ },
+ {
+  "question_id": "10e09553",
+  "question_type": "knowledge-update",
+  "question": "How many largemouth bass did I catch with Alex on the earlier fishing trip to Lake Michigan before the 7/22 trip?",
+  "question_date": "2023/12/06 (Wed) 11:18",
+  "answer": "7",
+  "answer_session_ids": [
+   "answer_67be2c38_1",
+   "answer_67be2c38_2"
+  ]
+ },
+ {
+  "question_id": "dad224aa",
+  "question_type": "knowledge-update",
+  "question": "What time do I wake up on Saturday mornings?",
+  "question_date": "2023/06/24 (Sat) 03:58",
+  "answer": "7:30 am",
+  "answer_session_ids": [
+   "answer_4a97ae40_1",
+   "answer_4a97ae40_2"
+  ]
+ },
+ {
+  "question_id": "ba61f0b9",
+  "question_type": "knowledge-update",
+  "question": "How many women are on the team led by my former manager Rachel?",
+  "question_date": "2023/08/03 (Thu) 06:02",
+  "answer": "6",
+  "answer_session_ids": [
+   "answer_f377cda7_1",
+   "answer_f377cda7_2"
+  ]
+ },
+ {
+  "question_id": "42ec0761",
+  "question_type": "knowledge-update",
+  "question": "Do I have a spare screwdriver for opening up my laptop?",
+  "question_date": "2023/08/31 (Thu) 00:39",
+  "answer": "Yes",
+  "answer_session_ids": [
+   "answer_e3892371_1",
+   "answer_e3892371_2"
+  ]
+ },
+ {
+  "question_id": "5c40ec5b",
+  "question_type": "knowledge-update",
+  "question": "How many times have I met up with Alex from Germany?",
+  "question_date": "2023/10/30 (Mon) 13:39",
+  "answer": "We've met up twice.",
+  "answer_session_ids": [
+   "answer_1cb52d0a_1",
+   "answer_1cb52d0a_2"
+  ]
+ },
+ {
+  "question_id": "c6853660",
+  "question_type": "knowledge-update",
+  "question": "Did I mostly recently increase or decrease the limit on the number of cups of coffee in the morning?",
+  "question_date": "2023/06/11 (Sun) 21:37",
+  "answer": "You increased the limit (from one cup to two cups)",
+  "answer_session_ids": [
+   "answer_626e93c4_1",
+   "answer_626e93c4_2"
+  ]
+ },
+ {
+  "question_id": "26bdc477",
+  "question_type": "knowledge-update",
+  "question": "How many trips have I taken my Canon EOS 80D camera on?",
+  "question_date": "2023/06/06 (Tue) 18:27",
+  "answer": "five",
+  "answer_session_ids": [
+   "answer_f762ad8d_1",
+   "answer_f762ad8d_2"
+  ]
+ },
+ {
+  "question_id": "0977f2af",
+  "question_type": "knowledge-update",
+  "question": "What new kitchen gadget did I invest in before getting the Air Fryer?",
+  "question_date": "2023/05/31 (Wed) 07:54",
+  "answer": "Instant Pot",
+  "answer_session_ids": [
+   "answer_3bf5b73b_1",
+   "answer_3bf5b73b_2"
+  ]
+ },
+ {
+  "question_id": "89941a94",
+  "question_type": "knowledge-update",
+  "question": "Before I purchased the gravel bike, do I have other bikes in addition to my mountain bike and my commuter bike?",
+  "question_date": "2023/06/21 (Wed) 02:24",
+  "answer": "Yes. (You have a road bike too.)",
+  "answer_session_ids": [
+   "answer_e1403127_1",
+   "answer_e1403127_2"
+  ]
+ },
+ {
+  "question_id": "07741c45",
+  "question_type": "knowledge-update",
+  "question": "Where do I currently keep my old sneakers?",
+  "question_date": "2023/06/23 (Fri) 07:31",
+  "answer": "in a shoe rack in my closet",
+  "answer_session_ids": [
+   "answer_7e9ad7b4_1",
+   "answer_7e9ad7b4_2"
+  ]
+ }
+]

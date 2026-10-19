@@ -1,0 +1,35 @@
+{
+ "product_path": "234/259",
+ "benchmark_path": "235/259",
+ "only_product_right": 10,
+ "only_benchmark_right": 11,
+ "exact_mcnemar_p": 1.0,
+ "packet_tokens_median": 3135,
+ "by_type": {
+  "ALL": {
+   "correct": 234,
+   "n": 259,
+   "acc": 0.9035
+  },
+  "abstention": {
+   "correct": 4,
+   "n": 4,
+   "acc": 1.0
+  },
+  "knowledge-update": {
+   "correct": 69,
+   "n": 72,
+   "acc": 0.9583
+  },
+  "multi-session": {
+   "correct": 99,
+   "n": 119,
+   "acc": 0.8319
+  },
+  "single-session-user": {
+   "correct": 62,
+   "n": 64,
+   "acc": 0.9688
+  }
+ }
+}

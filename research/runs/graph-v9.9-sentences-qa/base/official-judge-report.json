@@ -1,0 +1,31 @@
+{
+  "judge": "gpt-4o-2024-08-06",
+  "note": "OFFICIAL LongMemEval protocol judge (comparable). Same 60 pilot answers as the custom-judge 87%.",
+  "by_type": {
+    "ALL": {
+      "correct": 235,
+      "n": 261,
+      "acc": 0.9004
+    },
+    "abstention": {
+      "correct": 4,
+      "n": 4,
+      "acc": 1.0
+    },
+    "knowledge-update": {
+      "correct": 69,
+      "n": 72,
+      "acc": 0.9583
+    },
+    "multi-session": {
+      "correct": 99,
+      "n": 121,
+      "acc": 0.8182
+    },
+    "single-session-user": {
+      "correct": 63,
+      "n": 64,
+      "acc": 0.9844
+    }
+  }
+}

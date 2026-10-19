@@ -19,12 +19,14 @@ never reaches it. Text only: tool calls, their results and the model's reasoning
 
 ## Secrets are masked before anything is stored
 
-API keys, tokens from GitHub, AWS, Google and Slack, private keys, passwords inside URLs, values
-written after `password:` / `api_key=` / `token:`, and any long machine-random string even from a
-service no rule knows (by its randomness: 91% of random 20-64 character tokens caught; in 246,750
-ordinary chat turns it fired 92 times, nearly all on real ids and tokens). Commit ids, hashes and
-UUIDs are kept, since you recall those on purpose. A plain password like `hunter2` has no
-recognizable format and is **not** masked.
+API keys, tokens from GitHub, AWS, Google, Slack and Stripe, private keys, passwords inside URLs,
+values written after `password:` / `api_key=` / `token:`, a password with a digit or symbol said
+in a sentence (*"my password is Hunter2!"*, *"와이파이 비번 abcd5678"*), card numbers whose check
+digit is right, Korean resident registration numbers, and any long machine-random string even
+from a service no rule knows (by its randomness: 91% of random 20-64 character tokens caught; in
+246,750 ordinary chat turns it fired 92 times, nearly all on real ids and tokens). Commit ids,
+hashes and UUIDs are kept, since you recall those on purpose. A password that is just a word
+(*"my password is hunter"*) looks like any other word and is **not** masked.
 
 Keep masking on if you use a cloud model: a recalled memory goes to your model's provider with the
 question, so a stored key would leave your PC the first time it is useful. To have Graph-MIND

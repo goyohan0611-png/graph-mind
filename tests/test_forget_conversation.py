@@ -54,7 +54,8 @@ class ForgetConversationTests(unittest.TestCase):
                 "SELECT content_redacted FROM conversation_turns ORDER BY happened_at")]
             store.close()
             # the deleting itself is the tool's job (another test); the exchange must be gone
-            self.assertEqual(kept, ["the build is green again", f"wifi password is {SECRET}",
+            # (the password itself is masked on capture since 0.9.9: "password is x")
+            self.assertEqual(kept, ["the build is green again", "wifi password is [REDACTED]",
                                     "점심 뭐 먹지"])
 
     def test_list_masks_then_delete_only_what_was_picked(self):

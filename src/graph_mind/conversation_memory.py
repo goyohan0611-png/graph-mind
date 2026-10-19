@@ -34,7 +34,31 @@ SECRET_PATTERNS = (
     # a password written after its name: "password: x", "pwd=x", "비밀번호: x", "비번=x"
     (re.compile(r"(?i)((?<![a-z])(?:password|passwd|pwd)\s*[:=]\s*)\S+"), r"\1[REDACTED]"),
     (re.compile(r"((?:비밀번호|비번|암호)\s*[:=]\s*)\S+"), r"\1[REDACTED]"),
+    # ... or in a sentence: "my password is x", "비밀번호는 x", "와이파이 비번 x". Only a value
+    # with a digit or a symbol, so "the password is stored in the vault" stays as it is; a
+    # Korean ending glued to it ("1234야") is kept
+    (re.compile(r"(?i)((?<![a-z])(?:password|passwd|passcode|pin)\s+(?:is|was)\s+)"
+                r"(?!1Password)(?=\S*[\d!@#$%^&*])[^\s,]+"), r"\1[REDACTED]"),
+    (re.compile(r"((?:비밀번호|비번|암호|패스워드)(?:는|은|가|이)?\s*)(?!1Password)"
+                r"(?=[^\s가-힣]*[\d!@#$%^&*])[^\s가-힣,]{4,}"), r"\1[REDACTED]"),
+    (re.compile(r"\b[srp]k_(?:live|test)_[A-Za-z0-9]{16,}\b"), "[REDACTED_STRIPE_KEY]"),
+    # a Korean resident registration number
+    (re.compile(r"(?<!\d)\d{6}-[1-8]\d{6}(?!\d)"), "[REDACTED_ID_NUMBER]"),
+    # a card number, only when its check digit is right (not every long number is a card)
+    # and the shape cards have (15-16 digits from 3-6): on LongMemEval's 189,515 turns a looser
+    # rule took 5 long order and tracking numbers for cards
+    (re.compile(r"(?<![\d-])[3-6]\d{3}(?:[ -]?\d{4}){2}[ -]?\d{3,4}(?![\d-])"),
+     lambda m: "[REDACTED_CARD]" if _luhn(m.group(0)) else m.group(0)),
 )
+
+
+def _luhn(text):
+    digits = [int(c) for c in text if c.isdigit()]
+    if not 13 <= len(digits) <= 19:
+        return False
+    total = sum(d if i % 2 == 0 else (d * 2 - 9 if d > 4 else d * 2)
+                for i, d in enumerate(reversed(digits)))
+    return total % 10 == 0
 # A token no pattern above knows: long, machine-random (mixed case and digits, no word-shaped
 # pieces, high character entropy). Measured: catches 91% of random 20-64 character tokens; in
 # LongMemEval's 246,750 chat turns it fires 92 times, nearly all on real ids and tokens (an
@@ -91,8 +115,9 @@ def _redact(value):
         return cleaned.strip(), 0
     count = 0
     for pattern, replacement in SECRET_PATTERNS:
-        cleaned, replacements = pattern.subn(replacement, cleaned)
-        count += replacements
+        before = cleaned.count("[REDACTED")
+        cleaned = pattern.sub(replacement, cleaned)
+        count += cleaned.count("[REDACTED") - before     # a number that is no card: not one
     found = [0]
 
     def unknown_token(match):

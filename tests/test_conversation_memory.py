@@ -193,6 +193,21 @@ class ConversationMemoryTests(unittest.TestCase):
             self.assertEqual(result["recorded_turns"], 1)
             self.assertEqual(found["turns"][0]["client"], "claude-cowork")
 
+    def test_passwords_in_sentences_cards_and_id_numbers_are_masked(self):
+        from graph_mind.conversation_memory import _redact
+        masked = {"my password is Hunter2!xy": "my password is [REDACTED]",
+                  "내 비밀번호는 qwer1234! 이야": "내 비밀번호는 [REDACTED] 이야",
+                  "와이파이 비번 abcd5678": "와이파이 비번 [REDACTED]",
+                  "비밀번호가 1234야": "비밀번호가 [REDACTED]야",
+                  "rk_live_" + "a1B2c3D4" * 3: "[REDACTED_STRIPE_KEY]",
+                  "card 4111 1111 1111 1111": "card [REDACTED_CARD]",
+                  "주민번호 900101-1234567": "주민번호 [REDACTED_ID_NUMBER]"}
+        for text, expected in masked.items():
+            self.assertEqual(_redact(text), (expected, 1), text)
+        for kept in ("the password is stored in the vault", "비밀번호는 1Password에 있어",
+                     "비번 바꿨어", "order 1234 5678 9012 3456 shipped", "The PIN was set"):
+            self.assertEqual(_redact(kept), (kept, 0), kept)
+
 
 if __name__ == "__main__":
     unittest.main()

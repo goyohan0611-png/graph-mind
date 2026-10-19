@@ -1172,6 +1172,12 @@ def preload(database):
             embedder_for(database).embed(["preload"])
         except Exception:                 # no model on disk: word search still answers
             pass
+        try:
+            # and one search, so the shared-folder sync and the in-memory index are done too:
+            # on a PC sharing its memory (400 MB) the first question otherwise took 3.7-24 s
+            gather(database, "preload", as_of=_now(), limit=1, embedder=embedder_for(database))
+        except Exception:
+            pass
     # after a pause: importing torch while the app is still starting its servers delayed the
     # handshake (19 s inside Codex), and Codex leaves out a server that is not ready yet
     timer = threading.Timer(15, work)

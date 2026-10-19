@@ -34,8 +34,14 @@ class HubProcessDiedTests(unittest.TestCase):
                     db.execute("INSERT INTO kept VALUES ('before the crash')")
                 pid = (sharing._pg_data() / "postmaster.pid").read_text(encoding="utf-8")
                 postmaster = psutil.Process(int(pid.split()[0]))
-                for process in [*postmaster.children(recursive=True), postmaster]:
-                    process.kill()                          # the whole server, no clean stop
+                # the whole server, no clean stop; the postmaster first: killed after its
+                # children, it sometimes saw them die and restarted them ("reinitializing")
+                children = postmaster.children(recursive=True)
+                for process in [postmaster, *children]:
+                    try:
+                        process.kill()
+                    except psutil.NoSuchProcess:
+                        pass
                 time.sleep(1)
                 self.assertIsNone(sharing._server_exe(sharing._pg_data()))
                 with psycopg.connect(sharing.local_postgres(), connect_timeout=10) as db:

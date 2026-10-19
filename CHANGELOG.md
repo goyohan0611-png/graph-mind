@@ -3,6 +3,19 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.8 — 2026-10-19
+- **The capture service no longer slows the PC.** Measured on a 400 MB memory with nothing new
+  coming in, it used half a CPU core and about 1 GB all day; now about 9% of one core while a
+  conversation is being saved, and about 830 MB (the search model itself).
+  - It looked for turns without a search vector by reading every stored turn every 5 seconds;
+    now only after new turns arrive (and every 10 minutes).
+  - The code-change scan walked into excluded folders (node_modules...) and re-read every file
+    every 2 minutes; files whose size and time are unchanged are no longer read.
+  - The model runtime kept the memory of its largest batch (up to 2.9 GB); it now gives it back
+    (4% slower), and embeds on half the cores so the PC stays usable.
+- A hub preparation step on a PC hosting project brains failed and was retried every 10-20 s
+  when an old table had been made again after the move; it is now kept under another name.
+
 ## 0.9.7 — 2026-10-19
 - README: retrieval R@5 (98.5% vs 95.2%) beside answer accuracy in the agentmemory table.
 - recall_any@5 on LongMemEval_S, measured clean in CI: 98.5% (479 questions; @10 99.2%),

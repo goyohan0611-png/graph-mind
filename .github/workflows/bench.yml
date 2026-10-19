@@ -57,6 +57,7 @@ jobs:
         run: python bench/evidence.py --baseline | tee -a evidence.txt
       - name: Research
         if: ${{ inputs.research }}
+        timeout-minutes: 330       # as Evidence: leave time to save the cache
         env:
           SCRIPT: ${{ inputs.research }}
         run: python research/$SCRIPT | tee -a research.txt     # unquoted: script + arguments

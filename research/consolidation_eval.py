@@ -44,7 +44,7 @@ from graph_mind.local_brain import LocalBrainStore  # noqa: E402
 from graph_mind.mcp_server import _PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, gather  # noqa: E402
 from graph_mind.warmup import warm_turns  # noqa: E402
 
-OUT = Path(__file__).resolve().parent / "runs/graph-v9.4-consolidation"
+OUT = Path(__file__).resolve().parent / "runs/graph-v9.7-consolidation-clean"
 TYPE = "multi-session"
 NOTE_PROMPT = """You are the assistant that just answered the user's question below from these \
 passages of their past conversations. Do two things.

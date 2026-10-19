@@ -37,7 +37,7 @@ from graph_mind.mcp_server import (_PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, PIECE,
                                    gather, semantic_turns)
 from graph_mind.warmup import warm_turns  # noqa: E402
 
-OUT = Path(__file__).resolve().parent / "runs/graph-v9.3-sentences"
+OUT = Path(__file__).resolve().parent / "runs/graph-v9.7-sentences-clean"
 DEPTH = 100
 SPLIT = re.compile(r"[^.!?\n]+[.!?]*")
 

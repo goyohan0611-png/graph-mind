@@ -45,7 +45,7 @@ from graph_mind.mcp_server import (_PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, excerp
                                    semantic_turns)
 from graph_mind.warmup import warm_turns  # noqa: E402
 
-OUT = Path(__file__).resolve().parent / "runs/graph-v9.2-episodes"
+OUT = Path(__file__).resolve().parent / "runs/graph-v9.7-episodes-clean"
 DEPTH = 100
 
 

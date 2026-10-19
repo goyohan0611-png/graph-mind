@@ -68,10 +68,10 @@ Same 40 questions, same answer model, same official judge, pre-registered before
 On all 500 LongMemEval questions: **88.8%**. Against agentmemory on the same 499, its own
 published retrieval (95.2% R@5) handed to the same answer model and judge:
 
-| | accuracy | text the answer model reads, per question |
-|---|---|---|
-| **Graph-MIND** | **89.0%** | **3.4k tokens** |
-| agentmemory (its 5 sessions) | 80.4% | ~16.5k tokens |
+| | accuracy | retrieval R@5 | text the answer model reads, per question |
+|---|---|---|---|
+| **Graph-MIND** | **89.0%** | **98.5%** | **3.4k tokens** |
+| agentmemory (its 5 sessions) | 80.4% | 95.2% | ~16.5k tokens |
 
 Every question, answer and verdict is in [`research/runs/`](research/runs); method, failures and
 how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).

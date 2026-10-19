@@ -51,7 +51,7 @@ class MeaningTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_memory_is_found_by_meaning_not_only_by_its_words(self):
         # OpenCode has no capture: what the model saved is all there is, and "what breed is my
         # dog?" shares no word with it (two of three OpenCode models answered "not in memory")
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:  # Windows: still open
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             async with Client(build_server(Path(directory) / "m.sqlite")) as client:
                 await client.call_tool("brain_remember", {
                     "content": "Our golden retriever Kongi turned three last week, about 30 kg."})

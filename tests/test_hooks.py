@@ -32,8 +32,9 @@ class HookTests(unittest.TestCase):
             run("gemini-cli", "BeforeAgent", {"session_id": "g1", "cwd": directory,
                                               "hook_event_name": "BeforeAgent",
                                               "prompt": "our golden retriever Kongi turned three"})
-            run("gemini-cli", "AfterAgent", {"session_id": "g1", "cwd": directory,
-                                             "prompt": "x", "prompt_response": "Happy birthday!"})
+            for _ in range(2):                     # fired again for the same reply: kept once
+                run("gemini-cli", "AfterAgent", {"session_id": "g1", "cwd": directory,
+                                                 "prompt": "x", "prompt_response": "Happy birthday!"})
             self.assertEqual(run("gemini-cli", "AfterAgent", {"prompt_response": ""}), {})
             rows = []
             with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
@@ -59,7 +60,7 @@ class HookTests(unittest.TestCase):
             def say(role, *blocks):
                 return {"role": role, "message": {"content": list(blocks)}}
             records = [
-                say("user", {"type": "text", "text": "<timestamp>Sunday, Oct 18, 2026</timestamp>"
+                say("user", {"type": "text", "text": "<timestamp>Sunday, Oct 18, 2026, 2:46 PM (UTC+9)</timestamp>"
                              "\n<user_query>\nI moved to Busan\n</user_query>"}),
                 say("assistant", {"type": "text", "text": "Saving that."},
                     {"type": "tool_use", "name": "CallDynamicTool",
@@ -77,6 +78,8 @@ class HookTests(unittest.TestCase):
                 rows = store.db.execute("SELECT client, client_session_id, role, "
                                         "content_redacted FROM conversation_turns "
                                         "ORDER BY rowid").fetchall()
+                said = {r[0] for r in store.db.execute(
+                    "SELECT happened_at FROM conversation_turns")}
                 self.assertFalse(capture._forget_call(records[1]))
                 self.assertTrue(capture._forget_call(say("assistant", {
                     "type": "tool_use", "name": "CallDynamicTool",
@@ -85,6 +88,24 @@ class HookTests(unittest.TestCase):
                          [("cursor", "t1", "user", "I moved to Busan"),
                           ("cursor", "t1", "assistant", "Saving that."),
                           ("cursor", "t1", "assistant", "Busan is lovely.")])
+        # when it was said, from the user's <timestamp>, and the replies with it (not scan time)
+        self.assertEqual(len(said), 1)
+        self.assertTrue(next(iter(said)).startswith("2026-10-18"), said)
+
+    def test_apps_saved_for_them_are_told_so(self):
+        """Their conversations are captured, so the model is not asked to save them again."""
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            for name in (".gemini", ".copilot", ".lmstudio"):
+                (home / name).mkdir()
+            with mock.patch.dict(os.environ, {"USERPROFILE": directory, "HOME": directory}):
+                install.other_apps(home)
+            def env(*parts):
+                return json.loads(home.joinpath(*parts).read_text(encoding="utf-8"))[
+                    "mcpServers"]["graph-mind-memory"]["env"]
+            self.assertEqual(env(".gemini", "settings.json").get("GRAPH_MIND_CAPTURED"), "1")
+            self.assertEqual(env(".copilot", "mcp-config.json").get("GRAPH_MIND_CAPTURED"), "1")
+            self.assertNotIn("GRAPH_MIND_CAPTURED", env(".lmstudio", "mcp.json"))
 
     def test_copilot_cli_session_is_read_as_said(self):
         """Records as Copilot CLI 1.0.98 writes them: what was typed (not transformedContent),

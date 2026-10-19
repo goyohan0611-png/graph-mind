@@ -628,6 +628,24 @@ class CopilotConversationCapture(CodexConversationCapture):
 
 
 CURSOR_QUERY = re.compile(r"<user_query>\s*(.*?)\s*</user_query>", re.S)
+# "Sunday, Oct 18, 2026, 2:46 PM (UTC+9)": the only time a Cursor transcript carries
+CURSOR_TIME = re.compile(r"<timestamp>\s*\w+, (\w{3} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M)"
+                         r" \(UTC([+-]\d{1,2})?(?::(\d{2}))?\)\s*</timestamp>")
+
+
+def cursor_time(text):
+    """The ISO time of a Cursor user record's <timestamp>, or None."""
+    found = CURSOR_TIME.search(text)
+    if not found:
+        return None
+    from datetime import timedelta, timezone
+    hours = int(found.group(2) or 0)
+    minutes = int(found.group(3) or 0) * (1 if hours >= 0 else -1)
+    try:
+        at = datetime.strptime(found.group(1), "%b %d, %Y, %I:%M %p")
+    except ValueError:
+        return None
+    return at.replace(tzinfo=timezone(timedelta(hours=hours, minutes=minutes))).isoformat()
 
 
 class CursorConversationCapture(CodexConversationCapture):
@@ -642,6 +660,7 @@ class CursorConversationCapture(CodexConversationCapture):
         return sorted(self.sessions_root.glob("*/agent-transcripts/**/*.jsonl"))
 
     def _session_meta(self, path):
+        self._said_at = None                     # replies are dated by the message they answer
         return path.stem, None, "global"
 
     def _forget_call(self, item):
@@ -660,8 +679,11 @@ class CursorConversationCapture(CodexConversationCapture):
         text = "\n".join(block.get("text", "") for block in content
                          if isinstance(block, dict) and block.get("type") == "text")
         if role == "user":
+            self._said_at = cursor_time(text) or getattr(self, "_said_at", None)
             query = CURSOR_QUERY.search(text)
             text = query.group(1) if query else re.sub(r"<timestamp>.*?</timestamp>", "", text)
+        if getattr(self, "_said_at", None):
+            item["timestamp"] = self._said_at     # read by scan() as when it was said
         return role, text
 
 

@@ -215,7 +215,8 @@ class AutomaticCaptureService:
         agents = Path(self.config.get("hooks_root") or hooks_root())
         for folder in sorted(agents.iterdir()) if agents.is_dir() else []:
             if folder.is_dir():
-                cursor = self.state_dir / f"{folder.name}-session-cursor.json"
+                # "hook-": never the same file as a transcript source of the same agent
+                cursor = self.state_dir / f"hook-{folder.name}-session-cursor.json"
                 sources.append((folder.name, HookConversationCapture(
                     folder.name, folder, store, state_path=cursor, **hooks), cursor))
         return sources

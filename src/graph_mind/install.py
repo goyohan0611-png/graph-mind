@@ -125,6 +125,11 @@ def _other_apps(home: Path) -> list:
     ]
 
 
+# their conversations are saved without the model (transcripts or hooks): the model is not told
+# to call brain_remember for ordinary chat, which stored the same thing twice
+SAVED_FOR_THEM = {"Cursor", "Gemini CLI", "Copilot CLI"}
+
+
 def other_apps(home: Path) -> list[str]:
     done = []
     for name, folder, config, key, extra in _other_apps(home):
@@ -132,7 +137,7 @@ def other_apps(home: Path) -> list[str]:
             continue
         try:
             config.parent.mkdir(parents=True, exist_ok=True)
-            _json_entry(config, key, **extra)
+            _json_entry(config, key, env=CAPTURED if name in SAVED_FOR_THEM else ENV, **extra)
             done.append(name)
         except ValueError:
             # a settings file with comments (VS Code allows them) is not JSON: leave it alone

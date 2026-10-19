@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- Cursor, Gemini CLI and Copilot CLI are told their conversations are already saved, so the
+  model no longer stores the same thing again with brain_remember (seen in Cursor).
+- Cursor turns are dated by the time in the transcript, not by when the capture service read
+  them.
+- A Gemini CLI reply reported twice by its AfterAgent hook is stored once.
+- Hook transcripts keep their read position in their own file, apart from any transcript source
+  of the same agent.
+
 ## 0.9.3 — 2026-10-18
 - Package and registry descriptions name the agents it works with, so a search for "Claude Code
   memory" or "Gemini CLI memory" can find it. No code changes.

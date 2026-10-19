@@ -37,12 +37,19 @@ def record(agent: str, event_name: str, event: dict) -> str | None:
     session = str(event.get("session_id") or "default")
     folder = hooks_root() / agent
     folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{''.join(c for c in session if c.isalnum() or c in '-_') or 'default'}.jsonl"
+    if role == "assistant" and path.exists():
+        # AfterAgent can fire again for the same reply (a retry another hook asked for); each
+        # line gets a fresh uuid, so the same reply would be stored twice
+        lines = path.read_text(encoding="utf-8").splitlines()
+        last = json.loads(lines[-1]) if lines else {}
+        if last.get("type") == role and last.get("message", {}).get("content") == text:
+            return text
     line = {"type": role, "uuid": str(uuid.uuid4()), "sessionId": session,
             "cwd": event.get("cwd"),
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "message": {"content": text}}
-    with (folder / f"{''.join(c for c in session if c.isalnum() or c in '-_')}.jsonl").open(
-            "a", encoding="utf-8") as handle:
+    with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
     return text
 

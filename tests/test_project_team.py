@@ -312,6 +312,14 @@ class TeamHubTests(unittest.TestCase):
         with pl._admin("graphmind") as old:
             self.assertIsNotNone(old.execute(
                 "SELECT to_regclass('public.old_ledger_projects')").fetchone()[0])
+            # made again after the move: kept beside the first, and preparing no longer fails
+            old.execute("CREATE TABLE ledger_projects(name TEXT PRIMARY KEY, created_by TEXT, "
+                        "created_at TEXT, instructions TEXT NOT NULL DEFAULT '')")
+        pl._PREPARED.clear()
+        pl.prepare_hub()
+        with pl._admin("graphmind") as old:
+            self.assertIsNotNone(old.execute(
+                "SELECT to_regclass('public.old2_ledger_projects')").fetchone()[0])
 
     def test_the_operator_removes_a_project_whole(self):
         owner = pl.own_ledger()

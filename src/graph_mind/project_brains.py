@@ -951,7 +951,13 @@ def _migrate_shared_tables() -> dict:
         for table in ("ledger_projects", "ledger_checkpoints", "ledger_artifacts",
                       "ledger_access", "ledger_reviews", "ledger_audit", "ledger_accounts"):
             if has(table):
-                old.execute(f"ALTER TABLE {table} RENAME TO old_{table}")
+                # a table made again after an earlier move (an app still on old code) is kept
+                # too: renaming it onto old_<table> failed and every later call retried it
+                kept, n = f"old_{table}", 1
+                while has(kept):
+                    n += 1
+                    kept = f"old{n}_{table}"
+                old.execute(f"ALTER TABLE {table} RENAME TO {kept}")
     return moved
 
 

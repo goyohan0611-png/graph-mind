@@ -3,6 +3,21 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **The first memory question after an app starts is answered in about 1.3 s** (was 3.4 s, once
+  24 s, on a PC whose 400 MB memory is shared with another PC). The server's warm-up now also
+  syncs the shared memory and loads the search index, not only the model.
+- **More secrets masked before storing:** a password said in a sentence ("my password is
+  Hunter2!", "내 비밀번호는 qwer1234!", "와이파이 비번 abcd5678": only with a digit or a symbol, so
+  "the password is stored in the vault" stays), Stripe keys, card numbers with a valid check
+  digit, Korean resident registration numbers. On LongMemEval's 189,515 chat turns these rules
+  fire once.
+- **The OpenCode plugin's and Gemini CLI hooks' own transcripts are deleted once stored.** They
+  hold what was typed before masking, so a masked or forgotten password stayed on disk there.
+- **The capture service idles at about 2% of one core** (was 5%): transcripts with nothing new
+  are not opened, and Cowork's deep session folders are searched for new sessions once a minute.
+- Full LongMemEval run on this code: 88.5% (440/497; 88.8% before, within noise).
+
 ## 0.9.8 — 2026-10-19
 - **The capture service no longer slows the PC.** Measured on a 400 MB memory with nothing new
   coming in, it used half a CPU core and about 1 GB all day; now about 9% of one core while a

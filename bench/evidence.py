@@ -121,7 +121,8 @@ def report(records: list[dict], tuned: set[str]) -> dict:
 
 
 def show(result: dict, baseline: dict | None) -> None:
-    print(f"\n{'':<28}{'questions':>10}{'recall':>9}{'turns':>9}{'tokens':>8}   vs baseline")
+    print(f"\n{'':<28}{'questions':>10}{'recall':>9}{'turns':>9}{'tokens':>8}{'R@5':>8}{'R@10':>8}"
+          "   vs baseline")
     for name, row in result.items():
         if not row:
             continue

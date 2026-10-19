@@ -50,6 +50,17 @@ Five whole sessions are agentmemory's unit of retrieval and its best case here: 
 reads about five times what Graph-MIND gives it. Per-question files:
 [`research/runs/graph-v9.6-rival-agentmemory-k5`](../research/runs/graph-v9.6-rival-agentmemory-k5).
 
+The retrieval number itself, on agentmemory's terms (is an answer session among the first K
+retrieved?), from `bench/evidence.py` in CI. Graph-MIND retrieves turns, not sessions; its
+sessions are counted in the order their first turn ranks. Its 479 questions are those with an
+answer-bearing turn; agentmemory's 500 include the abstention questions, and on its 470
+non-abstention ones it scores 95.1% / 98.5%.
+
+| | recall_any@5 | recall_any@10 |
+|---|---|---|
+| **Graph-MIND** (479 questions) | **98.5%** | **99.2%** |
+| agentmemory hybrid (500) | 95.2% | 98.6% |
+
 ## Reading other published numbers
 
 They measure different things, so they do not compare directly:

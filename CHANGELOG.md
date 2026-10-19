@@ -4,6 +4,11 @@ Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-i
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## Unreleased
+- recall_any@5 on LongMemEval_S, measured clean in CI: 98.5% (479 questions; @10 99.2%),
+  beside agentmemory's published 95.2%; in docs/benchmarks.md. The bench baseline is replaced:
+  the earlier one was measured on corrupted cached vectors.
+- bench workflow: the summary step failed on every run without a research script (a `[ -f ] &&`
+  as the loop's last command); the table's R@5 / R@10 columns now have headers.
 - Tool parameters the tool text did not explain (`as_of`, `knowledge_cutoff`, `scopes`, `limit`,
   `max_chars`, `change_kind`...) carry a one-line description: 29 of 74 now, the rest are
   explained in their tool's text (Glama had flagged 0% coverage). About 400 more tokens in the

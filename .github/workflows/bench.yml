@@ -69,7 +69,10 @@ jobs:
         if: always()
         run: |
           for part in recovery latency evidence research; do
-            [ -f $part.txt ] && { echo "### $part"; echo '```'; tail -40 $part.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            # if, not &&: the last file missing (research.txt on a bench run) failed the step
+            if [ -f $part.txt ]; then
+              { echo "### $part"; echo '```'; tail -40 $part.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            fi
           done
       - uses: actions/upload-artifact@v4
         if: always()

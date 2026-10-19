@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sqlite3
+import stat
 
 from graph_mind.clock import timestamp
 from graph_mind.paths import use_wal
@@ -327,16 +328,6 @@ class CodingMemoryCapture:
         self.excluded_parts = frozenset(excluded_parts)
         self.now = now or (lambda: datetime.now().isoformat(timespec="microseconds"))
 
-    def _included(self, path):
-        try:
-            relative = path.resolve().relative_to(self.workspace)
-        except (ValueError, OSError):
-            return False
-        return (path.is_file() and not path.is_symlink()
-                and path.suffix.lower() in self.suffixes
-                and not any(part in self.excluded_parts for part in relative.parts)
-                and self.state_dir not in path.resolve().parents)
-
     def _blob(self, content):
         digest = _digest(content)
         target = self.blob_dir / digest[:2] / (digest + ".blob")
@@ -345,16 +336,36 @@ class CodingMemoryCapture:
             target.write_bytes(content)
         return digest, str(target)
 
-    def snapshot(self):
-        files = {}
-        for path in self.workspace.rglob("*"):
-            if not self._included(path):
-                continue
-            content = path.read_bytes()
-            digest, blob_ref = self._blob(content)
-            relative = path.resolve().relative_to(self.workspace).as_posix()
-            files[relative] = {"sha256": digest, "size": len(content),
-                               "blob_ref": blob_ref}
+    def snapshot(self, previous=None):
+        """Every included file's content hash. Every 2 minutes on a whole workspace: excluded
+        folders are not entered, and a file whose size and modification time are unchanged is
+        not read again (as git does); reading and hashing every file each time, and walking
+        node_modules before filtering it out, cost a CPU core on a large synced folder."""
+        previous, files = previous or {}, {}
+        for root, dirs, names in os.walk(self.workspace):       # symlinked folders: not entered
+            root = Path(root)
+            dirs[:] = [d for d in dirs if d not in self.excluded_parts
+                       and root / d != self.state_dir]
+            for name in names:
+                path = root / name
+                if path.suffix.lower() not in self.suffixes or name in self.excluded_parts:
+                    continue
+                try:
+                    info = path.lstat()
+                    if not stat.S_ISREG(info.st_mode):
+                        continue
+                    relative = path.relative_to(self.workspace).as_posix()
+                    known = previous.get(relative)
+                    if (known and known.get("size") == info.st_size
+                            and known.get("mtime_ns") == info.st_mtime_ns):
+                        files[relative] = known
+                        continue
+                    content = path.read_bytes()
+                except OSError:
+                    continue
+                digest, blob_ref = self._blob(content)
+                files[relative] = {"sha256": digest, "size": len(content),
+                                   "blob_ref": blob_ref, "mtime_ns": info.st_mtime_ns}
         return files
 
     def _manifest(self, files):
@@ -391,7 +402,7 @@ class CodingMemoryCapture:
         reason = _text(reason, "CODE_CHANGE_REASON_REQUIRED")
         related_tests = _string_list(related_tests, "RELATED_TESTS_LIST_REQUIRED")
         previous = self._load_manifest()["files"]
-        current = self.snapshot()
+        current = self.snapshot(previous)
         now = self.now()
         recorded, changes = [], []
         self.diff_dir.mkdir(parents=True, exist_ok=True)

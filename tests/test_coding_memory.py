@@ -70,6 +70,31 @@ class CodingMemoryTests(unittest.TestCase):
             self.assertEqual((missing["status"], missing["reason"]),
                              ("UNKNOWN", "NO_MATCHING_CODE_CHANGE"))
 
+    def test_unchanged_files_and_excluded_folders_are_not_read(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            (workspace / "node_modules" / "lib").mkdir(parents=True)
+            (workspace / "node_modules" / "lib" / "big.js").write_text("x = 1\n")
+            (workspace / "a.py").write_text("a = 1\n")
+            (workspace / "b.py").write_text("b = 1\n")
+            with CodingMemoryStore(root / "brain.sqlite") as store:
+                capture = CodingMemoryCapture(workspace, store, project_id="project:demo",
+                                              session_id="session:1", state_dir=root / "state",
+                                              now=lambda: T1)
+                first = capture.snapshot()
+                self.assertEqual(sorted(first), ["a.py", "b.py"])
+                (workspace / "b.py").write_text("b = 22\n")
+                read = []
+                original = Path.read_bytes
+                with mock.patch.object(Path, "read_bytes",
+                                       lambda p: read.append(p.name) or original(p)):
+                    second = capture.snapshot(first)
+                self.assertEqual(read, ["b.py"])
+                self.assertEqual(second["a.py"], first["a.py"])
+                self.assertNotEqual(second["b.py"]["sha256"], first["b.py"]["sha256"])
+
 
 if __name__ == "__main__":
     unittest.main()

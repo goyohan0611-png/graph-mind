@@ -3,7 +3,7 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
+## 0.9.4 — 2026-10-19
 - Cursor, Gemini CLI and Copilot CLI are told their conversations are already saved, so the
   model no longer stores the same thing again with brain_remember (seen in Cursor).
 - Cursor turns are dated by the time in the transcript, not by when the capture service read

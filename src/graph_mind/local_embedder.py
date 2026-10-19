@@ -97,6 +97,11 @@ class LocalEmbedder:
             tokenizer.enable_padding()
             options = onnxruntime.SessionOptions()
             options.log_severity_level = 3            # warnings about unused initializers: noise
+            # it runs beside the user's work all day: the arena kept a batch's peak (786 MB ->
+            # 2.9 GB after 128 long texts; 810 MB without, 4% slower), and every core busy
+            # froze the PC while a backlog was embedded
+            options.enable_cpu_mem_arena = False
+            options.intra_op_num_threads = max(1, (os.cpu_count() or 2) // 2)
             LocalEmbedder._tok = tokenizer
             LocalEmbedder._model = onnxruntime.InferenceSession(
                 model_file, options, providers=["CPUExecutionProvider"])

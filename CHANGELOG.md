@@ -3,7 +3,7 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
+## 0.9.5 — 2026-10-19
 - **Gemini CLI hooks work when the Windows profile folder has a space** ("C:\Users\Jane Doe"):
   Gemini runs hooks through PowerShell, where the quoted path alone was a string and the hook
   failed silently, saving nothing. Now `& "path" -m graph_mind.hook ...`.

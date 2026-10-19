@@ -55,8 +55,13 @@ class HookTests(unittest.TestCase):
     def test_the_conversation_about_deleting_is_not_kept(self):
         """docs/privacy.md: asking to delete a secret must not store the secret again. Gemini's
         hooks carried only text, so the forget call was invisible and the request was kept."""
+        # a second apart, as separate hook processes are; within one millisecond, lines tied
+        # on their time and the order (and so what the forget swept) was left to chance
+        seconds = iter(range(100))
         with tempfile.TemporaryDirectory() as directory, \
-                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}):
+                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
+                mock.patch.object(hook, "_now",
+                                  lambda: f"2026-10-19T00:00:{next(seconds):02d}.000000Z"):
             def say(event, **fields):
                 run("gemini-cli", event, {"session_id": "g3", **fields})
             say("BeforeAgent", prompt="my dog is called Kongi")

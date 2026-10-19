@@ -1,0 +1,20 @@
+{
+ "product_path": "97/120",
+ "benchmark_path": "99/120",
+ "only_product_right": 4,
+ "only_benchmark_right": 6,
+ "exact_mcnemar_p": 0.754,
+ "packet_tokens_median": 1246,
+ "by_type": {
+  "ALL": {
+   "correct": 97,
+   "n": 120,
+   "acc": 0.8083
+  },
+  "multi-session": {
+   "correct": 97,
+   "n": 120,
+   "acc": 0.8083
+  }
+ }
+}

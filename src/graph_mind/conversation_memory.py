@@ -426,9 +426,14 @@ class CodexConversationCapture:
         for path in self._files():
             key = str(path)
             start = int(offsets.get(key, 0))
-            size = path.stat().st_size
+            try:
+                size = path.stat().st_size
+            except OSError:                    # deleted since it was listed
+                continue
             if size < start:
                 start = 0
+            if size == start:
+                continue                       # nothing new: not opened (hundreds of files)
             session_id, cwd, scope = self._session_meta(path)
             with path.open("rb") as handle:
                 handle.seek(start)
@@ -593,9 +598,20 @@ class ClaudeCoworkConversationCapture(ClaudeCodeConversationCapture):
         root = self.sessions_root
         if os.name == "nt" and not str(root).startswith("\\\\?\\"):
             root = Path("\\\\?\\" + str(root))
-        return sorted(path for path in root.rglob("*.jsonl")
-                      if ".claude" in path.parts and "projects" in path.parts
-                      and "subagents" not in path.parts)
+        # the walk goes through every session's whole folder tree: it was most of the capture
+        # service's CPU while idle. New sessions are looked for once a minute; the files already
+        # found are still read every pass
+        listed = ClaudeCoworkConversationCapture._listed.get(str(root))
+        if listed and time.monotonic() - listed[0] < self.LIST_EVERY:
+            return listed[1]
+        files = sorted(path for path in root.rglob("*.jsonl")
+                       if ".claude" in path.parts and "projects" in path.parts
+                       and "subagents" not in path.parts)
+        ClaudeCoworkConversationCapture._listed[str(root)] = (time.monotonic(), files)
+        return files
+
+    LIST_EVERY = 60
+    _listed = {}
 
 
 class OpenCodeConversationCapture(ClaudeCodeConversationCapture):

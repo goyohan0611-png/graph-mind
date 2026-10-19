@@ -3,6 +3,12 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- Tool parameters the tool text did not explain (`as_of`, `knowledge_cutoff`, `scopes`, `limit`,
+  `max_chars`, `change_kind`...) carry a one-line description: 29 of 74 now, the rest are
+  explained in their tool's text (Glama had flagged 0% coverage). About 400 more tokens in the
+  tool list each request.
+
 ## 0.9.6 — 2026-10-19
 - **"Delete the password I typed" is no longer kept when asked in Gemini CLI or OpenCode.** The
   conversation about deleting is meant to go too (docs/privacy.md), but their hook and plugin

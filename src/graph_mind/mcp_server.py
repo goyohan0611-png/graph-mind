@@ -3,12 +3,14 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 import json
 import os
 import sys
 import threading
 import uuid
+
+from pydantic import Field
 
 from graph_mind import __version__
 from graph_mind.associative_memory import AssociativeMemoryIndex
@@ -77,6 +79,36 @@ def wait_for_index(timeout=120.0):
             return False
         time.sleep(0.05)
     return True
+
+
+def _about(kind, text):
+    return Annotated[kind, Field(description=text)]
+
+
+# What a parameter does where the tool's own text does not say. One line each: every one goes to
+# the model with every request, so nothing the description already covers.
+SCOPES = _about(list[str] | None, 'Only these scopes, e.g. ["global"] or a project; default all.')
+AS_OF = _about(str | None, "ISO time: only what had happened by then (default now).")
+CUTOFF = _about(str | None, "ISO time: only what had been saved by then (default as_of).")
+OPTIONAL = "Optional; usually left empty."
+TITLE = _about(str | None, "Short title; default: the first line of content.")
+SOURCE_REF = _about(str, "Where it came from: a file, URL or id.")
+SCOPE = _about(str, "global, or a project scope to keep it apart.")
+TAGS = _about(list[str] | None, "Free labels to find it by.")
+SOURCE_TYPE = _about(str, "Leave as is.")
+CLASS = _about(str | None, OPTIONAL)
+SCORE = _about(float | None, OPTIONAL)
+EXTRA = _about(dict[str, Any] | None, OPTIONAL)
+RELATED = _about(list[str] | None, "Ids of memories this one relates to.")
+QUERY = _about(str, "The user's request, in their words.")
+POLICY = _about(Literal["auto", "always", "never"], "auto skips requests with no sign of the past.")
+MAX_CHARS = _about(int, "Size cap of the returned text.")
+ITEMS = _about(int, "Most items to return.")
+PROJECT_ID = _about(str | None, "A watched project's id; default all.")
+FILE = _about(str | None, "Path inside the project, e.g. src/auth.py.")
+CHANGE = _about(str | None, "ADDED, MODIFIED or DELETED.")
+DIFF = _about(int, "Diff excerpt size per change, 200-20000.")
+REFS = _about(list[str] | None, "Links or ids it is based on.")
 
 
 def _now():
@@ -547,21 +579,21 @@ def build_server(db_path=None):
             openWorldHint=False,
         ),
     )
-    def brain_remember(content: str, title: str | None = None, memory_type: str = "fact",
-                       source_ref: str = "conversation", scope: str = "global",
-                       tags: list[str] | None = None,
+    def brain_remember(content: str, title: TITLE = None, memory_type: str = "fact",
+                       source_ref: SOURCE_REF = "conversation", scope: SCOPE = "global",
+                       tags: TAGS = None,
                        entities: list[str] | None = None,
                        effective_at: str | None = None,
-                       source_type: str = "mcp-client",
+                       source_type: SOURCE_TYPE = "mcp-client",
                        supersedes_memory_id: str | None = None,
                        memory_id: str | None = None,
-                       memory_class: str | None = None,
-                       modality: str | None = None,
-                       retention: str | None = None,
-                       importance: float | None = None,
-                       confidence: float | None = None,
-                       attributes: dict[str, Any] | None = None,
-                       related_memory_ids: list[str] | None = None,
+                       memory_class: CLASS = None,
+                       modality: CLASS = None,
+                       retention: CLASS = None,
+                       importance: SCORE = None,
+                       confidence: SCORE = None,
+                       attributes: EXTRA = None,
+                       related_memory_ids: RELATED = None,
                        about: str | None = None,
                        attribute: str | None = None) -> dict[str, Any]:
         """Save what the user just told you, in their own words. Call this proactively.
@@ -637,10 +669,10 @@ def build_server(db_path=None):
         ),
     )
     def brain_recall(query: str = "", entity: str | None = None,
-                     scopes: list[str] | None = None,
-                     as_of: str | None = None,
-                     knowledge_cutoff: str | None = None,
-                     limit: int = 8, recent: bool = False,
+                     scopes: SCOPES = None,
+                     as_of: AS_OF = None,
+                     knowledge_cutoff: CUTOFF = None,
+                     limit: ITEMS = 8, recent: bool = False,
                      since: str | None = None,
                      about_assistant: bool = False,
                      around: str | None = None) -> dict[str, Any]:
@@ -688,12 +720,12 @@ def build_server(db_path=None):
             openWorldHint=False,
         ),
     )
-    def brain_context(query: str, scopes: list[str] | None = None,
-                      as_of: str | None = None,
-                      knowledge_cutoff: str | None = None,
-                      policy: Literal["auto", "always", "never"] = DEFAULT_CONTEXT_POLICY,
-                      max_chars: int = CONTEXT_CHARS,
-                      limit: int = CONTEXT_LIMIT, recent: bool = False,
+    def brain_context(query: QUERY, scopes: SCOPES = None,
+                      as_of: AS_OF = None,
+                      knowledge_cutoff: CUTOFF = None,
+                      policy: POLICY = DEFAULT_CONTEXT_POLICY,
+                      max_chars: MAX_CHARS = CONTEXT_CHARS,
+                      limit: ITEMS = CONTEXT_LIMIT, recent: bool = False,
                       since: str | None = None,
                       about_assistant: bool = False,
                       around: str | None = None) -> dict[str, Any]:
@@ -872,7 +904,7 @@ def build_server(db_path=None):
                          path: str | None = None, workspace: str | None = None,
                          name: str | None = None,
                          checkpoint_id: str | None = None, supersedes: str | None = None,
-                         source_refs: list[str] | None = None,
+                         source_refs: REFS = None,
                          instructions: str | None = None, member: str | None = None,
                          role: Literal["owner", "editor", "viewer"] | None = None,
                          projects: list[str] | None = None,
@@ -1104,14 +1136,14 @@ def build_server(db_path=None):
             openWorldHint=False,
         ),
     )
-    def code_activity(project_id: str | None = None,
+    def code_activity(project_id: PROJECT_ID = None,
                       happened_from: str | None = None,
                       happened_to: str | None = None,
-                      file_path: str | None = None,
+                      file_path: FILE = None,
                       symbol: str | None = None,
-                      change_kind: str | None = None,
-                      limit: int = 20,
-                      max_diff_chars: int = 6000) -> dict[str, Any]:
+                      change_kind: CHANGE = None,
+                      limit: ITEMS = 20,
+                      max_diff_chars: DIFF = 6000) -> dict[str, Any]:
         """Code changes the capture service recorded, with diff excerpts, filtered by project,
         time range (`happened_from`/`happened_to`, ISO), file, symbol or kind. For "what did I
         change in auth.py last week?" or "when did the parser change?". Empty unless a code folder

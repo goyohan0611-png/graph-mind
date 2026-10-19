@@ -35,9 +35,10 @@ from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
 from graph_mind.local_embedder import LocalEmbedder  # noqa: E402
 from graph_mind.mcp_server import (_PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, PIECE, excerpt,  # noqa: E402
                                    gather, semantic_turns)
-from graph_mind.warmup import warm_turns  # noqa: E402
+from graph_mind.warmup import turn_pieces, warm_turns  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "runs/graph-v9.7-sentences-clean"
+SPANS = False      # --spans: also keep the base and mix packets, in a folder of their own
 DEPTH = 100
 SPLIT = re.compile(r"[^.!?\n]+[.!?]*")
 
@@ -85,12 +86,30 @@ def measure(row, directory, embedder):
     arms["sent"] = [t for _, t in scored(sent[:30], words)[:CONTEXT_LIMIT]]
     arms["mix"] = [t for _, t in scored(meaning, sent[:30], words)[:CONTEXT_LIMIT]]
     out = {"question_id": row["question_id"], "type": row["question_type"], "wanted": len(wanted)}
+    with ConversationMemoryStore(store) as conversations:      # the cost: vectors per memory
+        contents = [(r[0], r[1] or "") for r in conversations.db.execute(
+            "SELECT role, content_redacted FROM conversation_turns")]
+    out["vectors"] = {"pieces": sum(len(turn_pieces(c)) for _, c in contents),
+                      "sentences": sum(len(sentences(c)) for role, c in contents
+                                       if role == "user")}
     for name, turns in arms.items():
         turns = [{k: v for k, v in t.items() if k != "full"} for t in turns]
         packet = build_context_pack({"matches": [], "conversation_turns": turns},
                                     max_chars=CONTEXT_CHARS)
         out[name] = {"found": len({i["id"] for i in packet["items"]} & wanted),
                      "tokens": packet["estimated_tokens"]}
+        if SPANS and name in ("base", "mix"):                 # for the reader and the judge
+            (OUT / name).mkdir(parents=True, exist_ok=True)
+            with (OUT / name / "spans.jsonl").open("a", encoding="utf-8") as log:
+                log.write(json.dumps({
+                    "question_id": row["question_id"],
+                    "estimated_tokens": packet["estimated_tokens"],
+                    "passages": [{"id": i["id"],
+                                  "session_id": i["provenance"]["source_ref"].rsplit(":", 1)[0],
+                                  "session_date": i["effective_at"],
+                                  "speaker": i["title"].split(" ", 1)[0],
+                                  "text": i["content"]} for i in packet["items"]]},
+                    ensure_ascii=False) + "\n")
     _PIECES.pop(str(store), None)
     store.unlink()
     return out
@@ -100,7 +119,15 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--limit", type=int)
     parser.add_argument("--types", nargs="*")
+    parser.add_argument("--spans", action="store_true")
+    parser.add_argument("--answer", action="store_true",
+                        help="reader + official judge on kept packets (OPENAI_API_KEY)")
     args = parser.parse_args()
+    global OUT, SPANS
+    if args.spans or args.answer:
+        OUT, SPANS = OUT.with_name("graph-v9.9-sentences-qa"), True
+    if args.answer:
+        return answer()
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / "records.jsonl"
     done = {json.loads(l)["question_id"]: json.loads(l) for l in path.open(encoding="utf-8")} \
@@ -133,6 +160,24 @@ def main():
     for arm, groups in result.items():
         print(arm, {g: (s["question_recall"], s["turn_coverage"], s["packet_tokens_median"])
                     for g, s in groups.items() if s})
+
+
+def answer():
+    """Same reader, prompt and official judge as every accuracy number; mix against base."""
+    import product_answer_eval as pae
+    kept = (OUT / "base" / "spans.jsonl").open(encoding="utf-8")
+    ids = [json.loads(line)["question_id"] for line in kept]
+    (OUT / "ids.json").write_text(json.dumps({"question_ids": ids}, indent=1), encoding="utf-8")
+    pae.IDS_FILE = OUT / "ids.json"
+    for arm in ("base", "mix"):
+        pae.OUT = OUT / arm
+        if arm == "mix":
+            pae.BASELINE = OUT / "base" / "official-judge.jsonl"
+        pae.answer()
+    records = [json.loads(l) for l in (OUT / "records.jsonl").open(encoding="utf-8")]
+    pieces = sum(r["vectors"]["pieces"] for r in records)
+    print({"pieces": pieces, "plus_sentences": sum(r["vectors"]["sentences"] for r in records),
+           "questions": len(records)})
 
 
 if __name__ == "__main__":

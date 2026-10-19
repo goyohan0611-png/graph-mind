@@ -171,10 +171,12 @@ def _ours(entry) -> bool:
 
 def _hook_files(home: Path) -> list:
     """(app, folder, hooks file, {event: entry}) for agents whose hooks save the conversation."""
-    gemini = {event: {"matcher": "*", "hooks": [{
+    gemini = {event: {"matcher": matcher, "hooks": [{
         "type": "command", "name": "graph-mind", "timeout": 20000, "env": ENV,
         "command": _hook_command("gemini-cli", event)}]}
-        for event in ("BeforeAgent", "AfterAgent")}
+        # AfterTool only for brain_forget: the conversation about deleting is not kept
+        for event, matcher in (("BeforeAgent", "*"), ("AfterAgent", "*"),
+                               ("AfterTool", "brain_forget"))}
     return [("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", gemini)]
 
 

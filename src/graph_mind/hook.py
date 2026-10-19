@@ -31,14 +31,24 @@ def hooks_root():
 
 def record(agent: str, event_name: str, event: dict) -> str | None:
     """Append what the event says to the agent's transcript; the text, or None."""
+    session = str(event.get("session_id") or "default")
+    folder = hooks_root() / agent
+    path = folder / f"{''.join(c for c in session if c.isalnum() or c in '-_') or 'default'}.jsonl"
+    if event_name == "AfterTool":
+        # the model called brain_forget: the conversation about deleting is not kept
+        # (docs/privacy.md). Claude Code's record of a tool call, which the capture reads as that
+        tool = str(event.get("tool_name") or "")
+        if tool.endswith("brain_forget"):
+            folder.mkdir(parents=True, exist_ok=True)
+            _append(path, {"type": "assistant", "uuid": str(uuid.uuid4()), "sessionId": session,
+                           "cwd": event.get("cwd"), "timestamp": _now(),
+                           "message": {"content": [{"type": "tool_use", "name": tool}]}})
+        return None
     role, field = EVENTS[agent][event_name]
     text = event.get(field)
     if not isinstance(text, str) or not text.strip():
         return None
-    session = str(event.get("session_id") or "default")
-    folder = hooks_root() / agent
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{''.join(c for c in session if c.isalnum() or c in '-_') or 'default'}.jsonl"
     if role == "assistant" and path.exists():
         # AfterAgent can fire again for the same reply (a retry another hook asked for); each
         # line gets a fresh uuid, so the same reply would be stored twice
@@ -46,13 +56,18 @@ def record(agent: str, event_name: str, event: dict) -> str | None:
         last = json.loads(lines[-1]) if lines else {}
         if last.get("type") == role and last.get("message", {}).get("content") == text:
             return text
-    line = {"type": role, "uuid": str(uuid.uuid4()), "sessionId": session,
-            "cwd": event.get("cwd"),
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "message": {"content": text}}
+    _append(path, {"type": role, "uuid": str(uuid.uuid4()), "sessionId": session,
+                   "cwd": event.get("cwd"), "timestamp": _now(), "message": {"content": text}})
+    return text
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _append(path, line: dict) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
-    return text
 
 
 def reply(agent: str, event_name: str, text: str | None) -> dict:

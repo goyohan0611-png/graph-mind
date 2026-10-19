@@ -2,7 +2,8 @@
 //
 // 1. Every user message and every finished assistant reply is appended, as said, to a transcript
 //    the capture service reads like Claude Code's: masked, stored, searchable by meaning, shared
-//    with the user's other agents. Nothing else: no tool calls, no reasoning.
+//    with the user's other agents. Nothing else: no tool calls, no reasoning, except a mark
+//    where brain_forget ran, so the conversation about deleting is not kept either.
 // 2. Before the model answers a message, the memory that bears on it is added to the system
 //    prompt (python -m graph_mind.inject), so every model gets the past, not only the ones that
 //    think to call brain_context.
@@ -51,6 +52,15 @@ export const GraphMindPlugin = async ({ directory }) => {
         message: { content: text } });
       const memory = await recall(text);
       if (memory.trim()) pending.set(input.sessionID, memory);
+    },
+    // the model called brain_forget: the conversation about deleting is not kept
+    // (docs/privacy.md); Claude Code's record of a tool call, which the capture reads as that
+    "tool.execute.after": async (input) => {
+      if (String(input.tool || "").endsWith("brain_forget")) {
+        write(input.sessionID, { type: "assistant", uuid: input.callID, sessionId: input.sessionID,
+          cwd: directory, timestamp: new Date().toISOString(),
+          message: { content: [{ type: "tool_use", name: input.tool }] } });
+      }
     },
     "experimental.chat.system.transform": async (input, output) => {
       const memory = input.sessionID && pending.get(input.sessionID);

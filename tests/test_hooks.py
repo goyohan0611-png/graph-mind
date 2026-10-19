@@ -52,6 +52,31 @@ class HookTests(unittest.TestCase):
             ("gemini-cli", "user", "our golden retriever Kongi turned three"),
             ("gemini-cli", "assistant", "Happy birthday!")]))
 
+    def test_the_conversation_about_deleting_is_not_kept(self):
+        """docs/privacy.md: asking to delete a secret must not store the secret again. Gemini's
+        hooks carried only text, so the forget call was invisible and the request was kept."""
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}):
+            def say(event, **fields):
+                run("gemini-cli", event, {"session_id": "g3", **fields})
+            say("BeforeAgent", prompt="my dog is called Kongi")
+            say("AfterAgent", prompt_response="Nice name!")
+            say("BeforeAgent", prompt="delete the wifi password qwerty123 I typed earlier")
+            say("AfterTool", tool_name="mcp_graph-mind-memory_brain_view")     # not a forget
+            say("AfterTool", tool_name="mcp_graph-mind-memory_brain_forget")
+            say("AfterAgent", prompt_response="Deleted it.")
+            say("BeforeAgent", prompt="thanks, what's my dog called?")
+            with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
+                capture = HookConversationCapture(
+                    "gemini-cli", hook.hooks_root() / "gemini-cli", store,
+                    state_path=Path(directory) / "c.json")       # the real erase
+                capture.initialize_baseline()
+                capture.scan()
+                kept = [r[0] for r in store.db.execute(
+                    "SELECT content_redacted FROM conversation_turns ORDER BY happened_at")]
+        self.assertEqual(kept, ["my dog is called Kongi", "Nice name!",
+                                "thanks, what's my dog called?"])
+
     def test_cursor_transcript_is_read_as_said(self):
         """As the Cursor CLI agent wrote it: the typed text inside <user_query>, the reply's
         text blocks; a brain_forget call through CallDynamicTool drops the exchange."""

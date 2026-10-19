@@ -41,8 +41,11 @@ graph-mind-install
 
 - installs the packages (no PyTorch: the embedding model runs on ONNX Runtime);
 - registers the MCP server with every app it finds: Claude Code, Claude Desktop (including the
-  Microsoft Store build), Codex, OpenCode, Cursor, Windsurf, Gemini CLI, VS Code (Copilot), Cline
-  and LM Studio;
+  Microsoft Store build), Codex, OpenCode, Cursor, Windsurf, Gemini CLI, Copilot CLI, VS Code
+  (Copilot), Cline and LM Studio;
+- where an app keeps no transcript to read, adds its own way of saving the conversation: a
+  plugin for OpenCode, hooks for Gemini CLI (next to any hooks you already have; uninstall removes
+  only ours). Both also add the memory that bears on a message before the model answers;
 - starts the capture service at login (Windows Startup folder, a macOS LaunchAgent, or an XDG
   autostart entry on Linux);
 - downloads the embedding model (about 470 MB, once).

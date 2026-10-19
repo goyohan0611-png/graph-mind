@@ -3,6 +3,16 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **"Delete the password I typed" is no longer kept when asked in Gemini CLI or OpenCode.** The
+  conversation about deleting is meant to go too (docs/privacy.md), but their hook and plugin
+  recorded only text, so the brain_forget call was invisible and the request, secret and all,
+  was stored. A Gemini CLI AfterTool hook (brain_forget only) and an OpenCode tool hook now mark
+  the call as Claude Code's transcript does. Checked with Gemini CLI 0.64.0: remember, then
+  forget; the forget exchange is gone from what is captured.
+- docs/privacy.md and docs/install.md list what each app now has captured (Copilot CLI, Cursor's
+  CLI agent, Gemini CLI, OpenCode); the privacy page still said their transcripts were not read.
+
 ## 0.9.5 — 2026-10-19
 - **Gemini CLI hooks work when the Windows profile folder has a space** ("C:\Users\Jane Doe"):
   Gemini runs hooks through PowerShell, where the quoted path alone was a string and the hook

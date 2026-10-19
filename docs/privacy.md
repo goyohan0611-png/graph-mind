@@ -7,11 +7,15 @@
 | Codex: terminal, VS Code, ChatGPT desktop's work mode | every turn |
 | Claude Code: terminal, VS Code, Claude desktop's Code tab | every turn |
 | Claude desktop: Cowork | every turn |
-| Claude desktop: chat | what the model saves with `brain_remember` |
-| OpenCode, Cursor, Windsurf, Gemini CLI, VS Code, Cline, LM Studio | what the model saves with `brain_remember` (memory tools connected; their transcripts are not read yet) |
+| Copilot CLI | every turn (its own `~/.copilot/session-state`) |
+| Cursor's CLI agent | every turn (its own `~/.cursor/projects/*/agent-transcripts`) |
+| Gemini CLI | every turn, through hooks Graph-MIND adds (`~/.gemini/settings.json`) |
+| OpenCode | every turn, through a plugin Graph-MIND adds |
+| Claude desktop: chat; Windsurf, VS Code, Cline, LM Studio; Cursor's editor where it writes no transcript | what the model saves with `brain_remember` (memory tools connected) |
 
-Only what you actually send is captured: the service reads each app's transcript, written after
-you press Enter, so a paste you delete before sending never reaches it.
+Only what you actually send is captured: the service reads each app's transcript (or what its
+hook or plugin records), written after you press Enter, so a paste you delete before sending
+never reaches it. Text only: tool calls, their results and the model's reasoning are not kept.
 
 ## Secrets are masked before anything is stored
 

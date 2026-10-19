@@ -134,8 +134,10 @@ def _other_apps(home: Path) -> list:
 
 
 # their conversations are saved without the model (transcripts or hooks): the model is not told
-# to call brain_remember for ordinary chat, which stored the same thing twice
-SAVED_FOR_THEM = {"Cursor", "Gemini CLI", "Copilot CLI"}
+# to call brain_remember for ordinary chat, which stored the same thing twice. Not Cursor: its
+# transcript was seen from the CLI agent only, and its config is shared with the editor, whose
+# chats would then be neither captured nor remembered (a double save is the lesser harm)
+SAVED_FOR_THEM = {"Gemini CLI", "Copilot CLI"}
 
 
 def other_apps(home: Path) -> list[str]:

@@ -110,7 +110,7 @@ class HookTests(unittest.TestCase):
         """Their conversations are captured, so the model is not asked to save them again."""
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
-            for name in (".gemini", ".copilot", ".lmstudio"):
+            for name in (".gemini", ".copilot", ".lmstudio", ".cursor"):
                 (home / name).mkdir()
             with mock.patch.dict(os.environ, {"USERPROFILE": directory, "HOME": directory}):
                 install.other_apps(home)
@@ -120,6 +120,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(env(".gemini", "settings.json").get("GRAPH_MIND_CAPTURED"), "1")
             self.assertEqual(env(".copilot", "mcp-config.json").get("GRAPH_MIND_CAPTURED"), "1")
             self.assertNotIn("GRAPH_MIND_CAPTURED", env(".lmstudio", "mcp.json"))
+            self.assertNotIn("GRAPH_MIND_CAPTURED", env(".cursor", "mcp.json"))   # editor: unseen
 
     def test_copilot_cli_session_is_read_as_said(self):
         """Records as Copilot CLI 1.0.98 writes them: what was typed (not transformedContent),

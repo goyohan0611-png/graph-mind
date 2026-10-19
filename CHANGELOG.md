@@ -16,8 +16,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   skipped with a message and the rest are connected.
 
 ## 0.9.4 — 2026-10-19
-- Cursor, Gemini CLI and Copilot CLI are told their conversations are already saved, so the
-  model no longer stores the same thing again with brain_remember (seen in Cursor).
+- Gemini CLI and Copilot CLI are told their conversations are already saved, so the model no
+  longer stores the same thing again with brain_remember. (Cursor was too in 0.9.4; 0.9.5 takes
+  it back until its editor is seen writing the transcript the CLI does.)
 - Cursor turns are dated by the time in the transcript, not by when the capture service read
   them.
 - A Gemini CLI reply reported twice by its AfterAgent hook is stored once.

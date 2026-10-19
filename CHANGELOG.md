@@ -3,7 +3,8 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
+## 0.9.7 — 2026-10-19
+- README: retrieval R@5 (98.5% vs 95.2%) beside answer accuracy in the agentmemory table.
 - recall_any@5 on LongMemEval_S, measured clean in CI: 98.5% (479 questions; @10 99.2%),
   beside agentmemory's published 95.2%; in docs/benchmarks.md. The bench baseline is replaced:
   the earlier one was measured on corrupted cached vectors.

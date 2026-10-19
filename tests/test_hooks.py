@@ -142,7 +142,10 @@ class HookTests(unittest.TestCase):
             home = Path(directory)
             for name in (".gemini", ".copilot", ".lmstudio", ".cursor"):
                 (home / name).mkdir()
-            with mock.patch.dict(os.environ, {"USERPROFILE": directory, "HOME": directory}):
+            environment = {"USERPROFILE": directory, "HOME": directory,
+                           "APPDATA": str(home / "AppData")}
+            with mock.patch.dict(os.environ, environment):
+                install.agent_hooks(home)            # Gemini counts as saved only once hooked
                 install.other_apps(home)
             def env(*parts):
                 return json.loads(home.joinpath(*parts).read_text(encoding="utf-8"))[
@@ -151,6 +154,16 @@ class HookTests(unittest.TestCase):
             self.assertEqual(env(".copilot", "mcp-config.json").get("GRAPH_MIND_CAPTURED"), "1")
             self.assertNotIn("GRAPH_MIND_CAPTURED", env(".lmstudio", "mcp.json"))
             self.assertNotIn("GRAPH_MIND_CAPTURED", env(".cursor", "mcp.json"))   # editor: unseen
+            # Gemini's hooks break (an unexpected "hooks" value): nothing saves its chats now,
+            # so the flag that told the model not to save them goes, even if set before
+            settings = home / ".gemini" / "settings.json"
+            broken = json.loads(settings.read_text(encoding="utf-8"))
+            broken["hooks"] = ["not", "an", "object"]
+            settings.write_text(json.dumps(broken), encoding="utf-8")
+            with mock.patch.dict(os.environ, environment):
+                self.assertEqual(install.agent_hooks(home), [])
+                install.other_apps(home)
+            self.assertNotIn("GRAPH_MIND_CAPTURED", env(".gemini", "settings.json"))
 
     def test_copilot_cli_session_is_read_as_said(self):
         """Records as Copilot CLI 1.0.98 writes them: what was typed (not transformedContent),

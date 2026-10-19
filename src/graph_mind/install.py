@@ -63,6 +63,8 @@ def _json_entry(path: Path, key: str = "mcpServers", env=ENV, **extra) -> None:
     settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     servers = settings.setdefault(key, {})
     environment = {**servers.get(NAME, {}).get("env", {}), **env}   # keep the user's own settings
+    if "GRAPH_MIND_CAPTURED" not in env:     # ours to set: a stale one told the model not to save
+        environment.pop("GRAPH_MIND_CAPTURED", None)
     servers[NAME] = {**extra, "command": sys.executable, "args": SERVER, "env": environment}
     temporary = path.with_suffix(".graph-mind.tmp")
     temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -138,6 +140,19 @@ def _other_apps(home: Path) -> list:
 # transcript was seen from the CLI agent only, and its config is shared with the editor, whose
 # chats would then be neither captured nor remembered (a double save is the lesser harm)
 SAVED_FOR_THEM = {"Gemini CLI", "Copilot CLI"}
+HOOKED = {"Gemini CLI"}                    # saved only while our hooks are in its settings
+
+
+def _has_our_hooks(home: Path, app: str) -> bool:
+    """Whether app's hooks file holds Graph-MIND's hooks: a failed hook install must not leave
+    the model told its conversations are saved, when nothing saves them."""
+    for name, _, path, _ in _hook_files(home):
+        if name == app:
+            try:
+                return _ours(json.loads(path.read_text(encoding="utf-8")).get("hooks"))
+            except APP_ERRORS:
+                return False
+    return False
 
 
 def other_apps(home: Path) -> list[str]:
@@ -147,7 +162,8 @@ def other_apps(home: Path) -> list[str]:
             continue
         try:
             config.parent.mkdir(parents=True, exist_ok=True)
-            _json_entry(config, key, env=CAPTURED if name in SAVED_FOR_THEM else ENV, **extra)
+            saved = name in SAVED_FOR_THEM and (name not in HOOKED or _has_our_hooks(home, name))
+            _json_entry(config, key, env=CAPTURED if saved else ENV, **extra)
             done.append(name)
         except APP_ERRORS:
             # a settings file with comments (VS Code allows them) is not JSON, or the app holds
@@ -407,12 +423,12 @@ def main(argv=None):
             step(f"{connect.__name__}: skipped ({type(error).__name__}: {error})")
             return []
         return result if isinstance(result, list) else [result]
+    hooked = tried(agent_hooks, home)          # first: other_apps marks only hooked apps captured
     apps = [name for name in [*tried(claude_code, home), *tried(claude_desktop, home),
                               *tried(codex, home), *tried(opencode, home),
                               *tried(other_apps, home)] if name]
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
-    hooked = agent_hooks(home)
     if hooked:
         step("conversations saved through hooks: " + ", ".join(hooked))
     if args.name:

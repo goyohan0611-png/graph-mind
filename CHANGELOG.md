@@ -10,6 +10,10 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   was stored. A Gemini CLI AfterTool hook (brain_forget only) and an OpenCode tool hook now mark
   the call as Claude Code's transcript does. Checked with Gemini CLI 0.64.0: remember, then
   forget; the forget exchange is gone from what is captured.
+- **Gemini CLI is marked as saved only while its hooks are actually in place.** The installer
+  connected the memory (telling the model its chats are saved) before adding the hooks; when the
+  hooks could not be written, nothing saved Gemini's chats and the model was told not to. Hooks
+  now go first, the mark depends on them, and a stale mark from an earlier install is removed.
 - docs/privacy.md and docs/install.md list what each app now has captured (Copilot CLI, Cursor's
   CLI agent, Gemini CLI, OpenCode); the privacy page still said their transcripts were not read.
 

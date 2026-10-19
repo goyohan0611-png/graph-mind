@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 import sys
@@ -28,10 +29,17 @@ if __package__ in (None, ""):                # run as a file from a checkout: im
 SERVER = ["-m", "graph_mind.mcp_server"]
 CAPTURE = ["-m", "graph_mind.capture_cli", "run"]
 NAME = "graph-mind-memory"
-ENV = {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+# PYTHONSAFEPATH (3.11+): apps start the server in the user's project folder, and `python -m`
+# looks there first; a graph_mind.py or graph_mind/ in that project replaced the real package
+ENV = {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "PYTHONSAFEPATH": "1"}
 # apps whose transcripts the capture service reads: every turn is saved without the model,
 # so the model need not spend a tool call on brain_remember for ordinary chat
 CAPTURED = {**ENV, "GRAPH_MIND_CAPTURED": "1"}
+
+
+# what one app's settings can throw at us (not JSON, an unexpected shape, a file the app holds
+# open): that app is skipped, never the whole install
+APP_ERRORS = (ValueError, TypeError, AttributeError, OSError)
 
 
 def step(message):
@@ -139,16 +147,20 @@ def other_apps(home: Path) -> list[str]:
             config.parent.mkdir(parents=True, exist_ok=True)
             _json_entry(config, key, env=CAPTURED if name in SAVED_FOR_THEM else ENV, **extra)
             done.append(name)
-        except ValueError:
-            # a settings file with comments (VS Code allows them) is not JSON: leave it alone
+        except APP_ERRORS:
+            # a settings file with comments (VS Code allows them) is not JSON, or the app holds
+            # the file open: leave it alone, and carry on with the other apps
             step(f"{name}: could not edit {config}; add the server there by hand")
     return done
 
 
 def _hook_command(agent: str, event: str) -> str:
-    # ponytail: quoted only when the path has a space; that form is for cmd and sh, not PowerShell
-    python = f'"{sys.executable}"' if " " in sys.executable else sys.executable
-    return f"{python} -m graph_mind.hook {agent} {event}"
+    """Gemini CLI runs a hook through PowerShell on Windows and sh elsewhere. In PowerShell a
+    quoted path is a string, not a command, so it needs the call operator; a profile folder with
+    a space ("C:\\Users\\Jane Doe") made the plain quoted form fail without a word."""
+    if os.name == "nt":
+        return f'& "{sys.executable}" -m graph_mind.hook {agent} {event}'
+    return f"{shlex.quote(sys.executable)} -m graph_mind.hook {agent} {event}"
 
 
 def _ours(entry) -> bool:
@@ -158,7 +170,7 @@ def _ours(entry) -> bool:
 def _hook_files(home: Path) -> list:
     """(app, folder, hooks file, {event: entry}) for agents whose hooks save the conversation."""
     gemini = {event: {"matcher": "*", "hooks": [{
-        "type": "command", "name": "graph-mind", "timeout": 20000,
+        "type": "command", "name": "graph-mind", "timeout": 20000, "env": ENV,
         "command": _hook_command("gemini-cli", event)}]}
         for event in ("BeforeAgent", "AfterAgent")}
     return [("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", gemini)]
@@ -168,7 +180,11 @@ def _write_hooks(path: Path, entries: dict) -> None:
     """Our entry for each event, in place of an older one of ours; everyone else's kept."""
     settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise ValueError("hooks is not an object")
     for event in list(hooks):
+        if not isinstance(hooks[event], list):    # Gemini CLI keeps "enabled", "disabled" here too
+            continue
         hooks[event] = [entry for entry in hooks[event] if not _ours(entry)]
         if not hooks[event]:
             del hooks[event]
@@ -191,7 +207,7 @@ def agent_hooks(home: Path, remove: bool = False) -> list[str]:
         try:
             _write_hooks(path, {} if remove else entries)
             done.append(name)
-        except ValueError:
+        except APP_ERRORS:
             step(f"{name}: could not edit {path}; its hooks were left alone")
     return done
 
@@ -380,8 +396,16 @@ def main(argv=None):
         step("installing packages (the first time takes a few minutes)")
         packages()
     home = Path.home()
-    apps = [name for name in [claude_code(home), *claude_desktop(home), codex(home),
-                              opencode(home), *other_apps(home)] if name]
+    def tried(connect, *args):
+        try:
+            result = connect(*args)
+        except APP_ERRORS as error:
+            step(f"{connect.__name__}: skipped ({type(error).__name__}: {error})")
+            return []
+        return result if isinstance(result, list) else [result]
+    apps = [name for name in [*tried(claude_code, home), *tried(claude_desktop, home),
+                              *tried(codex, home), *tried(opencode, home),
+                              *tried(other_apps, home)] if name]
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
     hooked = agent_hooks(home)

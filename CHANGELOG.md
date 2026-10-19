@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **Gemini CLI hooks work when the Windows profile folder has a space** ("C:\Users\Jane Doe"):
+  Gemini runs hooks through PowerShell, where the quoted path alone was a string and the hook
+  failed silently, saving nothing. Now `& "path" -m graph_mind.hook ...`.
+- **A project with its own `graph_mind.py` or `graph_mind/` no longer breaks the memory there.**
+  Apps start the server and hooks in the user's project folder, and `python -m` looked there
+  first. `PYTHONSAFEPATH=1` (Python 3.11+) is now set for the server, the hooks and the
+  OpenCode plugin.
+- **One app's settings can no longer stop the whole install.** A Gemini CLI settings file with
+  `"hooks": {"enabled": true}` crashed it, and so would a file an app holds open; that app is now
+  skipped with a message and the rest are connected.
+
 ## 0.9.4 — 2026-10-19
 - Cursor, Gemini CLI and Copilot CLI are told their conversations are already saved, so the
   model no longer stores the same thing again with brain_remember (seen in Cursor).

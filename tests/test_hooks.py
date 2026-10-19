@@ -92,6 +92,18 @@ class HookTests(unittest.TestCase):
         self.assertEqual(len(said), 1)
         self.assertTrue(next(iter(said)).startswith("2026-10-18"), said)
 
+    def test_hook_command_survives_a_space_and_a_shadowing_project(self):
+        """Gemini CLI runs hooks through PowerShell on Windows, where a quoted path alone is a
+        string; and apps start them in the user's project, where a graph_mind.py shadowed us."""
+        python = r"C:\Users\Jane Doe\py\python.exe"
+        with mock.patch.object(install.sys, "executable", python), \
+                mock.patch.object(install.os, "name", "nt"):
+            self.assertEqual(install._hook_command("gemini-cli", "BeforeAgent"),
+                             f'& "{python}" -m graph_mind.hook gemini-cli BeforeAgent')
+        entry = install._hook_files(Path("x"))[0][3]["BeforeAgent"]["hooks"][0]
+        self.assertEqual(entry["env"]["PYTHONSAFEPATH"], "1")
+        self.assertEqual(install.ENV["PYTHONSAFEPATH"], "1")
+
     def test_apps_saved_for_them_are_told_so(self):
         """Their conversations are captured, so the model is not asked to save them again."""
         with tempfile.TemporaryDirectory() as directory:
@@ -153,7 +165,8 @@ class HookTests(unittest.TestCase):
             (home / ".gemini").mkdir()
             theirs = {"hooks": [{"type": "command", "command": "C:/their/hook.exe"}]}
             (home / ".gemini" / "settings.json").write_text(json.dumps(
-                {"theme": "Dracula", "hooks": {"BeforeAgent": [theirs]}}), encoding="utf-8")
+                {"theme": "Dracula", "hooks": {"BeforeAgent": [theirs], "enabled": True}}),
+                encoding="utf-8")                # "enabled" stopped the whole install once
             for _ in range(2):                                   # again: still one of ours
                 self.assertEqual(install.agent_hooks(home), ["Gemini CLI"])
 
@@ -166,7 +179,7 @@ class HookTests(unittest.TestCase):
             self.assertIn("graph_mind.hook gemini-cli AfterAgent",
                           gemini["hooks"]["AfterAgent"][0]["hooks"][0]["command"])
             install.agent_hooks(home, remove=True)
-            self.assertEqual(read()["hooks"], {"BeforeAgent": [theirs]})
+            self.assertEqual(read()["hooks"], {"BeforeAgent": [theirs], "enabled": True})
 
 
 if __name__ == "__main__":

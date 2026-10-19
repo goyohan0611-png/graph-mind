@@ -27,7 +27,7 @@ function recall(text) {
     try {
       const child = execFile(PYTHON, ["-m", "graph_mind.inject"],
         { timeout: INJECT_TIMEOUT_MS, windowsHide: true, maxBuffer: 1 << 20,
-          env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" } },
+          env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONSAFEPATH: "1" } },
         (error, stdout) => resolve(error ? "" : String(stdout || "")));
       child.stdin.end(text);
     } catch {

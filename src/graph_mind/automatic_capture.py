@@ -86,6 +86,10 @@ def ensure_service() -> bool:
         return True
 
 
+EMBED_BATCH = 512               # pieces embedded per pass
+EMBED_RECHECK_SECONDS = 600     # look for unembedded turns at least this often
+
+
 def _now():
     return datetime.now().isoformat(timespec="microseconds")
 
@@ -335,7 +339,7 @@ class AutomaticCaptureService:
         _atomic_json(self.status_path, {**result, "pid": os.getpid(),
                                        "config_db": str(self.db_path)})
 
-    def embed_new_turns(self, limit=512):
+    def embed_new_turns(self, limit=None):
         """Make what was just captured searchable by meaning before anyone asks about it (the
         memory servers pick the vectors up from the shared cache). Only the long-running service
         does this: a one-off `once` or a test should not load the embedding model."""
@@ -344,7 +348,7 @@ class AutomaticCaptureService:
             from graph_mind.warmup import warm_turns
             if getattr(self, "_embedder", None) is None:
                 self._embedder = default_embedder(self.db_path)
-            return warm_turns(self.db_path, limit=limit, embedder=self._embedder)
+            return warm_turns(self.db_path, limit=limit or EMBED_BATCH, embedder=self._embedder)
         except Exception:                       # capture must go on if embedding cannot
             return 0
 
@@ -368,13 +372,22 @@ class AutomaticCaptureService:
             self.lend_model()
         iteration = 0
         last_code_scan = None
+        pending, last_embed = True, time.monotonic()
         try:
             while max_iterations is None or iteration < max_iterations:
                 monotonic_now = time.monotonic()
                 code_due = (last_code_scan is None or monotonic_now - last_code_scan
                             >= self.config.get("code_poll_seconds", 120))
-                self.run_once(capture_code=code_due)
-                self.embed_new_turns()
+                result = self.run_once(capture_code=code_due)
+                recorded = any(isinstance(s, dict) and s.get("recorded_turns")
+                               for s in result["conversation_sources"].values())
+                # finding unembedded pieces reads every stored turn: on a 400 MB memory that
+                # was half a CPU core and ~1 GB all day while nothing new came in. Only when
+                # turns arrived, a batch left more behind, or every 10 minutes (turns synced in
+                # from another PC)
+                if pending or recorded or monotonic_now - last_embed >= EMBED_RECHECK_SECONDS:
+                    pending = self.embed_new_turns() >= EMBED_BATCH
+                    last_embed = time.monotonic()
                 if code_due:
                     last_code_scan = time.monotonic()
                 iteration += 1

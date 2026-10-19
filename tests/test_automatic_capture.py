@@ -106,6 +106,22 @@ class AutomaticCaptureTests(unittest.TestCase):
             self.assertEqual(skipped["coding"][0]["status"], "SKIPPED_NOT_DUE")
             self.assertEqual(captured["coding"][0]["change_count"], 1)
 
+    def test_idle_service_does_not_rescan_every_turn_for_vectors(self):
+        """Looking for unembedded turns reads the whole memory: only on new turns or a full
+        batch, not every 5 s while nothing comes in."""
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as directory:
+            service = AutomaticCaptureService({"db_path": str(Path(directory) / "m.sqlite"),
+                                               "poll_seconds": 1}, state_dir=directory)
+            new = iter([0, 0, 2, 0, 0, 0, 0])            # turns recorded on each pass
+            service.run_once = lambda **_: {"conversation_sources": {
+                "codex": {"recorded_turns": next(new)}}}
+            embedded = iter([512, 3, 1])                  # a full batch, the rest, the new two
+            service.embed_new_turns = mock.Mock(side_effect=lambda: next(embedded))
+            with mock.patch("graph_mind.automatic_capture.time.sleep"):
+                service.run_forever(max_iterations=7)
+            self.assertEqual(service.embed_new_turns.call_count, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,8 +26,14 @@ class HubProcessDiedTests(unittest.TestCase):
         # not mkdtemp: initdb run by an administrator (CI) cannot enter its owner-only folder
         home = Path(tempfile.gettempdir()) / f"graph-mind-recovery-{os.getpid()}-{time.time_ns()}"
         home.mkdir()
+        # a free port, not a fixed one: Linux hands out 32768-60999 to outgoing connections, and
+        # when one held 54396 Postgres listened on its socket file only ("Connection refused")
+        import socket
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
         with mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": str(home)}), \
-                mock.patch.object(sharing, "PORT", 54396):
+                mock.patch.object(sharing, "PORT", port):
             try:
                 with psycopg.connect(sharing.local_postgres(), autocommit=True) as db:
                     db.execute("CREATE TABLE kept(note text)")

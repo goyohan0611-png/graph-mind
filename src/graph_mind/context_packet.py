@@ -245,6 +245,20 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
         used += separator + len(section)
         if truncated:
             break
+    if order == "relevance":
+        # Keep conversations together, in first-hit order; retain relevance within each.
+        # Do this AFTER packing so grouping cannot change which evidence fits.
+        groups = {}
+        for item, section in zip(selected, sections):
+            source = item["provenance"]
+            key = ("item", item["id"])
+            if item["source_kind"] == "CONVERSATION_TURN":
+                key = ("conversation", item["scope"], source.get("source_type"),
+                       source["source_ref"].rsplit(":", 1)[0])
+            groups.setdefault(key, []).append((item, section))
+        grouped = [pair for group in groups.values() for pair in group]
+        selected = [item for item, _ in grouped]
+        sections = [section for _, section in grouped]
     context = "\n\n".join(sections)
     return {
         "status": "KNOWN" if selected else "UNKNOWN",

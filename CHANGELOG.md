@@ -3,7 +3,16 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
+## 0.9.9 — 2026-10-20
+- **Security: a chat can no longer move your memory.** Choosing the memory folder, sharing it with
+  your other PCs, joining with a code and exporting or importing a memory file are now terminal
+  commands you run (`graph-mind folder share`, `graph-mind folder <code>`, `graph-mind export
+  <file>`): the AI shows the command. Before, a web page or file the AI read could ask it to send
+  every future conversation to someone else's server, when tool calls were auto-approved.
+- **Security: this PC's Postgres needs a password.** It was created with `trust` for connections
+  from the same PC, so any program or other Windows account there could read the memory. Now
+  every login needs a password, kept in `~/.graph-mind/pgpass`; an existing one is changed the
+  first time it is used after the upgrade (restart open AI apps once afterwards).
 - **The first memory question after an app starts is answered in about 1.3 s** (was 3.4 s, once
   24 s, on a PC whose 400 MB memory is shared with another PC). The server's warm-up now also
   syncs the shared memory and loads the search index, not only the model.

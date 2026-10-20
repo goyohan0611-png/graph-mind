@@ -47,9 +47,10 @@ No Python needed; nothing else to set up. Restart your AI apps afterwards. Alrea
 - **Remembers conversations word for word**, on your own PC. Saving is a database write: no model
   call, no tokens. When a question depends on the past, the agent gets back the few thousand
   tokens that answer it. Korean and English.
-- **One memory across your PCs.** Tell the AI *"let my other PCs use this memory"*, paste the code it gives you
-  to the AI on the other PC. Office network or [Tailscale](https://tailscale.com), over TLS,
-  every line encrypted before it leaves a PC.
+- **One memory across your PCs.** Run `graph-mind folder share`, then `graph-mind folder <code>` on
+  the other PC (the AI tells you the command; it never moves your memory by itself, so a web page
+  cannot either). Office network or [Tailscale](https://tailscale.com), over TLS, every line
+  encrypted before it leaves a PC.
 - **Yours.** No account, no cloud of its own, no telemetry. Secrets are masked before anything is
   stored, and *"delete the password I typed earlier"* deletes it everywhere. [docs/privacy.md](docs/privacy.md)
 - **Teams, if you want them.** Share a project's decisions and progress with teammates' AIs, never

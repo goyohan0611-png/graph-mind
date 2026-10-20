@@ -32,6 +32,13 @@ class HubProcessDiedTests(unittest.TestCase):
                 with psycopg.connect(sharing.local_postgres(), autocommit=True) as db:
                     db.execute("CREATE TABLE kept(note text)")
                     db.execute("INSERT INTO kept VALUES ('before the crash')")
+                # nobody else on the PC logs in without the password (initdb made it "trust")
+                hba = (sharing._pg_data() / "pg_hba.conf").read_text(encoding="utf-8")
+                self.assertNotRegex(hba, r"(?m)^[^#\n]*\btrust\s*$")
+                with mock.patch.dict(os.environ, {"PGPASSFILE": str(home / "none")}), \
+                        self.assertRaises(psycopg.OperationalError):
+                    psycopg.connect(f"postgresql://postgres@127.0.0.1:{sharing.PORT}/postgres",
+                                    connect_timeout=10).close()
                 pid = (sharing._pg_data() / "postmaster.pid").read_text(encoding="utf-8")
                 postmaster = psutil.Process(int(pid.split()[0]))
                 # the whole server, no clean stop; the postmaster first: killed after its

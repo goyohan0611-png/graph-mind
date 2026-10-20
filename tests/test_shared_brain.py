@@ -20,6 +20,10 @@ from mcp import Client
 from graph_mind.mcp_server import build_server, wait_for_index
 
 
+def serve(path):
+    return build_server(path, terminal=True)          # the user at a terminal: may move memory
+
+
 @contextmanager
 def plain_directory():
     """A temporary directory made with plain mkdir. tempfile's directories are owner-only, and
@@ -59,12 +63,12 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
             os.environ["GRAPH_MIND_FOLDER"] = str(shared)
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
-                async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
+                async with Client(serve(root / "desktop-index.sqlite")) as desktop:
                     saved = await desktop.call_tool("brain_remember", remember("사는 곳: 서울"))
                     seoul = saved.structured_content["memory_id"]
 
                 os.environ["GRAPH_MIND_DEVICE"] = "laptop"
-                async with Client(build_server(root / "laptop-index.sqlite")) as laptop:
+                async with Client(serve(root / "laptop-index.sqlite")) as laptop:
                     seen = await laptop.call_tool("brain_recall", {"query": "사는 곳"})
                     self.assertEqual([m["memory_id"] for m
                                       in seen.structured_content["matches"]], [seoul],
@@ -75,7 +79,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                     busan = moved.structured_content["memory_id"]
 
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
-                async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
+                async with Client(serve(root / "desktop-index.sqlite")) as desktop:
                     now = await desktop.call_tool("brain_recall", {"query": "사는 곳"})
                     self.assertEqual([m["memory_id"] for m
                                       in now.structured_content["matches"]], [busan],
@@ -101,11 +105,11 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
             os.environ["GRAPH_MIND_FOLDER"] = url
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
-                async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
+                async with Client(serve(root / "desktop-index.sqlite")) as desktop:
                     saved = await desktop.call_tool("brain_remember", remember("사는 곳: 서울"))
                     seoul = saved.structured_content["memory_id"]
                 os.environ["GRAPH_MIND_DEVICE"] = "laptop"
-                async with Client(build_server(root / "laptop-index.sqlite")) as laptop:
+                async with Client(serve(root / "laptop-index.sqlite")) as laptop:
                     seen = await laptop.call_tool("brain_recall", {"query": "사는 곳"})
                     self.assertEqual([m["memory_id"] for m
                                       in seen.structured_content["matches"]], [seoul])
@@ -115,7 +119,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                     shown = await laptop.call_tool("brain_folder", {})
                     self.assertEqual(shown.structured_content["devices"], ["desktop", "laptop"])
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
-                async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
+                async with Client(serve(root / "desktop-index.sqlite")) as desktop:
                     now = await desktop.call_tool("brain_recall", {"query": "사는 곳"})
                     self.assertEqual([m["memory_id"] for m
                                       in now.structured_content["matches"]], [busan])
@@ -140,7 +144,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
                 os.environ["GRAPH_MIND_CONFIG"] = str(root / "desktop-config.json")
                 with unittest.mock.patch.object(sharing, "_firewall", return_value="open"):
-                    async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
+                    async with Client(serve(root / "desktop-index.sqlite")) as desktop:
                         shared = await desktop.call_tool("brain_folder", {"path": "share"})
                         await desktop.call_tool("brain_remember", remember("사는 곳: 서울"))
                 code = shared.structured_content["connection_code"]
@@ -165,7 +169,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
 
                 os.environ["GRAPH_MIND_DEVICE"] = "laptop"
                 os.environ["GRAPH_MIND_CONFIG"] = str(root / "laptop-config.json")
-                async with Client(build_server(root / "laptop-index.sqlite")) as laptop:
+                async with Client(serve(root / "laptop-index.sqlite")) as laptop:
                     joined = await laptop.call_tool("brain_folder", {"path": code})
                     self.assertEqual(joined.structured_content["folder"],
                                      f"Postgres on {lan}:54391")
@@ -201,7 +205,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
                 os.environ["GRAPH_MIND_CONFIG"] = str(root / "desktop-config.json")
-                async with Client(build_server(root / "desktop-index.sqlite")) as desktop:
+                async with Client(serve(root / "desktop-index.sqlite")) as desktop:
                     before = await desktop.call_tool("brain_folder", {})
                     self.assertIsNone(before.structured_content["folder"])
                     await desktop.call_tool("brain_remember", remember("사는 곳: 서울"))
@@ -216,7 +220,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
 
                 os.environ["GRAPH_MIND_DEVICE"] = "laptop"
                 os.environ["GRAPH_MIND_CONFIG"] = str(root / "laptop-config.json")
-                async with Client(build_server(root / "laptop-index.sqlite")) as laptop:
+                async with Client(serve(root / "laptop-index.sqlite")) as laptop:
                     joined = await laptop.call_tool("brain_folder", {"path": str(shared)})
                     self.assertEqual(joined.structured_content["imported_from_other_devices"], 1)
                     seen = await laptop.call_tool("brain_recall", {"query": "사는 곳"})

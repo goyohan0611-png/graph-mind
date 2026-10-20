@@ -75,7 +75,52 @@ TAILSCALE = "100.64.0.0/10"
 
 def _pg_data() -> Path:
     from graph_mind.paths import graph_mind_home
-    return graph_mind_home() / "postgres"
+    data = graph_mind_home() / "postgres"
+    # this PC's own logins read their passwords here (libpq's password file): in no URL, so
+    # never shown or saved anywhere else
+    os.environ["PGPASSFILE"] = str(data.parent / "pgpass")
+    return data
+
+
+def _require_passwords(data: Path) -> None:
+    """initdb made the cluster with --auth=trust: any program or other account on this PC could
+    log in as the superuser with no password at all. Every login now needs one; this PC's own
+    programs find theirs in PGPASSFILE, a file in the user's own home folder. A cluster from
+    before is changed the first time it is used."""
+    hba = data / "pg_hba.conf"
+    before = hba.read_text(encoding="utf-8").splitlines()
+    after = [line if line.lstrip().startswith("#") else re.sub(r"\btrust\s*$", "scram-sha-256",
+                                                                     line) for line in before]
+    if after == before:
+        return
+    import secrets
+
+    import psycopg
+    passfile = Path(os.environ["PGPASSFILE"])
+    known = _passwords()                       # a run that stopped half way chose them already
+    # the share password is already graphmind's when other PCs log in with it: keep it
+    words = {"postgres": known.get("postgres") or secrets.token_urlsafe(18),
+             "graphmind": known.get("graphmind") or _config().get("share_password")
+             or secrets.token_urlsafe(18)}
+    passfile.write_text("".join(f"127.0.0.1:{PORT}:*:{role}:{word}\n"
+                                for role, word in words.items()), encoding="utf-8")
+    passfile.chmod(0o600)                      # libpq ignores a file others can read (Unix)
+    with psycopg.connect(_admin_uri(), autocommit=True) as admin:
+        for role, word in words.items():        # token_urlsafe: nothing in it closes the quote
+            admin.execute(f"ALTER ROLE {role} PASSWORD '{word}'")
+        hba.write_text("\n".join(after) + "\n", encoding="utf-8")
+        admin.execute("SELECT pg_reload_conf()")
+    import time
+    time.sleep(0.5)                          # ponytail: the reload is a signal with no "done" flag
+
+
+def _passwords() -> dict:
+    """role -> password, from this PC's password file."""
+    try:
+        lines = Path(os.environ["PGPASSFILE"]).read_text(encoding="utf-8").splitlines()
+    except (OSError, KeyError):
+        return {}
+    return {line.split(":")[3]: line.split(":", 4)[4] for line in lines if line.count(":") >= 4}
 
 
 def local_postgres() -> str:
@@ -111,6 +156,10 @@ def local_postgres() -> str:
                 if not admin.execute("SELECT 1 FROM pg_database WHERE datname='graphmind'"
                                      ).fetchone():
                     admin.execute("CREATE DATABASE graphmind OWNER graphmind")
+    if re.search(r"(?m)^[^#\n]*\btrust\s*$", (data / "pg_hba.conf").read_text(encoding="utf-8")):
+        import fasteners
+        with fasteners.InterProcessLock(str(data.parent / "postgres.lock")):
+            _require_passwords(data)
     _LOCAL_URI["uri"] = f"postgresql://graphmind@127.0.0.1:{PORT}/graphmind"
     # project brains' tables and file functions, once per process: a teammate or the owner's
     # other PC may use them without this PC ever opening a project itself
@@ -247,6 +296,7 @@ def _wait_accepting(port, seconds):
     import time
 
     import psycopg
+    _pg_data()                                  # its password file
     deadline = time.monotonic() + seconds
     while True:
         try:
@@ -306,8 +356,9 @@ _DETACHED = ({"creationflags": 0x08000000 | 0x00000200,     # CREATE_NO_WINDOW |
              if os.name == "nt" else {"start_new_session": True, "stdin": subprocess.DEVNULL})
 
 
-def _admin_uri() -> str:
-    return f"postgresql://postgres@127.0.0.1:{PORT}/postgres"
+def _admin_uri(database="postgres") -> str:
+    _pg_data()                                  # its password file
+    return f"postgresql://postgres@127.0.0.1:{PORT}/{database}"
 
 
 def share(open_firewall: bool = True) -> dict:
@@ -337,7 +388,8 @@ def open_to_network(open_firewall: bool = True) -> dict:
 
     import psycopg
     local_postgres()                        # first: it explains a machine it cannot host on
-    password = _config().get("share_password") or secrets.token_urlsafe(18)
+    password = (_config().get("share_password") or _passwords().get("graphmind")
+                or secrets.token_urlsafe(18))
     _save({"share_password": password})          # before sealing: the line key derives from it
     data = _pg_data()
     certificate = _certificate(data)

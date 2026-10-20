@@ -137,7 +137,7 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
 class CodeTests(unittest.IsolatedAsyncioTestCase):
     async def test_any_code_goes_where_it_belongs_whichever_tool_gets_it(self):
         """The user pastes 'a code'; a team invite given to the brain-folder tool joins the team,
-        and the user's own-PC code given to the team tool joins the brain."""
+        and the user's own-PC code given to the team tool becomes a terminal command."""
         from graph_mind.mcp_server import build_server
         root = Path(tempfile.mkdtemp())
         with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}), \
@@ -153,8 +153,10 @@ class CodeTests(unittest.IsolatedAsyncioTestCase):
                 team.assert_called_once()
                 mine = (await client.call_tool("brain_checkpoint", {
                     "action": "join_team", "code": "gm1.e30"})).structured_content
-                self.assertEqual(mine["status"], "REFUSED")      # the bad own-PC code, from
-                own.assert_called_once_with("gm1.e30")           # where own-PC codes go
+                # where own-PC codes go: the user's terminal, never a chat
+                self.assertEqual(mine["status"], "RUN_IN_TERMINAL")
+                self.assertEqual(mine["command"], 'graph-mind folder "gm1.e30"')
+                own.assert_not_called()
 
 
 if __name__ == "__main__":

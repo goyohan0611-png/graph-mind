@@ -555,7 +555,22 @@ def type_name(error) -> str:
     return type(error).__name__
 
 
-def build_server(db_path=None):
+def folder_commands(path, share_existing, export_to, import_from) -> str:
+    """The terminal commands that do what brain_folder will not do for a chat."""
+    commands = []
+    if path or share_existing:
+        commands.append("graph-mind folder" + (f' "{path.strip()}"' if path else "")
+                        + (" --share-existing" if share_existing else ""))
+    if export_to:
+        commands.append(f'graph-mind export "{export_to}"')
+    if import_from:
+        commands.append(f'graph-mind import "{import_from}"')
+    return "\n".join(commands)
+
+
+def build_server(db_path=None, terminal=False):
+    """`terminal`: the user typed the request in a terminal (graph-mind folder ...), so
+    brain_folder may change where the memory goes. Apps start the server without it."""
     # here, not at the top: the SDK takes 6-10 s to import, and graph_mind.inject (run before
     # every OpenCode message) needs only gather()
     from mcp import types
@@ -793,6 +808,12 @@ def build_server(db_path=None):
 
         Not for teams: project brains shared with teammates are brain_checkpoint.
 
+        Anything that changes where the memory goes (`path`, `share_existing`, `export_to`,
+        `import_from`) is not done from here: the tool returns `command`, and the user runs it in
+        a terminal. A web page or file you read can then never move their memory somewhere else.
+        Show the user the command, say what it does, and call this again without arguments after
+        they ran it to confirm. Codes and passwords appear only in that terminal.
+
         Call it with `path` when the user names a folder for their memory, e.g. "use my Google
         Drive's Graph-MIND folder as my brain". A folder that OneDrive, Google Drive or Dropbox
         syncs makes the same memory available on every PC where the user chooses it too; nothing
@@ -803,11 +824,12 @@ def build_server(db_path=None):
         Other PCs: when the user asks to let their other PCs use this brain ("다른 PC도 붙게 해줘"),
         call it with `path="share"`. It opens this PC's Postgres to the local network and Tailscale
         (Windows may ask the user to approve a firewall rule once) and returns a
-        `connection_code`. Show the user that code and tell them to paste it to the AI on the
-        other PC; it contains the password, so say not to post it anywhere public.
+        `connection_code` in the terminal. On the other PC the user runs
+        `graph-mind folder <that code>`; it contains the password, so say not to post it anywhere
+        public.
         Codes: when the user pastes any Graph-MIND code ("gm1." for their own other PC, "gmt1."
-        for a team invite), call this with `path=<the code>`; it does the right thing for either,
-        so never ask the user which kind it is.
+        for a team invite), call this with `path=<the code>`; it does the right thing for either
+        (a team invite is joined at once), so never ask the user which kind it is.
 
         `share_existing=true` sends what this PC remembers and the shared memory lacks (only that:
         it also repairs turns that missed a hub that was down). It uploads
@@ -822,6 +844,14 @@ def build_server(db_path=None):
         already here. Only when the user asks. Tell them the file holds their entire memory
         (secrets were masked when saved), so keep it private like a diary.
         """
+        if path and path.strip().startswith("gmt1."):        # a team invite, not a brain folder
+            return brain_checkpoint(action="join_team", code=path.strip())
+        if not terminal and (path or share_existing or export_to or import_from):
+            return {"status": "RUN_IN_TERMINAL",
+                    "command": folder_commands(path, share_existing, export_to, import_from),
+                    "note": "For the user's safety this is not done from a chat: show them this "
+                            "command to run in a terminal (PowerShell or Terminal). It prints the "
+                            "result there."}
         if export_to or import_from:
             from graph_mind.sharing import export_file, import_file
             result = {}
@@ -837,8 +867,6 @@ def build_server(db_path=None):
                 synced = index.sync_sources(limit=1000)
             return {"synced": synced, "vectors_warmed": warm(database, limit=1000),
                     "store": str(database)}
-        if path and path.strip().startswith("gmt1."):        # a team invite, not a brain folder
-            return brain_checkpoint(action="join_team", code=path.strip())
         from graph_mind.sharing import (
             device_name,
             devices,
@@ -1201,7 +1229,36 @@ def keep_capture_running(every=60.0):
         work()
 
 
+def terminal_command(argv):
+    """graph-mind folder [PATH | local | share | CODE] [--share-existing]
+    graph-mind export FILE | graph-mind import FILE
+
+    What brain_folder leaves to the user: where the memory lives, sharing it with their other
+    PCs, and moving it to or from a file."""
+    import argparse
+    import asyncio
+    parser = argparse.ArgumentParser(prog="graph-mind", description=terminal_command.__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest="command", required=True)
+    folder = commands.add_parser("folder", help="show or change where the memory lives")
+    folder.add_argument("path", nargs="?", help="a folder, local, share, or a gm1./gmt1. code")
+    folder.add_argument("--share-existing", action="store_true",
+                        help="also send what this PC remembers to the shared memory")
+    commands.add_parser("export", help="write the whole memory into a file").add_argument("file")
+    commands.add_parser("import", help="add a memory file to this memory").add_argument("file")
+    args = parser.parse_args(argv)
+    call = ({"path": args.path, "share_existing": args.share_existing}
+            if args.command == "folder" else
+            {"export_to" if args.command == "export" else "import_from": args.file})
+    result = asyncio.run(build_server(terminal=True).call_tool("brain_folder", call))
+    print(json.dumps(result.structured_content, ensure_ascii=False, indent=2))
+    if args.command == "import":
+        wait_for_index()
+
+
 def main():
+    if sys.argv[1:]:
+        return terminal_command(sys.argv[1:])
     from graph_mind.local_embedder import LocalEmbedder
     LocalEmbedder.WAIT_FOR_MODEL = 0.5      # an app's question never waits out a model load
     LocalEmbedder.USE_SERVICE = True        # the capture service's model, when it runs

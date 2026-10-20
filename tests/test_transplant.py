@@ -21,7 +21,7 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
                               "content_redacted": "콩이를 제주도에 데려갔어", "raw_sha256": "x",
                               "source_path": "p", "happened_at": "2026-03-01T09:00:00",
                               "known_at": "2026-03-01T09:00:00", "source_ordinal": 1})
-            async with Client(build_server(old)) as client:
+            async with Client(build_server(old, terminal=True)) as client:
                 for when, text in [("2024-03-01", "I live in Busan"),
                                    ("2026-09-20", "We moved to Seoul, Mapo")]:
                     await client.call_tool("brain_remember", {
@@ -29,7 +29,7 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
                         "effective_at": when + "T09:00:00"})
                 out = (await client.call_tool("brain_folder", {"export_to": str(brain)})
                        ).structured_content["exported"]
-            async with Client(build_server(new)) as client:
+            async with Client(build_server(new, terminal=True)) as client:
                 first = (await client.call_tool("brain_folder", {"import_from": str(brain)})
                          ).structured_content["imported"]
                 again = (await client.call_tool("brain_folder", {"import_from": str(brain)})
@@ -45,6 +45,20 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(again["imported"], 0)                     # nothing twice
         self.assertEqual([m["content"] for m in homes], ["We moved to Seoul, Mapo"])  # still a fact
         self.assertEqual(len(found), 1)
+
+    async def test_a_chat_cannot_move_or_export_the_memory(self):
+        # a web page the model reads could ask for any of these; only the user's terminal does them
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+            target = Path(directory) / "out.jsonl"
+            async with Client(build_server(Path(directory) / "m.sqlite")) as client:
+                answers = [(await client.call_tool("brain_folder", call)).structured_content
+                           for call in ({"path": "share"}, {"path": "gm1.abc"},
+                                        {"path": str(directory)}, {"share_existing": True},
+                                        {"export_to": str(target)})]
+        self.assertEqual({a["status"] for a in answers}, {"RUN_IN_TERMINAL"})
+        self.assertEqual(answers[1]["command"], 'graph-mind folder "gm1.abc"')
+        self.assertEqual(answers[4]["command"], f'graph-mind export "{target}"')
+        self.assertFalse(target.exists())
 
 
 class MeaningTests(unittest.IsolatedAsyncioTestCase):

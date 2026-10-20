@@ -99,7 +99,7 @@ model saves with `brain_remember` is the memory.
 | `brain_context` | a bounded packet of the past turns and memories that answer a request; `recent=true` for "where did we leave off?" |
 | `brain_recall` | look memories and captured turns up directly; `entity=` for everything about one thing, in order |
 | `brain_remember` | save a sourced memory or decision (secrets masked) |
-| `brain_folder` | where the memory lives; share it with your other PCs; join with a code |
+| `brain_folder` | where the memory lives and which PCs share it; changes (`graph-mind folder`, `graph-mind export`, `graph-mind import`) are run by you in a terminal |
 | `brain_forget` | "delete the password I typed": lists masked candidates, deletes only what you pick, everywhere |
 | `code_activity` | what changed in a project, file or symbol, and when (when a code folder is watched) |
 | `brain_checkpoint` | [project brains](teams.md), for teams that use them |

@@ -802,8 +802,7 @@ def _admin(database=HUB_DATABASE):
     import psycopg
 
     from graph_mind import sharing
-    return psycopg.connect(f"postgresql://postgres@127.0.0.1:{sharing.PORT}/{database}",
-                           autocommit=True)
+    return psycopg.connect(sharing._admin_uri(database), autocommit=True)
 
 
 _PREPARED = set()

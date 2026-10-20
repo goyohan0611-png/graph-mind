@@ -3,6 +3,17 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.21 — 2026-10-21
+- **Code changes no longer keep secrets.** A password in a config file under a watched
+  project was stored in the file's copy and its diff as typed; both are masked now. Files over
+  2 MB and binary files are skipped, and a Windows junction out of the project is not followed.
+- **Code capture no longer stops** when a file is edited back and forth (A, B, A, B).
+- **A fact saved with the same date on two PCs** now shows the same current value on both.
+- **A memory promotion interrupted at the wrong moment** no longer blocks every later one.
+- The entity timeline no longer lists an entry twice or misses a change after a forget; one
+  oversized label no longer empties the context packet; the memory view (`brain.html`) can no
+  longer be broken by a stored message.
+
 ## 0.9.20 — 2026-10-21
 - **Far less disk writing.** Saving new search vectors used to rewrite the whole vector file
   (about 32 MB for 11k vectors) every time, even for one new vector. Now the new vectors are

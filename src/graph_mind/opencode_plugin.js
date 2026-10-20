@@ -32,7 +32,10 @@ function write(sessionID, record) {
 function recall(text) {
   return new Promise((resolve) => {
     try {
-      const child = execFile(PYTHON, ["-m", "graph_mind.inject"],
+      // -c without the current folder: Python 3.10 ignores PYTHONSAFEPATH
+      const child = execFile(PYTHON, ["-c",
+        "import sys; sys.path[:] = [p for p in sys.path if p]; " +
+        "import runpy; runpy.run_module('graph_mind.inject', run_name='__main__')"],
         { timeout: INJECT_TIMEOUT_MS, windowsHide: true, maxBuffer: 1 << 20,
           env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONSAFEPATH: "1" } },
         (error, stdout) => resolve(error ? "" : String(stdout || "")));

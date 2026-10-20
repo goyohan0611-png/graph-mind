@@ -617,12 +617,21 @@ def folder():
 
 
 def _save(changes: dict) -> None:
-    settings = {**_config(), **changes}
+    """It holds the share password and join codes: this user only (mkstemp makes it 0600), and
+    one writer at a time, or two saves lost one setting or raced the same temporary file."""
+    import fasteners
+    import tempfile
     target = config_path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(".tmp")
-    temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(temporary, target)
+    with fasteners.InterProcessLock(str(target.with_suffix(".lock"))):
+        settings = {**_config(), **changes}
+        fd, temporary = tempfile.mkstemp(prefix=target.name + ".", dir=target.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(settings, stream, ensure_ascii=False, indent=2)
+            os.replace(temporary, target)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
 
 
 def set_folder(path) -> Path:
@@ -638,6 +647,10 @@ def set_folder(path) -> Path:
     else:
         chosen = Path(path).expanduser().resolve()
         (chosen / "log").mkdir(parents=True, exist_ok=True)
+    if str(chosen) != str(_config().get("memory_folder")):
+        # the queue was for the old hub and would go to the new one; everything in it is in this
+        # PC's store, which `share_existing` sends on purpose
+        _outbox().unlink(missing_ok=True)
     _save({"memory_folder": str(chosen)})
     return chosen
 
@@ -885,7 +898,7 @@ def _seal_existing(url) -> int:
 
 def _pg(url):
     import psycopg
-    connection = psycopg.connect(url, autocommit=False)
+    connection = psycopg.connect(url, autocommit=False, connect_timeout=5)
     connection.execute("""CREATE TABLE IF NOT EXISTS sharing(
         seq BIGSERIAL PRIMARY KEY, device TEXT NOT NULL, line TEXT NOT NULL)""")
     connection.commit()

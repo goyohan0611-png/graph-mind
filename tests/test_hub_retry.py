@@ -67,5 +67,22 @@ class HubRetryTests(unittest.TestCase):
         self.assertIn(b"SSL_CTX_new", program.read_bytes())
 
 
+class DestinationTests(unittest.TestCase):
+    def test_a_queue_for_one_hub_is_not_sent_to_the_next(self):
+        import os
+        import tempfile
+        outbox = sharing._outbox()
+        outbox.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            sharing.set_folder(first)
+            outbox.write_text('{"kind": "turn"}' + chr(10), encoding="utf-8")
+            sharing.set_folder(first)                  # the same place: the queue stays
+            self.assertTrue(outbox.exists())
+            sharing.set_folder(second)
+            self.assertFalse(outbox.exists())
+            if os.name != "nt":                        # it holds the share password
+                self.assertEqual(sharing.config_path().stat().st_mode & 0o777, 0o600)
+
+
 if __name__ == "__main__":
     unittest.main()

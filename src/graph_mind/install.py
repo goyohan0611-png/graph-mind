@@ -26,7 +26,18 @@ HERE = Path(__file__).resolve().parent
 CHECKOUT = HERE.parent.parent         # a source checkout (pyproject.toml), else site-packages
 if __package__ in (None, ""):                # run as a file from a checkout: import it from there
     sys.path.insert(0, str(HERE.parent))
-SERVER = ["-m", "graph_mind.mcp_server"]
+
+
+def module(name):
+    """`python -m name`, minus the current folder on Python 3.10, which ignores PYTHONSAFEPATH:
+    apps start us inside the user's project, and a graph_mind/ there would run instead."""
+    if sys.version_info >= (3, 11):
+        return ["-m", name]
+    return ["-c", "import sys; sys.path[:] = [p for p in sys.path if p]; import runpy; "
+                  f"runpy.run_module('{name}', run_name='__main__')"]
+
+
+SERVER = module("graph_mind.mcp_server")
 CAPTURE = ["-m", "graph_mind.capture_cli", "run"]
 NAME = "graph-mind-memory"
 # PYTHONSAFEPATH (3.11+): apps start the server in the user's project folder, and `python -m`
@@ -176,9 +187,12 @@ def _hook_command(agent: str, event: str) -> str:
     """Gemini CLI runs a hook through PowerShell on Windows and sh elsewhere. In PowerShell a
     quoted path is a string, not a command, so it needs the call operator; a profile folder with
     a space ("C:\\Users\\Jane Doe") made the plain quoted form fail without a word."""
-    if os.name == "nt":
-        return f'& "{sys.executable}" -m graph_mind.hook {agent} {event}'
-    return f"{shlex.quote(sys.executable)} -m graph_mind.hook {agent} {event}"
+    arguments = [*module("graph_mind.hook"), agent, event]
+    if os.name == "nt":                # single quotes: literal in PowerShell, '' escapes one
+        rest = " ".join(a if a.replace("-", "").replace(".", "").replace("_", "").isalnum()
+                        else "'" + a.replace("'", "''") + "'" for a in arguments)
+        return f'& "{sys.executable}" {rest}'
+    return f"{shlex.quote(sys.executable)} {shlex.join(arguments)}"
 
 
 def _ours(entry) -> bool:
@@ -312,7 +326,8 @@ def codex(home: Path) -> str:
     environment = "\n".join(f"{key} = '{value}'" for key, value in CAPTURED.items())
     # not required: a memory server that fails to start must never keep a chat from starting
     text += (f"\n{header}\nstartup_timeout_sec = 60\n"
-             f"command = '{sys.executable}'\nargs = {json.dumps(SERVER)}\n\n"
+             f"command = {json.dumps(sys.executable, ensure_ascii=False)}\n"
+             f"args = {json.dumps(SERVER)}\n\n"
              f"[mcp_servers.{NAME}.env]\n{environment}\n")
     config.write_text(text, encoding="utf-8")
     return "Codex"
@@ -336,9 +351,11 @@ def capture_service(start: bool) -> str:
         python = Path(sys.executable).with_name("pythonw.exe")        # no console window
         startup = _login_item()
         startup.parent.mkdir(parents=True, exist_ok=True)
-        shortcut = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{startup}');"
-                    f"$s.TargetPath='{python}';$s.Arguments='{' '.join(CAPTURE)}';"
-                    f"$s.WorkingDirectory='{Path.home()}';$s.Save()")
+        def ps(value):                   # a PowerShell literal: '' escapes a quote
+            return "'" + str(value).replace("'", "''") + "'"
+        shortcut = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut({ps(startup)});"
+                    f"$s.TargetPath={ps(python)};$s.Arguments={ps(' '.join(CAPTURE))};"
+                    f"$s.WorkingDirectory={ps(Path.home())};$s.Save()")
         subprocess.run(["powershell", "-NoProfile", "-Command", shortcut], check=True,
                        capture_output=True)
     elif system == "Darwin":
@@ -482,7 +499,10 @@ def uninstall(argv=None):
     home, removed = Path.home(), []
     claude = shutil.which("claude")
     if claude:
-        subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
+        try:
+            subprocess.run([claude, "mcp", "remove", "-s", "user", NAME], capture_output=True)
+        except OSError:                  # blocked by antivirus or policy: remove the rest anyway
+            pass
     targets = ([("Claude Code", home / ".claude.json", "mcpServers")]
                + [("Claude Desktop", r / "claude_desktop_config.json", "mcpServers")
                   for r in _desktop_roots(home)]

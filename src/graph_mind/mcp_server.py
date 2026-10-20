@@ -746,8 +746,9 @@ def build_server(db_path=None, terminal=False):
             db = sqlite3.connect(database)
             try:
                 if not entity:
-                    return {"entities": timeline_index.entities(db, limit=max(limit, 50))}
-                rows = timeline_index.timeline(db, entity, limit=max(limit, 50))
+                    return {"entities": timeline_index.entities(db, limit=min(max(limit, 50),
+                                                                               500))}
+                rows = timeline_index.timeline(db, entity, limit=min(max(limit, 50), 500))
             finally:
                 db.close()
             current = [r for r in rows if not r["superseded"]]

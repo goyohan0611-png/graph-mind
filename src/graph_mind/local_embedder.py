@@ -231,7 +231,10 @@ class LocalEmbedder:
         cached = np.asarray([self.cache.get(self._key(t)) for t in picked], dtype=np.float32)
         cosines = (fresh * cached).sum(1) / np.clip(
             np.linalg.norm(fresh, axis=1) * np.linalg.norm(cached, axis=1), 1e-9, None)
-        if int((cosines < 0.99).sum()) <= 1:
+        # The int8 model's vector for a text moves a little with the rest of its batch (dynamic
+        # quantization: cosine 0.99-0.998), so "0.99, at most one below" wiped the whole cache at
+        # every service start and re-embedded ~11k pieces for an hour. Corrupt caches sit near 0.
+        if int((cosines < 0.9).sum()) <= len(picked) // 2:
             return False
         self.cache.clear()
         return True

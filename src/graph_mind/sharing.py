@@ -30,6 +30,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import base64
+import functools
 import json
 import os
 import platform
@@ -176,7 +177,9 @@ def local_postgres() -> str:
 
 # Postgres's own programs, built with OpenSSL for every machine a hub runs on: Windows, macOS,
 # and Linux on x86-64 and 64-bit ARM (a NAS, a Raspberry Pi), from
-# theseus-rs/postgresql-binaries (the Windows build is EnterpriseDB's). They are fetched once,
+# theseus-rs/postgresql-binaries (the Windows build is EnterpriseDB's). On Linux, zonky's build:
+# theseus-rs's links the system's libxml2.so.2 and ICU 74, which Ubuntu 26.04 no longer has, and
+# zonky's carries its own (lib/, found through $ORIGIN). They are fetched once,
 # the first time a machine hosts,
 # checked against the hashes pinned here and kept in the user's cache folder, apart from any
 # memory; every Graph-MIND home on the machine shares them. Nothing here is a Python package, so
@@ -185,10 +188,10 @@ POSTGRES = "16.14.0"
 _POSTGRES_BUILDS = {
     ("Windows", "x86_64"): ("x86_64-pc-windows-msvc.zip",
                             "69f1cf5060ab99190f98604312b09d80a691cbcd1836bd4a2eb2067a7ad9a89f"),
-    ("Linux", "x86_64"): ("x86_64-unknown-linux-gnu.tar.gz",
-                          "3541705c9ca2fdbb0bfc7562b10a36aac155f18d45577d8ec6725b874ccada4a"),
-    ("Linux", "aarch64"): ("aarch64-unknown-linux-gnu.tar.gz",
-                           "b266719b02d7e1dd7c9e74ec129d6443ba1f4bb2f13ff71e6e75fde459d49b47"),
+    ("Linux", "x86_64"): ("linux-amd64",
+                          "3278331b124b46fb9f8bea30c7ff3bd6227a3934dad38a6ddb625eb7dcfa8ca8"),
+    ("Linux", "aarch64"): ("linux-arm64v8",
+                           "482f5ccdb15f68f4bfe524a5b9df734e169db9d1d29c32a513af44ac9efc127a"),
     ("Darwin", "x86_64"): ("x86_64-apple-darwin.tar.gz",
                            "c5ecdea2528e29503140e259c043002f6f8f2e9d1ee2f1decb44e8b394254820"),
     ("Darwin", "aarch64"): ("aarch64-apple-darwin.tar.gz",
@@ -206,8 +209,14 @@ def postgres_bin() -> Path:
                            "supported yet (Windows, macOS, and Linux on x86-64 or 64-bit ARM "
                            "are). Joining a hub another machine hosts works here.")
     from platformdirs import user_cache_dir
-    root = Path(os.environ.get("GRAPH_MIND_RUNTIME")
-                or user_cache_dir("graph-mind", appauthor=False)) / f"postgresql-{POSTGRES}"
+    cache = Path(os.environ.get("GRAPH_MIND_RUNTIME")
+                 or user_cache_dir("graph-mind", appauthor=False))
+    root = cache / f"postgresql-{POSTGRES}"
+    linux = platform.system() == "Linux"
+    if linux:
+        if _runs(root / "bin" / "postgres"):        # theseus-rs's, fetched by 0.9.11 and before
+            return root / "bin"
+        root = cache / f"postgresql-{POSTGRES}-portable"
     if (root / "bin" / _exe("postgres")).exists():
         return root / "bin"
     import hashlib
@@ -218,13 +227,23 @@ def postgres_bin() -> Path:
     import uuid
     import zipfile
     name = f"postgresql-{POSTGRES}-{build[0]}"
-    with urllib.request.urlopen("https://github.com/theseus-rs/postgresql-binaries/releases/"
-                                f"download/{POSTGRES}/{name}", timeout=600) as response:
+    url = ("https://github.com/theseus-rs/postgresql-binaries/releases/"
+           f"download/{POSTGRES}/{name}")
+    if linux:
+        artifact = f"embedded-postgres-binaries-{build[0]}"
+        url = ("https://repo1.maven.org/maven2/io/zonky/test/postgres/"
+               f"{artifact}/{POSTGRES}/{artifact}-{POSTGRES}.jar")
+    with urllib.request.urlopen(url, timeout=600) as response:
         data = response.read()
     if hashlib.sha256(data).hexdigest() != build[1]:
         raise RuntimeError("The Postgres download did not match its pinned hash; nothing was "
                            "installed. Try again later.")
     partial = root.with_name(f"{root.name}.partial-{uuid.uuid4().hex[:8]}")
+    if linux:                                 # a jar holding one .txz: bin/, lib/, share/
+        import lzma
+        with zipfile.ZipFile(io.BytesIO(data)) as jar:
+            data = lzma.decompress(jar.read(next(n for n in jar.namelist()
+                                                 if n.endswith(".txz"))))
     if name.endswith(".zip"):
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             archive.extractall(partial)
@@ -242,6 +261,16 @@ def postgres_bin() -> Path:
             raise
     shutil.rmtree(partial, ignore_errors=True)
     return root / "bin"
+
+
+@functools.lru_cache(maxsize=None)
+def _runs(program: Path) -> bool:
+    """Whether this Postgres program starts on this machine (its libraries are all there)."""
+    try:
+        return subprocess.run([str(program), "-V"], capture_output=True,
+                              timeout=30).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def _exe(name: str) -> str:

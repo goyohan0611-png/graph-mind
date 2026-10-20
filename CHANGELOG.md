@@ -3,6 +3,11 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **Sharing and teams work on Ubuntu 26.04.** The Postgres build used on Linux needed the system's
+  libxml2.so.2 and ICU 74, which 26.04 no longer ships. Linux now uses zonky's build, which
+  carries its own libraries; a PC whose earlier build still runs keeps it.
+
 ## 0.9.11 — 2026-10-20
 - **A question no longer waits while 0.9.10 embeds the memory again.** It was embedded after the
   chunk being worked on (up to 5 s at the 95th percentile on a GitHub runner); now beside it.

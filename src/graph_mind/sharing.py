@@ -61,7 +61,10 @@ def log_name() -> str:
             name = _config().get("log_name")
         except OSError:
             pass
-    return name or device_name()
+    if not isinstance(name, str) or not name:
+        import uuid  # config not writable: this machine's network address tells PCs apart
+        name = f"{device_name()}-{uuid.getnode():012x}"
+    return name
 
 
 def config_path() -> Path:

@@ -3,6 +3,14 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.15 — 2026-10-20
+- **What you forget stays forgotten.** A forgotten turn or memory is refused if it arrives again:
+  from another PC's log, from an outbox sent after the hub came back, or from a transcript read
+  again. Before, any of these brought it back.
+- **Forgetting while the shared hub is down** still tells the other PCs: the notice waits in the
+  outbox (a failed clean-up lost it before), and lines for the forgotten turn still waiting to
+  be sent are dropped.
+
 ## 0.9.14 — 2026-10-20
 Fixes from a second code review (Codex, gpt-6.1-sol).
 - **Security:** a folder or file path holding shell characters (`" ; & | $` ...) is refused

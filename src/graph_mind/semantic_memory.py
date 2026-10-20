@@ -133,6 +133,11 @@ class SemanticMemoryIngestion:
                                        + f"#chars=0-{len(row['content_redacted'])}")},
                     "supersedes_memory_id": None}
                 with LocalBrainStore(self.path) as brain:
+                    saved = brain.db.execute(
+                        "SELECT known_at FROM local_brain_memories WHERE memory_id=?",
+                        (memory_id,)).fetchone()
+                    if saved:
+                        memory["known_at"] = saved["known_at"]
                     brain.remember(memory)
                 disposition = "PROMOTED"
                 promoted.append({"turn_id": row["turn_id"], "memory_id": memory_id,
@@ -140,7 +145,7 @@ class SemanticMemoryIngestion:
             else:
                 evidence_only.append({"turn_id": row["turn_id"], "reason": reason})
             with self.db:
-                self.db.execute("""INSERT INTO semantic_ingestion_audit(
+                self.db.execute("""INSERT OR IGNORE INTO semantic_ingestion_audit(
                   turn_id,gate_version,disposition,reason,memory_id,processed_at,
                   source_fingerprint) VALUES(?,?,?,?,?,?,?)""", (
                     row["turn_id"], GATE_VERSION, disposition, reason, memory_id,

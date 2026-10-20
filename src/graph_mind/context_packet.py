@@ -202,7 +202,8 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
     # A note the model wrote after answering from old turns cites them: the note stands in for
     # those turns, and with a note in the packet fewer other turns are needed.
     noted = {t for m in recall_result.get("matches", [])
-             for t in (m.get("attributes") or {}).get("from_turns", [])}
+             if isinstance(refs := (m.get("attributes") or {}).get("from_turns"), list)
+             for t in refs if isinstance(t, str)}
     turns = [_conversation_item(item)
              for item in recall_result.get("conversation_turns", [])
              if item["turn_id"] not in noted]
@@ -232,7 +233,7 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
                   f"{source.get('source_ref', 'unknown')}")
         available = max_chars - used - separator
         if available <= len(header) + len(footer) + 16:
-            break
+            continue
         body = item["content"]
         truncated = False
         if len(header) + len(body) + len(footer) > available:

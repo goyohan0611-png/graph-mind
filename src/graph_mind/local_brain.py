@@ -65,12 +65,13 @@ def current_facts(memories, *, keep_earlier=5):
     groups, plain = {}, []
     for memory in memories:
         fact = (memory.get("attributes") or {}).get("fact")
-        if fact:
+        if isinstance(fact, str) and fact:
             groups.setdefault((memory["scope"], fact), []).append(memory)
         else:
             plain.append(memory)
     for group in groups.values():
-        group.sort(key=lambda m: (m["effective_at"], m["revision"]), reverse=True)
+        group.sort(key=lambda m: (m["effective_at"], m["known_at"], m["memory_id"]),
+                   reverse=True)
         plain.append({**group[0], "earlier": [
             {"memory_id": m["memory_id"], "content": m["content"],
              "effective_at": m["effective_at"]} for m in group[1:1 + keep_earlier]]})

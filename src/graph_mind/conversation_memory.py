@@ -147,10 +147,11 @@ def masking_on():
     return _config().get("mask_secrets", True) is not False
 
 
-def _redact(value):
-    cleaned = AGENT_INSTRUCTIONS.sub("", AUTOMATIC_BLOCKS.sub("", value))
+def _redact(value, *, preserve_source=False):
+    cleaned = value if preserve_source else AGENT_INSTRUCTIONS.sub(
+        "", AUTOMATIC_BLOCKS.sub("", value))
     if not masking_on():
-        return cleaned.strip(), 0
+        return (cleaned if preserve_source else cleaned.strip()), 0
     count = 0
     for pattern, replacement in SECRET_PATTERNS:
         before = cleaned.count("[REDACTED")
@@ -164,7 +165,7 @@ def _redact(value):
         found[0] += 1
         return "[REDACTED_SECRET]"
     cleaned = RANDOM_CANDIDATE.sub(unknown_token, cleaned)
-    return cleaned.strip(), count + found[0]
+    return (cleaned if preserve_source else cleaned.strip()), count + found[0]
 
 
 def _message_text(payload):

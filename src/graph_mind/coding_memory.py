@@ -13,9 +13,11 @@ import sqlite3
 import stat
 
 from graph_mind.clock import timestamp
+from graph_mind.conversation_memory import _redact
 from graph_mind.paths import use_wal
 
 CAPTURE_VERSION = "coding-memory-v0.1"
+MAX_SOURCE_BYTES = 2 * 1024 * 1024
 DEFAULT_SUFFIXES = frozenset({
     ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".kt", ".swift",
     ".go", ".rs", ".cs", ".c", ".cc", ".cpp", ".h", ".hpp", ".sql",
@@ -58,6 +60,16 @@ def _decode_source(value):
         return value.decode("utf-8", "replace")
 
 
+def _plain_directory(path):
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    return (stat.S_ISDIR(info.st_mode) and not (
+        getattr(info, "st_file_attributes", 0)
+        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)))
+
+
 def _python_symbols(text):
     try:
         tree = ast.parse(text)
@@ -82,7 +94,7 @@ def _changed_lines(before, after):
     old_lines, new_lines = before.splitlines(), after.splitlines()
     old_changed, new_changed = set(), set()
     for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
-            None, old_lines, new_lines, autojunk=False).get_opcodes():
+            None, old_lines, new_lines, autojunk=True).get_opcodes():
         if tag == "equal":
             continue
         old_changed.update(range(i1 + 1, i2 + 1))
@@ -329,12 +341,14 @@ class CodingMemoryCapture:
         self.now = now or (lambda: datetime.now().isoformat(timespec="microseconds"))
 
     def _blob(self, content):
+        raw_digest = _digest(content)
+        content = _redact(_decode_source(content), preserve_source=True)[0].encode("utf-8")
         digest = _digest(content)
         target = self.blob_dir / digest[:2] / (digest + ".blob")
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
             target.write_bytes(content)
-        return digest, str(target)
+        return raw_digest, str(target)
 
     def snapshot(self, previous=None):
         """Every included file's content hash. Every 2 minutes on a whole workspace: excluded
@@ -345,14 +359,14 @@ class CodingMemoryCapture:
         for root, dirs, names in os.walk(self.workspace):       # symlinked folders: not entered
             root = Path(root)
             dirs[:] = [d for d in dirs if d not in self.excluded_parts
-                       and root / d != self.state_dir]
+                       and root / d != self.state_dir and _plain_directory(root / d)]
             for name in names:
                 path = root / name
                 if path.suffix.lower() not in self.suffixes or name in self.excluded_parts:
                     continue
                 try:
                     info = path.lstat()
-                    if not stat.S_ISREG(info.st_mode):
+                    if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_SOURCE_BYTES:
                         continue
                     relative = path.relative_to(self.workspace).as_posix()
                     known = previous.get(relative)
@@ -360,7 +374,9 @@ class CodingMemoryCapture:
                             and known.get("mtime_ns") == info.st_mtime_ns):
                         files[relative] = known
                         continue
-                    content = path.read_bytes()
+                    content = path.read_bytes()                   # size checked above
+                    if len(content) > MAX_SOURCE_BYTES or b"\0" in content:     # grew, or binary
+                        continue
                 except OSError:
                     continue
                 digest, blob_ref = self._blob(content)
@@ -408,16 +424,21 @@ class CodingMemoryCapture:
         self.diff_dir.mkdir(parents=True, exist_ok=True)
         for path in sorted(set(previous) | set(current)):
             before, after = previous.get(path), current.get(path)
+            if any(item and item.get("size", 0) > MAX_SOURCE_BYTES
+                   for item in (before, after)):
+                continue
             if before and after and before["sha256"] == after["sha256"]:
                 continue
             kind = "ADDED" if before is None else "DELETED" if after is None else "MODIFIED"
             before_bytes = Path(before["blob_ref"]).read_bytes() if before else b""
             after_bytes = Path(after["blob_ref"]).read_bytes() if after else b""
-            before_text, after_text = _decode_source(before_bytes), _decode_source(after_bytes)
+            before_text = _redact(_decode_source(before_bytes), preserve_source=True)[0]
+            after_text = _redact(_decode_source(after_bytes), preserve_source=True)[0]
             symbols = _affected_symbols(path, before_text, after_text)
             binding = {"project_id": self.project_id, "session_id": self.session_id,
                        "file_path": path, "before": before and before["sha256"],
-                       "after": after and after["sha256"], "reason": reason}
+                       "after": after and after["sha256"], "reason": reason,
+                       "happened_at": now}
             change_id = "code-change-" + _digest(_json(binding).encode("utf-8"))
             diff = "".join(difflib.unified_diff(
                 before_text.splitlines(True), after_text.splitlines(True),

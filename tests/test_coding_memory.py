@@ -95,6 +95,26 @@ class CodingMemoryTests(unittest.TestCase):
                 self.assertEqual(second["a.py"], first["a.py"])
                 self.assertNotEqual(second["b.py"]["sha256"], first["b.py"]["sha256"])
 
+    def test_secrets_in_changed_files_are_not_stored(self):
+        """A config file's password went into the stored copy and its diff as typed."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            config = workspace / "local.yaml"
+            config.write_text("host: db\n", encoding="utf-8")
+            with CodingMemoryStore(root / "brain.sqlite") as store:
+                capture = CodingMemoryCapture(workspace, store, project_id="project:demo",
+                                              session_id="session:1", state_dir=root / "state",
+                                              now=lambda: T1)
+                capture.initialize_baseline()
+                config.write_text("host: db\npassword: sensitive456\n", encoding="utf-8")
+                result = capture.scan(reason="Add password")
+            stored = "".join(p.read_text(encoding="utf-8", errors="replace")
+                             for p in (root / "state").rglob("*") if p.is_file())
+            self.assertEqual(result["change_count"], 1)
+            self.assertNotIn("sensitive456", stored)
+
 
 if __name__ == "__main__":
     unittest.main()

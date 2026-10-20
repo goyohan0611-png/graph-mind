@@ -258,7 +258,7 @@ def build(db_path, out, *, limit=4000, with_text=True, inline_library=True) -> d
     data = {"nodes": nodes, "links": links, "regions": legend, "since": since}
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    page = PAGE.replace("__DATA__", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
+    page = PAGE.replace("__DATA__", json.dumps(data, ensure_ascii=False).replace("<", "\\u003c"))
     out.write_text(page.replace("__LIBRARY__", _library_tag(inline_library)), encoding="utf-8")
     return {"file": str(out), "nodes": len(nodes), "links": len(links), "regions": len(legend)}
 

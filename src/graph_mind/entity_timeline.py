@@ -42,7 +42,8 @@ def normalize(name: str) -> str:
 def rebuild(db: sqlite3.Connection) -> int:
     """(Re)build the index when the memory count changed. Cheap: one pass over the memories."""
     db.executescript(SCHEMA)
-    total = db.execute("SELECT COUNT(*) FROM local_brain_memories").fetchone()[0]
+    total = tuple(db.execute(
+        "SELECT COUNT(*), COALESCE(MAX(revision), 0) FROM local_brain_memories").fetchone())
     state = dict(db.execute("SELECT key, value FROM entity_timeline_state"))
     if state.get("memories") == str(total):
         return 0
@@ -81,14 +82,14 @@ def timeline(db: sqlite3.Connection, entity: str, limit: int = 50) -> list[dict]
     rebuild(db)
     key = normalize(entity)
     rows = db.execute(
-        "SELECT m.memory_id, m.effective_at, m.title, m.content, m.memory_type,"
-        "       m.supersedes_memory_id "
+        "SELECT DISTINCT m.memory_id, m.effective_at, m.title, m.content, m.memory_type,"
+        "       m.memory_id IN (SELECT supersedes_memory_id FROM local_brain_memories "
+        "                       WHERE supersedes_memory_id IS NOT NULL) "
         "FROM entity_timeline t JOIN local_brain_memories m ON m.memory_id = t.memory_id "
         "WHERE t.entity_key = ? OR t.entity_key LIKE ? "
         "ORDER BY m.effective_at, m.revision LIMIT ?", (key, f"%{key}%", limit)).fetchall()
-    replaced = {row[5] for row in rows if row[5]}
     return [{"memory_id": r[0], "effective_at": r[1], "title": r[2], "content": r[3],
-             "memory_type": r[4], "superseded": r[0] in replaced} for r in rows]
+             "memory_type": r[4], "superseded": bool(r[5])} for r in rows]
 
 
 def _self_check():

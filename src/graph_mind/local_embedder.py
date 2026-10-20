@@ -50,7 +50,10 @@ def model_on_disk() -> bool:
 def model_paths(model=LOCAL_MODEL) -> tuple:
     """Local paths of the tokenizer and the ONNX model, downloaded on first use."""
     from huggingface_hub import hf_hub_download
-    return tuple(hf_hub_download(model, name) for name in MODEL_FILES)
+    # "repo@onnx/model_quint8_avx2.onnx": another export in the same repo (research/model_eval.py)
+    repo, _, onnx_file = model.partition("@")
+    return tuple(hf_hub_download(repo, name)
+                 for name in (MODEL_FILES[0], onnx_file or MODEL_FILES[1]))
 
 
 class LocalEmbedder:

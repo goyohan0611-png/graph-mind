@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
+import statistics
 import sys
 import time
 
@@ -125,6 +127,8 @@ def encoder(model):
     tok.enable_padding()
     options = onnxruntime.SessionOptions()
     options.log_severity_level = 3
+    options.enable_cpu_mem_arena = False                  # as the product runs it
+    options.intra_op_num_threads = max(1, (os.cpu_count() or 2) // 2)
     session = onnxruntime.InferenceSession(onnx_file, options, providers=["CPUExecutionProvider"])
     inputs = {i.name for i in session.get_inputs()}
 
@@ -158,6 +162,13 @@ def run(model):
     started = time.perf_counter()
     docs = encode([passage + t for t in corpus])
     per_100 = (time.perf_counter() - started) / len(corpus) * 100
+    import psutil
+    rss = psutil.Process().memory_info().rss / 2 ** 20      # model + a full batch, arena off
+    one = []                                                # one question, as an app asks
+    for fact in FACTS:
+        started = time.perf_counter()
+        encode([query + fact[2]])
+        one.append(time.perf_counter() - started)
     ranks = {kind: [] for kind in KINDS + ("ko_memory",)}
     for n, fact in enumerate(FACTS):
         target = len(texts) + n
@@ -169,6 +180,7 @@ def run(model):
         score = docs @ encode([query + question])[0]
         ranks["ko_memory"].append(int((score > score[target]).sum()) + 1)
     result = {"model": model, "load_s": round(load, 1), "s_per_100_texts": round(per_100, 2),
+              "rss_mb": round(rss), "query_ms": round(statistics.median(one) * 1000, 1),
               "onnx_mb": round(Path(model_paths(model)[1]).stat().st_size / 2 ** 20),
               **{f"{k}_top10": f"{sum(r <= 10 for r in v)}/{len(v)}" for k, v in ranks.items()},
               **{f"{k}_median_rank": float(np.median(v)) for k, v in ranks.items()},

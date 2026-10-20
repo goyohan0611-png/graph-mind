@@ -138,6 +138,8 @@ def main() -> None:
     parser = ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--limit", type=int, help="first N questions only")
     parser.add_argument("--baseline", action="store_true", help="write the result as baseline")
+    parser.add_argument("--every", type=int, default=1, help="every Nth question only (a sample)")
+    parser.add_argument("--model", help="another embedding model (repo or repo@onnx/file.onnx)")
     args = parser.parse_args()
     if not DATA.exists():
         sys.exit(f"LongMemEval_S not found at {DATA}: see research/REPORT.md §10")
@@ -146,6 +148,9 @@ def main() -> None:
     dirty = subprocess.run(["git", "status", "--porcelain", "src"], capture_output=True,
                            text=True, cwd=ROOT).stdout.strip()
     label = commit + ("-dirty" if dirty else "")
+    slug = args.model and args.model.replace("/", "_").replace("@", "_")
+    if slug:                                         # its own vectors and progress, never mixed
+        label += "-" + slug
     CACHE.mkdir(parents=True, exist_ok=True)
     progress = CACHE / f"evidence-{label}.jsonl"
     if dirty:
@@ -156,13 +161,16 @@ def main() -> None:
             record = json.loads(line)
             done[record["question_id"]] = record
     tuned = set(json.loads(TUNED.read_text(encoding="utf-8"))["question_ids"])
-    embedder = LocalEmbedder(CACHE / "embed-cache.json")
+    embedder = (LocalEmbedder(CACHE / f"embed-{slug}.json", model=args.model) if slug
+                else LocalEmbedder(CACHE / "embed-cache.json"))
     records, seen = [], 0
     with tempfile.TemporaryDirectory() as directory, progress.open("a", encoding="utf-8") as log:
         for row in stream_instances(DATA):
             if args.limit and seen >= args.limit:
                 break
             seen += 1
+            if (seen - 1) % args.every:
+                continue
             qid = row["question_id"]
             record = done.get(qid) or measure(row, Path(directory), embedder)
             if record is None:

@@ -3,6 +3,12 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.11 — 2026-10-20
+- **A question no longer waits while 0.9.10 embeds the memory again.** It was embedded after the
+  chunk being worked on (up to 5 s at the 95th percentile on a GitHub runner); now beside it.
+  Measured on CI once the memory is embedded: search 20 ms median, 41 ms at the 95th percentile
+  (63 ms with the previous model), and a Korean question finds the English-only memory.
+
 ## 0.9.10 — 2026-10-20
 - **Better search by meaning in Korean, with less memory.** The embedding model is now the int8
   export of multilingual mpnet (was MiniLM). Korean questions found among the first 10: 19/20

@@ -232,6 +232,28 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                 os.environ.pop("GRAPH_MIND_CONFIG", None)
 
 
+class SyncCursorTests(unittest.TestCase):
+    def test_lines_are_read_again_until_they_are_imported(self):
+        """The cursor moved before the import: a crash in between skipped those lines for good."""
+        from graph_mind import sharing
+        with tempfile.TemporaryDirectory() as directory:
+            shared, index = Path(directory) / "shared", Path(directory) / "index.sqlite"
+            (shared / "log").mkdir(parents=True)
+            (shared / "log" / "desk.jsonl").write_text('{"kind": "x"}\n', encoding="utf-8")
+            db = sharing._cursor_db(index)
+            try:
+                self.assertEqual(len(sharing._new_lines(db, shared)[0]), 1)
+                self.assertEqual(len(sharing._new_lines(db, shared)[0]), 1)   # not consumed
+            finally:
+                db.close()
+            sharing.sync(shared, index)
+            db = sharing._cursor_db(index)
+            try:
+                self.assertEqual(sharing._new_lines(db, shared)[0], [])          # now it is
+            finally:
+                db.close()
+
+
 if __name__ == "__main__":
     unittest.main()
 

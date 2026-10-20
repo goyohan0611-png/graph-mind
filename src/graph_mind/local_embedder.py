@@ -87,7 +87,7 @@ class LocalEmbedder:
     # starts its own server, and each one loading the model cost 7-17 s before search by meaning
     # worked and ~500 MB of memory per app, while the capture service has it loaded all day.
     USE_SERVICE = False
-    # Rest between backlog chunks (_encode_paced). The capture service and the MCP server set
+    # Rest between backlog chunks (embed). The capture service and the MCP server set
     # it; benchmarks and tests run at full speed.
     PACE = False
     CHUNK = 32
@@ -130,6 +130,8 @@ class LocalEmbedder:
         loading it in the background, so a later question finds it ready."""
         if LocalEmbedder._model is not None or _service.connected(self.model_name):
             return True
+        if _service.holding():
+            return False                  # the restarted service lends its model in a moment
         if LocalEmbedder._loading.acquire(blocking=False):
             def load():
                 try:
@@ -159,25 +161,14 @@ class LocalEmbedder:
         pooled /= np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-12, None)
         return pooled.tolist()
 
-    def _encode_paced(self, texts, backlog=False):
-        """A question's few texts at once. A chunk of a backlog (all memory again after a model
-        change) takes this process's one backlog lane and, when PACE is set, keeps it for a rest
-        as long as the chunk took: the model's threads half busy. A question never waits for
-        it."""
+    def _encode_now(self, texts):
+        """Beside any backlog chunk, not after it: ONNX Runtime runs a session from several
+        threads at once (one chunk held a question 5 s on CI)."""
         if not texts:
             return []
         with LocalEmbedder._lock:
             self._load()
-        if not backlog:
-            # beside a backlog chunk, not after it: ONNX Runtime runs a session from several
-            # threads at once (one chunk held a question 5 s on CI)
-            return self._encode(texts)
-        with LocalEmbedder._backlog:
-            began = time.monotonic()
-            vectors = self._encode(texts)
-            if LocalEmbedder.PACE:
-                time.sleep(time.monotonic() - began)
-        return vectors
+        return self._encode(texts)
 
     def _keep(self, texts, vectors):
         with LocalEmbedder._lock:
@@ -193,15 +184,26 @@ class LocalEmbedder:
         if not missing:
             return [self.cache.get(self._key(t)) for t in texts]
         served = _service.encode(self.model_name, missing)     # outside the lock: no waiting
+        if served is None and _service.holding():     # a restarted service: not a local copy
+            time.sleep(max(0.0, _service.hold_until - time.monotonic()))
+            served = _service.encode(self.model_name, missing)
         if served is not None:
             self._keep(missing, served)
-        else:
-            size = LocalEmbedder.CHUNK if LocalEmbedder.PACE else 128   # 128: benchmarks' speed
-            for start in range(0, len(missing), size):
-                # the service is asked the same backlog by every app's server: what another
-                # thread embedded meanwhile is skipped, each chunk kept as soon as it is done
+            return [self.cache.get(self._key(t)) for t in texts]
+        size = LocalEmbedder.CHUNK if LocalEmbedder.PACE else 128      # 128: benchmarks' speed
+        if len(missing) <= size:                                      # a question: at once
+            self._keep(missing, self._encode_now(missing))
+            return [self.cache.get(self._key(t)) for t in texts]
+        for start in range(0, len(missing), size):
+            # A backlog, one chunk at a time in this process, each followed by a rest as long as
+            # it took when PACE is set. The service is asked the same backlog by every app's
+            # server: what another request embedded while this one waited is skipped.
+            with LocalEmbedder._backlog:
                 chunk = [t for t in missing[start:start + size] if self._key(t) not in self.cache]
-                self._keep(chunk, self._encode_paced(chunk, backlog=len(missing) > size))
+                began = time.monotonic()
+                self._keep(chunk, self._encode_now(chunk))
+                if LocalEmbedder.PACE and chunk:
+                    time.sleep(time.monotonic() - began)
         return [self.cache.get(self._key(t)) for t in texts]
 
     def flush(self):
@@ -243,54 +245,74 @@ def service_file() -> Path:
 class _Service:
     """This process's line to the capture service's loaded model, if one is running. Any failure
     (no service, a stale file, the service gone mid-call) means: load the model here, as before,
-    and look for the service again a little later."""
+    and look for the service again a little later. One connection per thread: a question never
+    waits behind the backlog another thread of the same server sent."""
     RETRY = 30.0
+    DEADLINE = 600.0          # a live service that stopped answering: give up on this request
+    HOLD = 60.0               # after restarting an old service: wait for it, load no copy here
 
     def __init__(self):
         self.lock = threading.Lock()
-        self.conn = None
+        self.local = threading.local()
         self.retry_at = 0.0
+        self.hold_until = 0.0
+
+    def holding(self) -> bool:
+        return time.monotonic() < self.hold_until
 
     def _open(self, model):
         from multiprocessing.connection import Client
         info = json.loads(service_file().read_text(encoding="utf-8"))
         if info["model"] != model:
-            _replace_old_service(info, model)
+            if _replace_old_service(info, model):
+                self.hold_until = time.monotonic() + self.HOLD
             raise LookupError("the service runs another model")
         return Client(("127.0.0.1", info["port"]), authkey=bytes.fromhex(info["key"]))
 
     def connected(self, model) -> bool:
         if not LocalEmbedder.USE_SERVICE:
             return False
+        if getattr(self.local, "conn", None) is not None:
+            return True
         with self.lock:
-            if self.conn is None and time.monotonic() >= self.retry_at:
-                try:
-                    self.conn = self._open(model)
-                except Exception:
-                    self.retry_at = time.monotonic() + self.RETRY
-            return self.conn is not None
+            if time.monotonic() < self.retry_at:
+                return False
+            try:
+                self.local.conn = self._open(model)
+                self.hold_until = 0.0
+            except Exception:
+                # while holding, look again every 2 s: the new service writes its file soon
+                self.retry_at = time.monotonic() + (2.0 if self.holding() else self.RETRY)
+                self.local.conn = None
+        return self.local.conn is not None
 
     def encode(self, model, texts):
         if not self.connected(model):
             return None
-        with self.lock:
+        conn = self.local.conn
+        try:
+            conn.send(texts)
+            if not conn.poll(self.DEADLINE):
+                raise TimeoutError("the service stopped answering")
+            return conn.recv()
+        except Exception:
             try:
-                self.conn.send(texts)
-                return self.conn.recv()
+                conn.close()
             except Exception:
-                self.conn, self.retry_at = None, time.monotonic() + self.RETRY
-                return None
+                pass
+            self.local.conn, self.retry_at = None, time.monotonic() + self.RETRY
+            return None
 
 
 _service = _Service()
 
 
-def _replace_old_service(info, model) -> None:
+def _replace_old_service(info, model) -> bool:
     """The capture service lends an older version's model: this process is newer (Graph-MIND was
     updated while it ran). Restart it on this version, or every app's server would load its own
     copy of the new model, ~700 MB each. An older server never restarts a newer service."""
     if info.get("model") not in OLD_MODELS or model != LOCAL_MODEL:
-        return
+        return False
     try:
         import psutil
         old = psutil.Process(int(info["pid"]))
@@ -299,8 +321,9 @@ def _replace_old_service(info, model) -> None:
             old.wait(15)
         from graph_mind.automatic_capture import ensure_service
         ensure_service()
+        return True
     except Exception:                 # gone already, or not ours: the next try looks again
-        pass
+        return False
 
 
 def serve(embedder) -> None:
@@ -314,9 +337,13 @@ def serve(embedder) -> None:
     path = service_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps({"port": listener.address[1], "key": key.hex(),
-                                     "model": embedder.model_name, "pid": os.getpid()}),
-                         encoding="utf-8")
+    temporary.unlink(missing_ok=True)
+    # readable by this user only: the key admits a client, and another account on the PC that
+    # read it could send the service pickled objects
+    with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w",
+                   encoding="utf-8") as handle:
+        handle.write(json.dumps({"port": listener.address[1], "key": key.hex(),
+                                 "model": embedder.model_name, "pid": os.getpid()}))
     os.replace(temporary, path)
 
     def answer(conn):
@@ -325,6 +352,8 @@ def serve(embedder) -> None:
                 try:
                     texts = conn.recv()
                 except (EOFError, OSError):
+                    return
+                if not (isinstance(texts, list) and all(isinstance(t, str) for t in texts)):
                     return
                 conn.send([list(v) for v in embedder.embed(texts)])   # cached: asked once
 

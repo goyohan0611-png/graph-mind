@@ -367,6 +367,12 @@ class AutomaticCaptureService:
     def run_forever(self, *, max_iterations=None):
         if running_service(self.state_dir):
             return                              # one service per PC (login item + a restart)
+        # held for the service's life: a login start racing ensure_service() both passed the
+        # pid check and ran side by side, scanning and embedding twice (the OS frees it on exit)
+        import fasteners
+        alone = fasteners.InterProcessLock(str(self.state_dir / "service.lock"))
+        if not alone.acquire(blocking=False):
+            return
         self.pid_path.write_text(str(os.getpid()) + "\n", encoding="ascii")
         if max_iterations is None:
             from graph_mind.local_embedder import LocalEmbedder
@@ -401,4 +407,5 @@ class AutomaticCaptureService:
                     self.pid_path.unlink()
             except (FileNotFoundError, OSError):
                 pass
+            alone.release()
 

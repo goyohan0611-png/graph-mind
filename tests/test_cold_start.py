@@ -117,27 +117,60 @@ class SharedModelTests(unittest.TestCase):
             self.assertEqual([list(v) for v in embedder.embed(["abc"])], [[7.0, 0.0]])
 
 
-    def test_a_backlog_rests_as_long_as_it_works_and_a_question_does_not(self):
-        """After a model change every stored turn is embedded again, beside the user's work."""
+    def test_a_backlog_rests_is_embedded_once_and_a_question_does_not_wait(self):
+        """After a model change every stored turn is embedded again, beside the user's work, and
+        every app's server asks for the same backlog at once."""
+        import threading
         import time
         from graph_mind import local_embedder
+        encoded = []
 
-        class Slow:
-            def _load(self):
-                pass
+        def slow(self, texts):
+            encoded.extend(texts)
+            time.sleep(0.1)
+            return [[1.0, float(len(t))] for t in texts]
 
-            def _encode(self, texts):
-                time.sleep(0.1)
-                return [[1.0] for _ in texts]
-
-        paced = local_embedder.LocalEmbedder._encode_paced
-        with mock.patch.object(local_embedder.LocalEmbedder, "PACE", True):
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(local_embedder.LocalEmbedder, "PACE", True), \
+                mock.patch.object(local_embedder.LocalEmbedder, "CHUNK", 2), \
+                mock.patch.object(local_embedder.LocalEmbedder, "_load", lambda self: None), \
+                mock.patch.object(local_embedder.LocalEmbedder, "_encode", slow):
+            embedder = default_embedder(Path(directory) / "brain.sqlite")
+            backlog = ["a", "bb", "ccc", "dddd"]
             began = time.monotonic()
-            self.assertEqual(paced(Slow(), ["a", "b"], backlog=True), [[1.0], [1.0]])
-            self.assertGreaterEqual(time.monotonic() - began, 0.18)     # it rested
-            began = time.monotonic()
-            self.assertEqual(paced(Slow(), ["question"]), [[1.0]])
-            self.assertLess(time.monotonic() - began, 0.18)
+            twice = [threading.Thread(target=embedder.embed, args=(backlog,)) for _ in range(2)]
+            for thread in twice:
+                thread.start()
+            time.sleep(0.05)
+            asked = time.monotonic()
+            self.assertEqual(list(embedder.embed(["question"])[0]), [1.0, 8.0])
+            self.assertLess(time.monotonic() - asked, 0.18)           # beside the backlog
+            for thread in twice:
+                thread.join()
+            self.assertGreaterEqual(time.monotonic() - began, 0.38)   # 2 chunks, each rested
+            self.assertEqual(sorted(encoded), sorted(backlog + ["question"]))   # once each
+
+
+class PastMomentTests(unittest.TestCase):
+    def test_asking_about_a_past_moment_leaves_out_later_turns(self):
+        """"Where did the release stand on Monday?" must not read Tuesday's answer."""
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(db) as store:
+                for i, text in enumerate(["release planned for friday",
+                                          "release moved to next month"]):
+                    when = f"2026-10-0{5 + i}T10:00:00"           # Monday, then Tuesday
+                    store.record({**turn(i, text), "happened_at": when, "known_at": when})
+
+            class NoMeaning:
+                def ready(self, timeout):
+                    return False
+
+            found = server.gather(db, "release", as_of="2026-10-05T23:00:00", limit=5,
+                                  embedder=NoMeaning(), until="2026-10-05T23:00:00")
+            self.assertEqual([t["content"] for t in found["conversation_turns"]],
+                             ["release planned for friday"])
+
 
 if __name__ == "__main__":
     unittest.main()

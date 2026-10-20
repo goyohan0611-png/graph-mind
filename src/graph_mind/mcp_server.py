@@ -441,8 +441,11 @@ def window(around):
 
 
 def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=8,
-           recent=False, since=None, embedder=None, about_assistant=False, around=None):
-    """Curated memories and conversation turns for one request, as recall and context share it."""
+           recent=False, since=None, embedder=None, about_assistant=False, around=None,
+           until=None):
+    """Curated memories and conversation turns for one request, as recall and context share it.
+    `until`: the caller asked about a past moment (as_of / knowledge_cutoff); conversation turns
+    after it are left out, as curated memories already were."""
     shared_sync(database)
     since = local_time(since) if since else None
     span = window(around)
@@ -494,7 +497,8 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             turns = [{**t, "content": t.get("full", t["content"])[:ASSISTANT_TURN_CAP],
                       "span": [0, min(len(t.get("full", t["content"])), ASSISTANT_TURN_CAP)]}
                      if t["role"] == "assistant" else t for t in turns]
-    turns = [{k: v for k, v in t.items() if k != "full"} for t in turns]
+    turns = [{k: v for k, v in t.items() if k != "full"} for t in turns
+             if not until or t["happened_at"] <= until]
     result["conversation_turns"] = turns
     if result["status"] == "UNKNOWN" and turns:
         result["status"] = "KNOWN"
@@ -726,7 +730,8 @@ def build_server(db_path=None, terminal=False):
                     "current": current[-1] if current else None}
         return gather(database, query, scopes=scopes, as_of=as_of or _now(),
                       knowledge_cutoff=knowledge_cutoff, limit=limit, recent=recent, since=since,
-                      about_assistant=about_assistant, around=around)
+                      about_assistant=about_assistant, around=around,
+                      until=local_time(knowledge_cutoff or as_of))
 
     @server.tool(
         name="brain_context",
@@ -779,7 +784,8 @@ def build_server(db_path=None, terminal=False):
                     "omitted_items": 0, "ids": [], "context": ""}
         recalled = gather(database, query, scopes=scopes, as_of=as_of or _now(),
                           knowledge_cutoff=knowledge_cutoff, limit=limit, recent=recent,
-                          since=since, about_assistant=about_assistant, around=around)
+                          since=since, about_assistant=about_assistant, around=around,
+                          until=local_time(knowledge_cutoff or as_of))
         packet = build_context_pack(recalled, max_chars=max_chars,
                                     order="time" if recent else "relevance")
         # `context` already carries each item's kind, date, title, text and source; the item

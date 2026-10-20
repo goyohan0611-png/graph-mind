@@ -961,8 +961,10 @@ def devices(shared) -> list[str]:
     return sorted(p.stem for p in (Path(shared) / "log").glob("*.jsonl"))
 
 
-def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
-    """Complete lines added to any device's log since this machine last read it."""
+def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple]]:
+    """Complete lines added to any device's log since this machine last read it, and the cursors
+    to save once they are imported (saved before, a crash in between skipped them for good)."""
+    cursors = []
     if is_database(shared):
         source = "postgres"
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
@@ -970,11 +972,9 @@ def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
         rows = _read_rows(shared, "SELECT seq, line FROM sharing WHERE seq > %s ORDER BY seq",
                           (row[0] if row else 0,))
         if rows:
-            with db:
-                db.execute("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)",
-                           (source, rows[-1][0]))
+            cursors.append((source, rows[-1][0]))
         opened = [_unseal(shared, line) for _, line in rows]
-        return [line for line in opened if line is not None]
+        return [line for line in opened if line is not None], cursors
     lines = []
     for log in sorted((Path(shared) / "log").glob("*.jsonl")):
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
@@ -988,10 +988,8 @@ def _new_lines(db: sqlite3.Connection, shared) -> list[str]:
         complete = data[:data.rfind(b"\n") + 1]     # an unfinished last line waits for its newline
         lines += [line for line in complete.decode("utf-8", "replace").splitlines()
                   if line.strip()]
-        with db:
-            db.execute("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)",
-                       (log.name, start + len(complete)))
-    return lines
+        cursors.append((log.name, start + len(complete)))
+    return lines, cursors
 
 
 def sync(shared: Path, index: Path) -> dict:
@@ -1002,13 +1000,16 @@ def sync(shared: Path, index: Path) -> dict:
     db = _cursor_db(index)
     try:
         pending = [row[0] for row in db.execute("SELECT line FROM brain_log_pending")]
-        lines = pending + _new_lines(db, shared)
+        fresh, cursors = _new_lines(db, shared)
+        lines = pending + fresh
         items = []
         for line in lines:
             try:
-                items.append((json.loads(line), line))
+                item = json.loads(line)
             except ValueError:
                 continue                                  # a corrupt line is skipped, not fatal
+            if isinstance(item, dict):
+                items.append((item, line))
         items.sort(key=lambda pair: pair[0].get("written_at", ""))
         forgets = [item["record"] for item, _ in items if item.get("kind") == "forget"]
         items = [(item, line) for item, line in items if item.get("kind") != "forget"]
@@ -1024,7 +1025,7 @@ def sync(shared: Path, index: Path) -> dict:
                             outcome = brain.remember(item["record"])
                         else:
                             outcome = turns.record(item["record"])
-                    except ValueError as error:
+                    except Exception as error:      # a malformed line must not stop sync
                         if str(error) == "SUPERSEDED_LOCAL_MEMORY_NOT_FOUND":
                             retry.append((item, line))
                             continue
@@ -1040,7 +1041,8 @@ def sync(shared: Path, index: Path) -> dict:
             from graph_mind.forget import erase
             for record in forgets:
                 erase(index, record)
-        with db:
+        with db:                            # imports are idempotent: a crash before this re-reads
+            db.executemany("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)", cursors)
             db.execute("DELETE FROM brain_log_pending")
             db.executemany("INSERT OR IGNORE INTO brain_log_pending VALUES(?)",
                            [(line,) for line in waiting])

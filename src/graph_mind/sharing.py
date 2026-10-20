@@ -619,8 +619,9 @@ def folder():
 def _save(changes: dict) -> None:
     """It holds the share password and join codes: this user only (mkstemp makes it 0600), and
     one writer at a time, or two saves lost one setting or raced the same temporary file."""
-    import fasteners
     import tempfile
+
+    import fasteners
     target = config_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     with fasteners.InterProcessLock(str(target.with_suffix(".lock"))):

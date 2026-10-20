@@ -158,6 +158,9 @@ class LocalBrainStore:
     def remember(self, memory):
         if not isinstance(memory, dict):
             raise ValueError("LOCAL_MEMORY_OBJECT_REQUIRED")
+        from graph_mind.conversation_memory import _forgotten
+        if _forgotten(self.db, memory.get("memory_id")):
+            return {"memory_id": memory.get("memory_id"), "disposition": "FORGOTTEN"}
         normalized = {
             "memory_id": _text(memory.get("memory_id"), "MEMORY_ID_REQUIRED"),
             "scope": _text(memory.get("scope"), "MEMORY_SCOPE_REQUIRED"),

@@ -53,6 +53,11 @@ def erase(index: Path, ids: dict) -> dict:
                 f"SELECT memory_id FROM semantic_ingestion_audit WHERE turn_id IN ({marks}) "
                 "AND memory_id IS NOT NULL", turns) if row[0] not in memories]
         with db:
+            # what was forgotten stays forgotten: a later import of the same turn (another PC's
+            # log, an outbox sent late, a transcript read again) is refused by the stores
+            db.execute("CREATE TABLE IF NOT EXISTS forgotten_ids(id TEXT PRIMARY KEY)")
+            db.executemany("INSERT OR IGNORE INTO forgotten_ids VALUES(?)",
+                           [(i,) for i in turns + memories])
             if turns and "conversation_turns" in tables:
                 marks = ",".join("?" * len(turns))
                 rows = db.execute(f"SELECT revision, content_redacted FROM conversation_turns "
@@ -172,6 +177,24 @@ def scrub_staging(contents) -> int:
     return removed
 
 
+def drop_from_outbox(ids: dict) -> int:
+    """Lines waiting to be sent to a hub that was down: a forgotten turn must not leave later."""
+    import fasteners
+
+    from graph_mind.sharing import _outbox
+    keys = _keys(ids)
+    outbox = _outbox()
+    if not outbox.exists():
+        return 0
+    with fasteners.InterProcessLock(str(outbox.with_suffix(".lock"))):
+        lines = outbox.read_text(encoding="utf-8").splitlines()
+        kept = [line for line in lines if '"kind": "forget"' in line
+                or not any(key in line for key in keys)]
+        if len(kept) != len(lines):
+            outbox.write_text("".join(line + "\n" for line in kept), encoding="utf-8")
+    return len(lines) - len(kept)
+
+
 def forget_ids(ids: dict, index: Path, shared=None) -> dict:
     """Erase these turns and memories here, scrub the shared log, and tell the other PCs."""
     from graph_mind.sharing import append
@@ -194,8 +217,14 @@ def forget_ids(ids: dict, index: Path, shared=None) -> dict:
     result = erase(index, ids)
     result["staging_lines_removed"] = scrub_staging(contents)
     if shared:
-        result["shared_lines_removed"] = scrub_shared(shared, ids)
+        # the notice first: append queues it in the outbox when the hub is down, where a scrub
+        # that failed first used to lose it, and the other PCs kept their copies
+        drop_from_outbox(ids)
         append(shared, "forget", ids)                  # ids only: the text never leaves here
+        try:
+            result["shared_lines_removed"] = scrub_shared(shared, ids)
+        except Exception:
+            result["shared_lines_removed"] = 0         # offline: the notice reaches them later
     return result
 
 

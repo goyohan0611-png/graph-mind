@@ -159,5 +159,26 @@ class StagingTests(unittest.TestCase):
         self.assertIn("hello", text)
 
 
+class TombstoneTests(unittest.TestCase):
+    def test_a_forgotten_turn_is_not_brought_back_by_a_later_import(self):
+        """Another PC's log, an outbox sent late or a transcript read again carried the same turn
+        back in after it was forgotten."""
+        from graph_mind.forget import forget_ids
+        with tempfile.TemporaryDirectory() as directory:
+            index = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(index) as store:
+                store.record(turn(1, "my locker code is 4821"))
+            with LocalBrainStore(index) as brain:
+                brain.remember(memory("m1", "locker code note 4821"))
+            forget_ids({"turn_ids": ["t1"], "memory_ids": ["m1"]}, index)
+            with ConversationMemoryStore(index) as store:
+                self.assertEqual(store.record(turn(1, "my locker code is 4821"))["disposition"],
+                                 "FORGOTTEN")
+            with LocalBrainStore(index) as brain:
+                self.assertEqual(brain.remember(memory("m1", "locker code note 4821"))
+                                 ["disposition"], "FORGOTTEN")
+            self.assertEqual(find(index, "4821"), {"turn_ids": [], "memory_ids": []})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -67,6 +67,15 @@ SECRET_PATTERNS = (
 )
 
 
+def _forgotten(db, record_id) -> bool:
+    """Whether brain_forget / graph-mind-forget deleted this id (forget.erase's tombstones)."""
+    try:
+        return db.execute("SELECT 1 FROM forgotten_ids WHERE id=?", (record_id,)).fetchone() \
+            is not None
+    except sqlite3.OperationalError:                 # nothing was ever forgotten here
+        return False
+
+
 def _complete_size(path, window=1 << 16):
     """The file's size up to its last complete line: a baseline taken while the app was writing
     a line started inside it, and that turn was never stored."""
@@ -252,6 +261,9 @@ class ConversationMemoryStore:
         existing = self.db.execute(
             "SELECT revision,fingerprint,raw_sha256 FROM conversation_turns WHERE turn_id=?",
             (normalized["turn_id"],)).fetchone()
+        if existing is None and _forgotten(self.db, normalized["turn_id"]):
+            return {"turn_id": normalized["turn_id"], "revision": None,
+                    "disposition": "FORGOTTEN"}
         if existing:
             # The id already binds the session, the record and the hash of what was said, so the
             # same id with the same text is the same turn seen again, even if this read happened

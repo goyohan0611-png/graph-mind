@@ -147,7 +147,8 @@ class SharedModelTests(unittest.TestCase):
             self.assertLess(time.monotonic() - asked, 0.18)           # beside the backlog
             for thread in twice:
                 thread.join()
-            self.assertGreaterEqual(time.monotonic() - began, 0.38)   # 2 chunks, each rested
+            # 2 chunks, each rested: ~0.4 s, 0.2 s without the rests; Windows' clock ticks 15.6 ms
+            self.assertGreaterEqual(time.monotonic() - began, 0.35)
             self.assertEqual(sorted(encoded), sorted(backlog + ["question"]))   # once each
 
 

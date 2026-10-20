@@ -1,5 +1,6 @@
 """Postgres's tools fail at random on some Windows PCs (AhnLab V3): hub setup tries again."""
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
+from pathlib import Path
 import subprocess
 import unittest
 from unittest import mock
@@ -73,7 +74,9 @@ class DestinationTests(unittest.TestCase):
         import tempfile
         outbox = sharing._outbox()
         outbox.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+        # the choice must not outlive the test: later tests would share through that folder
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second, \
+                mock.patch.object(sharing, "config_path", lambda: Path(second) / "config.json"):
             sharing.set_folder(first)
             outbox.write_text('{"kind": "turn"}' + chr(10), encoding="utf-8")
             sharing.set_folder(first)                  # the same place: the queue stays

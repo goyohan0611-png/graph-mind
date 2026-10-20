@@ -246,7 +246,7 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
         if truncated:
             break
     context = "\n\n".join(sections)
-    return {
+    packet = {
         "status": "KNOWN" if selected else "UNKNOWN",
         "schema_version": SCHEMA_VERSION,
         "scope_completeness": recall_result.get("scope_completeness", "UNATTESTED"),
@@ -256,3 +256,40 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
         "omitted_items": max(0, len(candidates) - len(selected)),
         "items": selected, "context": context,
     }
+
+    reserve = recall_result.get("conversation_reserve", [])
+    if not reserve or order == "time" or noted:
+        return packet
+
+    def render(item):
+        if item["source_kind"] == "CONVERSATION_TURN":
+            header = f"[{item['scope']} | {item['effective_at']}] {item['title']}\n"
+        else:
+            header = (f"[{item['source_kind']} | {item['memory_class']} | {item['scope']} | "
+                      f"{item['effective_at']}] {item['title']}\n")
+        source = item["provenance"]
+        return (header + item["content"] +
+                f"\nSource: {source.get('source_type', 'unknown')} / "
+                f"{source.get('source_ref', 'unknown')}")
+
+    # Freeze every baseline body, including its truncation. Spend only metadata savings.
+    budget = len(context)
+    sections = [render(item) for item in selected]
+    used = len("\n\n".join(sections))
+    seen = {item["id"] for item in selected}
+    for item in [*candidates, *(_conversation_item(t) for t in reserve)]:
+        if item["id"] in seen:
+            continue
+        seen.add(item["id"])
+        section = render(item)
+        cost = len(section) + (2 if sections else 0)
+        if used + cost > budget:
+            continue
+        sections.append(section)
+        selected.append({**item, "truncated": False})
+        used += cost
+    context = "\n\n".join(sections)
+    return {**packet, "context": context, "used_chars": len(context),
+            "estimated_tokens": ceil(len(context) / 4) if context else 0,
+            "items": selected, "selected_items": len(selected),
+            "omitted_items": max(0, len(seen) - len(selected))}

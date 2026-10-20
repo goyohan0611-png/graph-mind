@@ -468,6 +468,20 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             words = [excerpt(t) for t in conversations.search(
                          query, scopes=scopes, limit=max(limit, 20))["turns"]
                      if not since or t["happened_at"] >= since]
+            # A supplemental lexical view; never remove or rerank the original hits.
+            glue = set(("how many much what which when where who did do does have has had "
+                        "i me my we our you your a an the of on in at to for from with and or "
+                        "is are was were be been am it that this these those different total "
+                        "all order earliest latest most recently first last past before after "
+                        "during since months month weeks week days day years year three two "
+                        "four took using start need currently").split())
+            terms = [w for w in re.findall(r"[^\W_]{2,}", query.casefold()) if w not in glue]
+            focused = " ".join(w[:-1] if len(w) >= 4 and w.endswith("s")
+                               and not w.endswith("ss") else w for w in terms)
+            rescue = ([excerpt(t) for t in conversations.search(
+                focused, scopes=scopes, limit=20)["turns"]
+                if t["role"] == "user" and (not since or t["happened_at"] >= since)]
+                if focused else [])
     if not recent:
         try:
             meaning = semantic_turns(database, query, scopes=scopes, since=since,
@@ -489,7 +503,14 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
                 inside = []
             rankings = [inside, [t for t in words if span[0] <= t["happened_at"] < span[1]],
                         *rankings]
-        turns = fuse(*rankings, limit=limit)
+        ranked = fuse(*rankings, limit=sum(map(len, rankings)))
+        turns = ranked[:limit]
+        chosen = {t["turn_id"] for t in turns}
+        result["conversation_reserve"] = [
+            {k: v for k, v in t.items() if k != "full"}
+            for t in [*rescue, *ranked[limit:]]
+            if t["turn_id"] not in chosen and t["role"] == "user"
+            and (not until or t["happened_at"] <= until)]
         if about_assistant:
             # "How many mummies were in the one-shot you wrote?" needs the whole answer, not a
             # 500-character piece of it: the assistant's answers run 1,000-4,000 characters and
@@ -749,10 +770,12 @@ def build_server(db_path=None, terminal=False):
             current = [r for r in rows if not r["superseded"]]
             return {"entity": entity, "entries": rows, "count": len(rows),
                     "current": current[-1] if current else None}
-        return gather(database, query, scopes=scopes, as_of=as_of or _now(),
-                      knowledge_cutoff=knowledge_cutoff, limit=limit, recent=recent, since=since,
-                      about_assistant=about_assistant, around=around,
-                      until=local_time(knowledge_cutoff or as_of))
+        recalled = gather(database, query, scopes=scopes, as_of=as_of or _now(),
+                          knowledge_cutoff=knowledge_cutoff, limit=limit, recent=recent,
+                          since=since, about_assistant=about_assistant, around=around,
+                          until=local_time(knowledge_cutoff or as_of))
+        recalled.pop("conversation_reserve", None)
+        return recalled
 
     @server.tool(
         name="brain_context",

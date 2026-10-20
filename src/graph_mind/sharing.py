@@ -79,6 +79,9 @@ def _pg_data() -> Path:
     # this PC's own logins read their passwords here (libpq's password file): in no URL, so
     # never shown or saved anywhere else
     os.environ["PGPASSFILE"] = str(data.parent / "pgpass")
+    # ...which libpq skips when PGPASSWORD is set: another Postgres's (GitHub's Windows runners
+    # set PGPASSWORD=root) would be sent instead. Other hubs carry theirs in the URL.
+    os.environ.pop("PGPASSWORD", None)
     return data
 
 

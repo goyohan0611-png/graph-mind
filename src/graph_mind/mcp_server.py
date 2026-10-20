@@ -482,11 +482,9 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
         else:
             # the user's turns first, unless the question is about what the assistant said: its
             # suggestions were counted as the user's ("how many citrus fruits did I buy" took in
-            # the grapefruit it had recommended). Its turns still come after them, not never: a
-            # question about its words that is not recognised as one still finds them.
-            found = conversations.search(query, scopes=scopes, limit=max(limit, 20))["turns"]
-            if not about_assistant:
-                found = sorted(found, key=lambda t: t["role"] != "user")     # stable
+            # the grapefruit it had recommended).
+            found = conversations.search(query, scopes=scopes, limit=max(limit, 20),
+                                         roles=None if about_assistant else ("user",))["turns"]
             words = [excerpt(t) for t in found if not since or t["happened_at"] >= since]
     if not recent:
         try:
@@ -515,7 +513,9 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             # 500-character piece of it: the assistant's answers run 1,000-4,000 characters and
             # counts and list positions span them. (Users state facts early in a turn; assistants
             # do not.) Their own answers go in whole, up to ASSISTANT_TURN_CAP.
-            turns = [assistant_window(t) if t["role"] == "assistant" else t for t in turns]
+            turns = [{**t, "content": t.get("full", t["content"])[:ASSISTANT_TURN_CAP],
+                      "span": [0, min(len(t.get("full", t["content"])), ASSISTANT_TURN_CAP)]}
+                     if t["role"] == "assistant" else t for t in turns]
     turns = [{k: v for k, v in t.items() if k != "full"} for t in turns
              if not until or t["happened_at"] <= until]
     result["conversation_turns"] = turns

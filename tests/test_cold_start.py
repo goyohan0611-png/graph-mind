@@ -172,5 +172,17 @@ class PastMomentTests(unittest.TestCase):
                              ["release planned for friday"])
 
 
+class AssistantWindowTests(unittest.TestCase):
+    def test_a_long_answer_is_cut_around_the_piece_that_matched(self):
+        full = "intro\n" + "x" * 3994 + "\n7. Grapefruit sorbet\n" + "y" * 3000
+        hit = full.index("7. Grapefruit")
+        cut = server.assistant_window({"content": full[hit:hit + 500], "full": full,
+                                       "span": [hit, hit + 500], "role": "assistant"}, cap=1000)
+        self.assertIn("7. Grapefruit sorbet", cut["content"])
+        self.assertEqual(len(cut["content"]), 1000)
+        short = server.assistant_window({"content": "ok", "full": "ok", "role": "assistant"})
+        self.assertEqual(short["content"], "ok")
+
+
 if __name__ == "__main__":
     unittest.main()

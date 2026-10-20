@@ -425,6 +425,22 @@ def excerpt(turn):
             "full": turn["content"]}
 
 
+def assistant_window(turn, cap=None):
+    """An assistant answer whole, up to ASSISTANT_TURN_CAP; a longer one around the piece that
+    matched (a quarter of the window before it, from a line start), not its first characters:
+    a list item found at character 4,000 was cut away before the model saw it."""
+    cap = cap or ASSISTANT_TURN_CAP
+    full = turn.get("full", turn["content"])
+    if len(full) <= cap:
+        return {**turn, "content": full, "span": [0, len(full)]}
+    hit = (turn.get("span") or [0])[0]
+    begin = max(0, min(hit - cap // 4, len(full) - cap))
+    line = full.rfind("\n", 0, begin) + 1
+    if begin - line < cap // 8:                     # a list item or paragraph from its start
+        begin = line
+    return {**turn, "content": full[begin:begin + cap], "span": [begin, begin + cap]}
+
+
 def window(around):
     """"2023-05-14" or "2023-05-01..2023-05-31" -> [start, end) padded by WINDOW_SLACK days:
     "two weeks ago" is approximate, and the turn that mentions it is rarely on the exact day."""
@@ -464,8 +480,12 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             else:          # "what was I doing": simply the latest turns
                 turns = conversations.latest(scopes=scopes, since=since, limit=limit)["turns"]
         else:
+            # the user's turns, as search by meaning does, unless the question is about what the
+            # assistant said: its suggestions were counted as the user's ("how many citrus
+            # fruits did I buy" took in the grapefruit it had recommended)
             words = [excerpt(t) for t in conversations.search(
-                         query, scopes=scopes, limit=max(limit, 20))["turns"]
+                         query, scopes=scopes, limit=max(limit, 20),
+                         roles=None if about_assistant else ("user",))["turns"]
                      if not since or t["happened_at"] >= since]
     if not recent:
         try:
@@ -494,9 +514,7 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             # 500-character piece of it: the assistant's answers run 1,000-4,000 characters and
             # counts and list positions span them. (Users state facts early in a turn; assistants
             # do not.) Their own answers go in whole, up to ASSISTANT_TURN_CAP.
-            turns = [{**t, "content": t.get("full", t["content"])[:ASSISTANT_TURN_CAP],
-                      "span": [0, min(len(t.get("full", t["content"])), ASSISTANT_TURN_CAP)]}
-                     if t["role"] == "assistant" else t for t in turns]
+            turns = [assistant_window(t) if t["role"] == "assistant" else t for t in turns]
     turns = [{k: v for k, v in t.items() if k != "full"} for t in turns
              if not until or t["happened_at"] <= until]
     result["conversation_turns"] = turns

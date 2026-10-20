@@ -249,7 +249,7 @@ class ConversationMemoryStore:
         return {"turn_id": normalized["turn_id"], "revision": cursor.lastrowid,
                 "disposition": "RECORDED"}
 
-    def search(self, query, *, scopes=None, limit=10):
+    def search(self, query, *, scopes=None, limit=10, roles=None):
         query = _text(query, "CONVERSATION_QUERY_REQUIRED")
         if type(limit) is not int or not 1 <= limit <= 50:
             raise ValueError("INVALID_CONVERSATION_QUERY_LIMIT")
@@ -264,6 +264,9 @@ class ConversationMemoryStore:
         if scopes:
             where.append("t.scope IN (" + ",".join("?" for _ in scopes) + ")")
             parameters.extend(scopes)
+        if roles:
+            where.append("t.role IN (" + ",".join("?" for _ in roles) + ")")
+            parameters.extend(roles)
         parameters.append(limit)
         rows = self.db.execute("""SELECT t.*,bm25(conversation_turns_fts) AS rank
           FROM conversation_turns_fts JOIN conversation_turns t

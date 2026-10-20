@@ -3,6 +3,19 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.16 — 2026-10-20
+- **Forgetting reaches every copy.** A memory the capture service made from a forgotten turn
+  now also leaves the outbox and the shared log, and other PCs are told about it. A forget
+  notice from another PC also clears this PC's outbox and the hooks' staged lines. Two forgets at
+  once no longer write back each other's text.
+- **Forgotten items are never sent again**, even when a transcript is read a second time.
+- **Masking:** quoted passwords that contain the other quote mark (`"don't tell"`) or an escaped
+  quote; fields saved by `brain_remember` whose name says credential (`{"password": "..."}`).
+- **Sync** retries a line when the database was briefly locked, instead of skipping it.
+- **Questions about a past moment** no longer come back empty when newer conversations exist.
+- Cursor replies keep their question's date across scans; on macOS and Linux, staging files made
+  before 0.9.14 are narrowed to this user only.
+
 ## 0.9.15 — 2026-10-20
 - **What you forget stays forgotten.** A forgotten turn or memory is refused if it arrives again:
   from another PC's log, from an outbox sent after the hub came back, or from a transcript read

@@ -7,10 +7,10 @@ pressure. Same vectors as float32 are ~8x smaller and load by reading bytes.
 Layout:  <dir>/vectors-<id>.f32  rows of `dim` little-endian floats, appended in insertion order
          <dir>/index.json       {"dim", "model", "keys": {sha256: row}, "blob": "vectors-<id>.f32"}
 
-Several processes (Claude's and Codex's memory servers) share one cache. Each save writes a NEW
-blob, then swaps index.json in one atomic rename, so a reader always gets an index together with
-the blob it was written for. Rewriting vectors.f32 in place let a reader pair one process's index
-with another's rows: every vector silently wrong. Older caches without "blob" read vectors.f32.
+Several processes share one cache. A save appends only when the committed row numbering agrees;
+otherwise it writes a new blob. The committed prefix is never changed, and index.json is swapped
+atomically after the data is written. Readers ignore any unpublished tail. Rewriting existing rows
+in place could pair one process's index with another's vectors. Older caches still read vectors.f32.
 
     python vector_cache.py            # self-check
     python vector_cache.py old.json   # convert a legacy JSON cache next to it
@@ -53,7 +53,9 @@ class VectorCache:
                 meta = json.loads(self.index_path.read_text(encoding="utf-8"))
                 rows = array("f")
                 if meta.get("dim"):
-                    rows.frombytes((self.dir / meta.get("blob", "vectors.f32")).read_bytes())
+                    count = (max(meta.get("keys", {}).values(), default=-1) + 1) * meta["dim"]
+                    with (self.dir / meta.get("blob", "vectors.f32")).open("rb") as handle:
+                        rows.frombytes(handle.read(count * rows.itemsize))
                 # An index whose blob is gone or short (another process saved and removed it in
                 # between) must never load: its keys would point at rows that this process then
                 # fills with other texts' vectors and saves. Every vector silently wrong.
@@ -143,8 +145,24 @@ class VectorCache:
         # wins and the vectors only the other process had are dropped and embedded again.
         with fasteners.InterProcessLock(str(self.dir / "save.lock")):
             self._refresh()
-            blob = self.dir / f"vectors-{os.getpid()}-{time.time_ns()}.f32"
-            blob.write_bytes(self._rows.tobytes())
+            meta = (json.loads(self.index_path.read_text(encoding="utf-8"))
+                    if self.index_path.exists() else {})
+            keys = meta.get("keys", {})
+            committed = (max(keys.values(), default=-1) + 1) * (self.dim or 0)
+            blob = self.dir / meta.get("blob", "vectors.f32")
+            appendable = (bool(meta) and meta.get("dim") == self.dim
+                          and self.index_path.stat().st_mtime_ns == self._stamp
+                          and meta.get("generation", 0) == self.generation
+                          and blob.exists() and blob.stat().st_size >= committed * self._rows.itemsize
+                          and all(self.keys.get(k) == row for k, row in keys.items()))
+            if appendable:
+                with blob.open("r+b") as handle:
+                    handle.seek(committed * self._rows.itemsize)
+                    handle.truncate()       # discard an uncommitted tail after a crash
+                    handle.write(self._rows[committed:].tobytes())
+            else:
+                blob = self.dir / f"vectors-{os.getpid()}-{time.time_ns()}.f32"
+                blob.write_bytes(self._rows.tobytes())
             staged = self.dir / f"index.{os.getpid()}.tmp"
             staged.write_text(json.dumps({"dim": self.dim, "model": self.model, "keys": self.keys,
                                           "blob": blob.name, "generation": self.generation}),
@@ -158,13 +176,13 @@ class VectorCache:
                         raise
                     time.sleep(0.02)
             self._stamp = self.index_path.stat().st_mtime_ns
-        self.blob_path = blob
-        for old in self.dir.glob("vectors*.f32"):   # blobs no index points at any more
-            if old != blob:
-                try:
-                    old.unlink()
-                except OSError:                     # another process is reading it right now
-                    pass
+            self.blob_path = blob
+            for old in self.dir.glob("vectors*.f32"):   # still under the writer lock
+                if old != blob:
+                    try:
+                        old.unlink()
+                    except OSError:                 # another process is reading it right now
+                        pass
         self._dirty = 0
 
 

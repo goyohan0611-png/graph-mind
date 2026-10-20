@@ -65,7 +65,7 @@ class VectorCacheRaceTests(unittest.TestCase):
         wrong, keys, exits = wrong_vectors()
         self.assertEqual(exits, [0, 0, 0, 0])            # no save crashed (Windows: index open)
         self.assertEqual(wrong, 0)
-        self.assertGreater(keys, 0)
+        self.assertEqual(keys, 4 * 40 * 25)              # and none lost: saves merge
 
 
 class RepairTests(unittest.TestCase):

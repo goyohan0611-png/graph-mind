@@ -133,5 +133,31 @@ class PromotedCopyTests(unittest.TestCase):
             self.assertEqual(find(index, "북쪽 계단"), {"turn_ids": [], "memory_ids": []})
 
 
+class StagingTests(unittest.TestCase):
+    def test_forgetting_blanks_the_hooks_own_copy(self):
+        """A hook keeps what was typed, unmasked, until its session has been idle an hour."""
+        import json
+        from graph_mind.forget import forget_ids
+        from graph_mind.paths import graph_mind_home
+        with tempfile.TemporaryDirectory() as directory:
+            index = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(index) as store:
+                store.record(turn(1, "the vault door code is purple-otter-42"))
+            staged = graph_mind_home() / "hooks" / "gemini-cli" / "s.jsonl"
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            keep = json.dumps({"type": "user", "message": {"content": "hello"}})
+            gone = json.dumps({"type": "user",
+                               "message": {"content": "the vault door code is purple-otter-42"}})
+            staged.write_text(keep + "\n" + gone + "\n", encoding="utf-8")
+            try:
+                result = forget_ids({"turn_ids": ["t1"]}, index)
+                text = staged.read_text(encoding="utf-8")
+            finally:
+                staged.unlink()
+        self.assertEqual(result["staging_lines_removed"], 1)
+        self.assertNotIn("purple-otter", text)
+        self.assertIn("hello", text)
+
+
 if __name__ == "__main__":
     unittest.main()

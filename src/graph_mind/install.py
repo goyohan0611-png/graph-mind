@@ -500,12 +500,17 @@ def uninstall(argv=None):
             guide = str(_opencode_dir(home) / "graph-mind.md")
             if guide in settings.get("instructions", []):
                 settings["instructions"].remove(guide)
-            (_opencode_dir(home) / "plugins" / "graph-mind.js").unlink(missing_ok=True)
             temporary = config.with_suffix(".graph-mind.tmp")
             temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2),
                                  encoding="utf-8")
             os.replace(temporary, config)
             removed.append(label)
+    # our own file, whatever the config says: a commented opencode.jsonc is skipped above, and
+    # the plugin went on recording every OpenCode conversation after uninstall
+    plugin = _opencode_dir(home) / "plugins" / "graph-mind.js"
+    if plugin.exists():
+        plugin.unlink()
+        removed.append("OpenCode plugin")
     codex_config = home / ".codex" / "config.toml"
     if codex_config.exists():
         text = codex_config.read_text(encoding="utf-8")

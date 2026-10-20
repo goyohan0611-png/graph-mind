@@ -3,6 +3,12 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.20 — 2026-10-21
+- **Far less disk writing.** Saving new search vectors used to rewrite the whole vector file
+  (about 32 MB for 11k vectors) every time, even for one new vector. Now the new vectors are
+  appended; the file is rewritten only when two processes saved in a different order. Vectors
+  already published are never changed, and a half-written tail after a crash is ignored.
+
 ## 0.9.19 — 2026-10-21
 - **Less work while you are idle.** The capture service no longer re-reads every stored turn
   every five seconds to find unembedded ones, and skips the memory-indexing passes while the

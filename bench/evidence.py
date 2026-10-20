@@ -36,6 +36,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "research"))
 
 from longmemeval_m_fetch import stream_instances  # noqa: E402
+from longmemeval_retrieval_executor import asks_assistant_history  # noqa: E402
 
 from graph_mind.context_packet import build_context_pack  # noqa: E402
 from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
@@ -80,8 +81,12 @@ def measure(row: dict, directory: Path, embedder) -> dict | None:
         return None
     while warm_turns(store, limit=2048, embedder=embedder):
         pass
+    # about_assistant is the calling model's judgement in real use; the same English regex as
+    # product_answer_eval.py plays it here (without it, assistant answers came only through
+    # word search over every speaker)
     recalled = gather(store, row["question"], as_of=iso(row["question_date"]),
-                      limit=CONTEXT_LIMIT, embedder=embedder)
+                      limit=CONTEXT_LIMIT, embedder=embedder,
+                      about_assistant=asks_assistant_history(row["question"]))
     packet = build_context_pack(recalled, max_chars=CONTEXT_CHARS)
     found = {item["id"] for item in packet["items"]} & wanted
     # agentmemory's and MemPalace's LongMemEval number: recall_any@K, whether any answer session

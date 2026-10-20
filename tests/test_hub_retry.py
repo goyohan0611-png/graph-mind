@@ -62,7 +62,9 @@ class HubRetryTests(unittest.TestCase):
     def test_the_hubs_postgres_is_fetched_and_speaks_tls(self):
         """Any Python, any supported machine: the pinned build is fetched, runs, has OpenSSL."""
         self.assertIn("PostgreSQL) 16.", sharing._pg_tool("postgres", ["-V"]))
-        self.assertIn("openssl", sharing._pg_tool("pg_config", ["--configure"]))
+        # built with OpenSSL: the server calls it (zonky's Linux build has no pg_config)
+        program = sharing.postgres_bin() / sharing._exe("postgres")
+        self.assertIn(b"SSL_CTX_new", program.read_bytes())
 
 
 if __name__ == "__main__":

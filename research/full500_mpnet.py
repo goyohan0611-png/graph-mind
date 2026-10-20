@@ -4,6 +4,7 @@ live in bench/.cache, which the bench workflow saves after every run, so dispatc
 continues where it stopped. Then answers and judging run locally:
 
     gh workflow run bench -f research=full500_mpnet.py         # until it prints "500 packets"
+    gh workflow run bench --ref exp/x -f research="full500_mpnet.py x"   # an experiment arm
     cd research && OPENAI_API_KEY=... python product_answer_eval.py answer \
         --out runs/graph-v9.14-full500-mpnet8 --ids runs/graph-v7.0-full500-30/ids.json
 """
@@ -14,7 +15,10 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 CACHE = HERE.parent / "bench/.cache"
-WORK = CACHE / "full500-mpnet8"                      # kept between CI runs
+# An experiment branch names its arm (`full500_mpnet.py rescue`): the branch restores main's
+# cache, so a shared folder would hand it main's finished packets.
+ARM = "".join(f"-{a}" for a in sys.argv[1:2])
+WORK = CACHE / f"full500-mpnet8{ARM}"                # kept between CI runs
 os.chdir(HERE)
 sys.path.insert(0, str(HERE.parent / "src"))
 from graph_mind.local_embedder import LOCAL_MODEL  # noqa: E402
@@ -28,7 +32,7 @@ import product_answer_eval  # noqa: E402
 try:
     product_answer_eval.main()
 finally:
-    out = HERE / "runs/graph-v9.14-full500-mpnet8"
+    out = HERE / f"runs/graph-v9.14-full500-mpnet8{ARM}"
     shutil.copytree(WORK, out, dirs_exist_ok=True)
     spans = WORK / "spans.jsonl"
     count = sum(1 for _ in spans.open(encoding="utf-8")) if spans.exists() else 0

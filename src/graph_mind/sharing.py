@@ -1032,7 +1032,8 @@ def sync(shared: Path, index: Path) -> dict:
                         conflicts += 1                       # e.g. an id reused with other content
                         continue
                     progress = True
-                    imported += outcome.get("disposition") != "ALREADY_RECORDED"
+                    imported += outcome.get("disposition") not in ("ALREADY_RECORDED",
+                                                                   "FORGOTTEN")
                 items = retry
                 if not progress:
                     waiting = [line for _, line in retry]

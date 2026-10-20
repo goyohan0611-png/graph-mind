@@ -45,7 +45,19 @@ def erase(index: Path, ids: dict) -> dict:
     db = sqlite3.connect(index, timeout=30)
     try:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
+        if turns and "semantic_ingestion_audit" in tables:
+            # a turn the capture service promoted to a memory lives on in that memory, word for
+            # word: forgetting the turn by id left the copy behind
+            marks = ",".join("?" * len(turns))
+            memories += [row[0] for row in db.execute(
+                f"SELECT memory_id FROM semantic_ingestion_audit WHERE turn_id IN ({marks}) "
+                "AND memory_id IS NOT NULL", turns) if row[0] not in memories]
         with db:
+            # what was forgotten stays forgotten: a later import of the same turn (another PC's
+            # log, an outbox sent late, a transcript read again) is refused by the stores
+            db.execute("CREATE TABLE IF NOT EXISTS forgotten_ids(id TEXT PRIMARY KEY)")
+            db.executemany("INSERT OR IGNORE INTO forgotten_ids VALUES(?)",
+                           [(i,) for i in turns + memories])
             if turns and "conversation_turns" in tables:
                 marks = ",".join("?" * len(turns))
                 rows = db.execute(f"SELECT revision, content_redacted FROM conversation_turns "
@@ -123,6 +135,66 @@ def scrub_shared(shared, ids: dict) -> int:
     return removed
 
 
+def _strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings(item)
+
+
+def scrub_staging(contents) -> int:
+    """Blank the lines of the hooks' and the OpenCode plugin's own transcripts that hold these
+    turns. They keep what was typed, before masking, until a session has been idle an hour: a
+    forgotten password stayed there all that time. Same length, in place: the capture service's
+    read offsets stay valid, and a line appended meanwhile is left alone."""
+    from graph_mind.conversation_memory import _redact
+    from graph_mind.paths import graph_mind_home
+    wanted = {c.strip() for c in contents if c and c.strip()}
+    if not wanted:
+        return 0
+    home, removed = graph_mind_home(), 0
+    for path in [*(home / "hooks").glob("*/*.jsonl"), *(home / "opencode").glob("*.jsonl")]:
+        try:
+            lines = path.read_bytes().split(b"\n")
+        except OSError:
+            continue
+        changed = False
+        for n, line in enumerate(lines):
+            try:
+                record = json.loads(line.decode("utf-8"))
+            except ValueError:
+                continue
+            if any(_redact(text)[0].strip() in wanted for text in _strings(record)):
+                lines[n] = b" " * len(line)
+                changed, removed = True, removed + 1
+        if changed:
+            with path.open("r+b") as stream:
+                stream.write(b"\n".join(lines))
+    return removed
+
+
+def drop_from_outbox(ids: dict) -> int:
+    """Lines waiting to be sent to a hub that was down: a forgotten turn must not leave later."""
+    import fasteners
+
+    from graph_mind.sharing import _outbox
+    keys = _keys(ids)
+    outbox = _outbox()
+    if not outbox.exists():
+        return 0
+    with fasteners.InterProcessLock(str(outbox.with_suffix(".lock"))):
+        lines = outbox.read_text(encoding="utf-8").splitlines()
+        kept = [line for line in lines if '"kind": "forget"' in line
+                or not any(key in line for key in keys)]
+        if len(kept) != len(lines):
+            outbox.write_text("".join(line + "\n" for line in kept), encoding="utf-8")
+    return len(lines) - len(kept)
+
+
 def forget_ids(ids: dict, index: Path, shared=None) -> dict:
     """Erase these turns and memories here, scrub the shared log, and tell the other PCs."""
     from graph_mind.sharing import append
@@ -130,10 +202,29 @@ def forget_ids(ids: dict, index: Path, shared=None) -> dict:
         return {"turns": 0, "memories": 0, "shared_lines_removed": 0}
     ids = {"turn_ids": list(ids.get("turn_ids", [])),
            "memory_ids": list(ids.get("memory_ids", []))}
+    contents = []
+    if ids["turn_ids"]:
+        db = sqlite3.connect(index, timeout=30)
+        try:
+            marks = ",".join("?" * len(ids["turn_ids"]))
+            contents = [row[0] for row in db.execute(
+                f"SELECT content_redacted FROM conversation_turns WHERE turn_id IN ({marks})",
+                ids["turn_ids"])]
+        except sqlite3.OperationalError:          # no conversations stored yet
+            pass
+        finally:
+            db.close()
     result = erase(index, ids)
+    result["staging_lines_removed"] = scrub_staging(contents)
     if shared:
-        result["shared_lines_removed"] = scrub_shared(shared, ids)
+        # the notice first: append queues it in the outbox when the hub is down, where a scrub
+        # that failed first used to lose it, and the other PCs kept their copies
+        drop_from_outbox(ids)
         append(shared, "forget", ids)                  # ids only: the text never leaves here
+        try:
+            result["shared_lines_removed"] = scrub_shared(shared, ids)
+        except Exception:
+            result["shared_lines_removed"] = 0         # offline: the notice reaches them later
     return result
 
 

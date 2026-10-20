@@ -116,5 +116,69 @@ class ForgetTests(unittest.TestCase):
             module.main(["abc", "--yes"])
 
 
+class PromotedCopyTests(unittest.TestCase):
+    def test_forgetting_a_turn_also_forgets_the_memory_promoted_from_it(self):
+        """"Remember ..." turns are copied into a memory word for word: erasing the turn by id
+        left that copy behind."""
+        from graph_mind.forget import erase
+        from graph_mind.semantic_memory import SemanticMemoryIngestion
+        with tempfile.TemporaryDirectory() as directory:
+            index = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(index) as store:
+                store.record(turn(1, "기억해줘: 사물함 비밀 위치는 북쪽 계단 아래야"))
+            with SemanticMemoryIngestion(index) as ingestion:
+                self.assertEqual(ingestion.process_new(limit=10)["promoted_count"], 1)
+            self.assertTrue(find(index, "북쪽 계단")["memory_ids"])
+            erase(index, {"turn_ids": find(index, "북쪽 계단")["turn_ids"]})
+            self.assertEqual(find(index, "북쪽 계단"), {"turn_ids": [], "memory_ids": []})
+
+
+class StagingTests(unittest.TestCase):
+    def test_forgetting_blanks_the_hooks_own_copy(self):
+        """A hook keeps what was typed, unmasked, until its session has been idle an hour."""
+        import json
+        from graph_mind.forget import forget_ids
+        from graph_mind.paths import graph_mind_home
+        with tempfile.TemporaryDirectory() as directory:
+            index = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(index) as store:
+                store.record(turn(1, "the vault door code is purple-otter-42"))
+            staged = graph_mind_home() / "hooks" / "gemini-cli" / "s.jsonl"
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            keep = json.dumps({"type": "user", "message": {"content": "hello"}})
+            gone = json.dumps({"type": "user",
+                               "message": {"content": "the vault door code is purple-otter-42"}})
+            staged.write_text(keep + "\n" + gone + "\n", encoding="utf-8")
+            try:
+                result = forget_ids({"turn_ids": ["t1"]}, index)
+                text = staged.read_text(encoding="utf-8")
+            finally:
+                staged.unlink()
+        self.assertEqual(result["staging_lines_removed"], 1)
+        self.assertNotIn("purple-otter", text)
+        self.assertIn("hello", text)
+
+
+class TombstoneTests(unittest.TestCase):
+    def test_a_forgotten_turn_is_not_brought_back_by_a_later_import(self):
+        """Another PC's log, an outbox sent late or a transcript read again carried the same turn
+        back in after it was forgotten."""
+        from graph_mind.forget import forget_ids
+        with tempfile.TemporaryDirectory() as directory:
+            index = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(index) as store:
+                store.record(turn(1, "my locker code is 4821"))
+            with LocalBrainStore(index) as brain:
+                brain.remember(memory("m1", "locker code note 4821"))
+            forget_ids({"turn_ids": ["t1"], "memory_ids": ["m1"]}, index)
+            with ConversationMemoryStore(index) as store:
+                self.assertEqual(store.record(turn(1, "my locker code is 4821"))["disposition"],
+                                 "FORGOTTEN")
+            with LocalBrainStore(index) as brain:
+                self.assertEqual(brain.remember(memory("m1", "locker code note 4821"))
+                                 ["disposition"], "FORGOTTEN")
+            self.assertEqual(find(index, "4821"), {"turn_ids": [], "memory_ids": []})
+
+
 if __name__ == "__main__":
     unittest.main()

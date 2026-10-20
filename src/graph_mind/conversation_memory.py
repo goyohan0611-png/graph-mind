@@ -17,12 +17,25 @@ from graph_mind.forget import erase
 from graph_mind.paths import use_wal
 
 CAPTURE_VERSION = "codex-conversation-capture-v0.1"
+# what follows "password:" in code is often its type, not a value
+TYPE_NAME = r"(?!(?:str|int|bytes|bool|None|Optional|SecretStr|Any|string|number)\b)"
 SECRET_PATTERNS = (
     (re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b"), "[REDACTED_OPENAI_KEY]"),
     (re.compile(r"\bkey_[A-Za-z0-9_-]{10,}\b"), "[REDACTED_API_KEY]"),
     (re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer\s+)?)[^\s]+"), r"\1[REDACTED]"),
-    (re.compile(r"(?i)((?:api[_ -]?key|secret|token)\s*[:=]\s*)[^\s]+"),
+    # a value quoted after its name, as JSON, YAML and .env write it: "password": "x y"
+    (re.compile(r"""(?i)(["']?(?:password|passwd|pwd|secret|token|api[_ -]?key|access[_ -]?key|"""
+                r"""private[_ -]?key|client[_ -]?secret)["']?\s*[:=]\s*)(["'])[^"'\n]+\2"""),
+     r"\1\2[REDACTED]\2"),
+    (re.compile(r"(?i)((?:api[_ -]?key|secret|token|access[_ -]?key|client[_ -]?secret)\s*[:=]\s*)"
+                + TYPE_NAME + r"[^\s\"']+"),
      r"\1[REDACTED]"),
+    # a signed JSON Web Token: header.payload.signature, each base64url
+    (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
+     "[REDACTED_JWT]"),
+    # other vendors' key shapes: DigitalOcean, GitLab, npm, Hugging Face, Anthropic admin
+    (re.compile(r"\b(?:do[opr]_v1_[a-f0-9]{64}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|"
+                r"hf_[A-Za-z0-9]{30,})\b"), "[REDACTED_API_KEY]"),
     (re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b"),
      "[REDACTED_GITHUB_TOKEN]"),
     (re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b"), "[REDACTED_AWS_KEY]"),
@@ -33,7 +46,8 @@ SECRET_PATTERNS = (
     # a database URL carries its password: postgres://user:PASSWORD@host
     (re.compile(r"(\b[a-z][a-z0-9+.-]*://[^\s:/@]+:)[^\s@/]+(@)"), r"\1[REDACTED]\2"),
     # a password written after its name: "password: x", "pwd=x", "비밀번호: x", "비번=x"
-    (re.compile(r"(?i)((?<![a-z])(?:password|passwd|pwd)\s*[:=]\s*)\S+"), r"\1[REDACTED]"),
+    (re.compile(r"(?i)((?<![a-z])(?:password|passwd|pwd)\s*[:=]\s*)" + TYPE_NAME
+                + r"[^\s\"']\S*"), r"\1[REDACTED]"),
     (re.compile(r"((?:비밀번호|비번|암호)\s*[:=]\s*)\S+"), r"\1[REDACTED]"),
     # ... or in a sentence: "my password is x", "비밀번호는 x", "와이파이 비번 x". Only a value
     # with a digit or a symbol, so "the password is stored in the vault" stays as it is; a
@@ -51,6 +65,26 @@ SECRET_PATTERNS = (
     (re.compile(r"(?<![\d-])[3-6]\d{3}(?:[ -]?\d{4}){2}[ -]?\d{3,4}(?![\d-])"),
      lambda m: "[REDACTED_CARD]" if _luhn(m.group(0)) else m.group(0)),
 )
+
+
+def _forgotten(db, record_id) -> bool:
+    """Whether brain_forget / graph-mind-forget deleted this id (forget.erase's tombstones)."""
+    try:
+        return db.execute("SELECT 1 FROM forgotten_ids WHERE id=?", (record_id,)).fetchone() \
+            is not None
+    except sqlite3.OperationalError:                 # nothing was ever forgotten here
+        return False
+
+
+def _complete_size(path, window=1 << 16):
+    """The file's size up to its last complete line: a baseline taken while the app was writing
+    a line started inside it, and that turn was never stored."""
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        handle.seek(max(0, size - window))
+        tail = handle.read()
+    end = tail.rfind(b"\n")
+    return size - len(tail) + end + 1 if end >= 0 else (0 if size <= window else size)
 
 
 def _luhn(text):
@@ -227,6 +261,9 @@ class ConversationMemoryStore:
         existing = self.db.execute(
             "SELECT revision,fingerprint,raw_sha256 FROM conversation_turns WHERE turn_id=?",
             (normalized["turn_id"],)).fetchone()
+        if existing is None and _forgotten(self.db, normalized["turn_id"]):
+            return {"turn_id": normalized["turn_id"], "revision": None,
+                    "disposition": "FORGOTTEN"}
         if existing:
             # The id already binds the session, the record and the hash of what was said, so the
             # same id with the same text is the same turn seen again, even if this read happened
@@ -398,7 +435,7 @@ class CodexConversationCapture:
         return payload["role"], _message_text(payload)
 
     def initialize_baseline(self):
-        files = {str(path): path.stat().st_size for path in self._files()}
+        files = {str(path): _complete_size(path) for path in self._files()}
         self._write_state(files)
         return {"status": "BASELINE_CREATED", "file_count": len(files),
                 "state_path": str(self.state_path)}
@@ -455,6 +492,8 @@ class CodexConversationCapture:
                         item = json.loads(line.decode("utf-8", "strict"))
                     except (UnicodeDecodeError, json.JSONDecodeError):
                         continue
+                    if not isinstance(item, dict):
+                        continue               # a bare list or string: one bad line, not a stop
                     if self._forget_call(item):
                         self._forget_exchange(session_id, item.get("timestamp") or known_at,
                                               self._forget_sessions)
@@ -463,8 +502,11 @@ class CodexConversationCapture:
                     if message is None:
                         continue
                     role, raw = message
-                    if not raw.strip():
+                    if not isinstance(raw, str) or not raw.strip():
                         continue
+                    # a lone surrogate ("\\ud800" in the JSON) cannot be encoded: it stopped every
+                    # later line of the file from being stored
+                    raw = raw.encode("utf-8", "replace").decode("utf-8")
                     quiet = self._forget_sessions.get(session_id)
                     if quiet and quiet.get("quiet"):
                         if role == "assistant":

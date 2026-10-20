@@ -18,8 +18,9 @@ const INJECT_TIMEOUT_MS = 15000;
 
 function write(sessionID, record) {
   try {
-    mkdirSync(TRANSCRIPTS, { recursive: true });
-    appendFileSync(join(TRANSCRIPTS, sessionID + ".jsonl"), JSON.stringify(record) + "\n");
+    mkdirSync(TRANSCRIPTS, { recursive: true, mode: 0o700 });   // what was typed: this user only
+    appendFileSync(join(TRANSCRIPTS, sessionID + ".jsonl"), JSON.stringify(record) + "\n",
+                   { mode: 0o600 });
   } catch {}
 }
 

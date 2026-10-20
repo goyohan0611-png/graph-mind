@@ -81,5 +81,16 @@ class MeaningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(found["Paris weather forecast?"], [])
 
 
+class TerminalCommandTests(unittest.TestCase):
+    def test_a_path_that_would_run_a_command_is_refused(self):
+        """The user pastes this command: a path like  x"; evil; #  must not run evil."""
+        from graph_mind.mcp_server import folder_commands
+        self.assertEqual(folder_commands(r"C:\Users\me\Brain", False, None, None),
+                         r'graph-mind folder "C:\Users\me\Brain"')
+        for bad in [r'C:\Memory"; Write-Output X; #', "a$(id)", "x & calc", "a`b", "x\nrm"]:
+            with self.assertRaises(ValueError, msg=bad):
+                folder_commands(None, False, bad, None)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -13,6 +13,13 @@ The answer model is gpt-5-mini; the judge is the official gpt-4o-2024-08-06.
 | **All 500 questions** | **88.8%** (444/500) | **0** | 3.4k tokens |
 | The 380 never used for tuning | **86.8%** (330/380) | 0 | 3.4k tokens |
 
+Measured with the embedding model of 0.9.9 and before (multilingual MiniLM). 0.9.10 uses the int8
+export of multilingual mpnet: on every 5th question (100) it retrieved the answer session as
+often (recall 95.9% both) and among the first 5 more often (99.0% against 97.9%); Korean
+questions found among the first 10, 19/20 against 17/20
+([`graph-v9.13-int8-models`](../research/runs/graph-v9.13-int8-models)). The full 500 on it is
+still to be run.
+
 ## Head to head
 
 Same 40 questions, same answer model, same prompt, same official judge, pre-registered with code

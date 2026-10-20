@@ -48,7 +48,7 @@ graph-mind-install
   only ours). Both also add the memory that bears on a message before the model answers;
 - starts the capture service at login (Windows Startup folder, a macOS LaunchAgent, or an XDG
   autostart entry on Linux);
-- downloads the embedding model (about 470 MB, once).
+- downloads the embedding model (about 290 MB, once) and removes the one 0.9.9 and earlier used.
 
 Running it again is safe; run it again if you move the folder. Options: `--name "Your Name"` (the name
 teammates see), `--join <code>` (another PC's memory or a team invite). The server is also listed

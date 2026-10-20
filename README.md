@@ -119,7 +119,7 @@ flowchart LR
 
 - **Saving costs nothing.** Turns are stored as they were said. No model summarises or extracts
   anything at write time, so nothing is lost or invented on the way in, and no tokens are spent.
-- **Search runs on your PC.** Word search, a small multilingual embedding model (ONNX, no GPU)
+- **Search runs on your PC.** Word search, a multilingual embedding model (mpnet, int8; ONNX, no GPU)
   and when things were said are combined; the agent gets a short packet with
   the source turns, not a dump of history.
 - **The model you already use does the thinking.** Graph-MIND hands it evidence; it answers.
@@ -140,6 +140,8 @@ answer model (gpt-5-mini), the same prompt and the official gpt-4o judge; only t
 
 On agentmemory's 499 Graph-MIND scored 89.0%; on the 40, 85.0%. Retrieval alone, on agentmemory's own measure
 (an answer session among the first 5 retrieved): Graph-MIND 98.5%, agentmemory 95.2%.
+These runs used the embedding model of 0.9.9 and before; on a 100-question sample the current one
+finds the answer session as often or more (among the first 5: 99.0% against 97.9%).
 
 Every question, answer and verdict is in [`research/runs/`](research/runs); method, failures and
 how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
@@ -148,7 +150,9 @@ how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
 
 **Will it slow my PC down?** The background service uses about 2% of one CPU core when nothing new
 is coming in and about 650 MB of memory, most of it the search model. A memory search takes
-about 25 ms (95th percentile); the first one after an app starts, about 1.3 s.
+about 20 ms (41 ms at the 95th percentile on a GitHub runner); the first one after an app
+starts, about 1.3 s. After an update that changes the search model, it reads the memory again
+once, at half pace (about an hour for 11,000 pieces).
 
 **What does it cost?** Nothing. No API key and no model calls of its own; your AI app reads a
 packet of about 3k tokens when a question needs the past.

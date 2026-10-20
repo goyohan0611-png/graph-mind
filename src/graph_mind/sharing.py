@@ -42,11 +42,26 @@ KINDS = ("memory", "turn", "forget")   # forget: ids another PC erased (forget.p
 
 
 def device_name() -> str:
-    """This machine's log name. GRAPH_MIND_DEVICE overrides it (tests, two accounts on one PC);
-    otherwise the name chosen with the folder (set_folder), else the computer's name."""
-    raw = (os.environ.get("GRAPH_MIND_DEVICE") or _config().get("device") or platform.node()
-           or "device")
+    """This machine's name. GRAPH_MIND_DEVICE overrides it (tests, two accounts on one PC)."""
+    raw = os.environ.get("GRAPH_MIND_DEVICE") or platform.node() or "device"
     return re.sub(r"[^a-z0-9]+", "-", raw.casefold()).strip("-") or "device"
+
+
+def log_name() -> str:
+    """This install's log file in the brain folder: the machine's name and a suffix drawn once.
+    Two PCs named alike (DESKTOP-1, user-pc) appended to one file, and the sync client kept one
+    PC's copy of it: the other's memories were lost."""
+    if os.environ.get("GRAPH_MIND_DEVICE"):
+        return device_name()
+    name = _config().get("log_name")
+    if not name:
+        import secrets
+        try:
+            _save({"log_name": f"{device_name()}-{secrets.token_hex(3)}"}, keep=True)
+            name = _config().get("log_name")
+        except OSError:
+            pass
+    return name or device_name()
 
 
 def config_path() -> Path:
@@ -618,7 +633,7 @@ def folder():
     return value if is_database(value) else Path(value).expanduser()
 
 
-def _save(changes: dict) -> None:
+def _save(changes: dict, keep: bool = False) -> None:
     """It holds the share password and join codes: this user only (mkstemp makes it 0600), and
     one writer at a time, or two saves lost one setting or raced the same temporary file."""
     import tempfile
@@ -627,7 +642,7 @@ def _save(changes: dict) -> None:
     target = config_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     with fasteners.InterProcessLock(str(target.with_suffix(".lock"))):
-        settings = {**_config(), **changes}
+        settings = {**changes, **_config()} if keep else {**_config(), **changes}
         fd, temporary = tempfile.mkstemp(prefix=target.name + ".", dir=target.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
@@ -650,14 +665,6 @@ def set_folder(path) -> Path:
     else:
         chosen = Path(path).expanduser().resolve()
         (chosen / "log").mkdir(parents=True, exist_ok=True)
-        if not os.environ.get("GRAPH_MIND_DEVICE") and "device" not in _config():
-            # two PCs named alike (DESKTOP-1, user-pc) appended to one log file, and the sync
-            # client kept one PC's copy of it: the other's memories were lost
-            name = device_name()
-            if (chosen / "log" / f"{name}.jsonl").exists():
-                import secrets
-                name = f"{name}-{secrets.token_hex(3)}"
-            _save({"device": name})
     if str(chosen) != str(_config().get("memory_folder")):
         # the queue was for the old hub and would go to the new one; everything in it is in this
         # PC's store, which `share_existing` sends on purpose
@@ -689,7 +696,7 @@ def append_many(shared: Path, items) -> int:
         return 0
     if is_database(shared):
         return _pg_append_or_queue(shared, lines)
-    log = Path(shared).expanduser() / "log" / f"{device_name()}.jsonl"
+    log = Path(shared).expanduser() / "log" / f"{log_name()}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8") as stream:
         stream.write("\n".join(lines) + "\n")

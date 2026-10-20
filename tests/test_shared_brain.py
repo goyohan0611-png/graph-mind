@@ -264,16 +264,18 @@ class SameNameTests(unittest.TestCase):
             os.environ.pop("GRAPH_MIND_DEVICE", None)
             shared = Path(directory) / "shared"
             names = []
-            for pc in ("first", "second"):
+            for pc in ("first", "second"):       # both chose the folder before either one wrote
                 os.environ["GRAPH_MIND_CONFIG"] = str(Path(directory) / pc / "config.json")
                 sharing.set_folder(shared)
+            for pc in ("first", "second"):
+                os.environ["GRAPH_MIND_CONFIG"] = str(Path(directory) / pc / "config.json")
                 sharing.append(shared, "forget", {"memory_ids": [pc]})
-                names.append(sharing.device_name())
-                sharing.set_folder(shared)                    # choosing it again keeps the name
-                self.assertEqual(sharing.device_name(), names[-1])
-            self.assertEqual(names[0], "user-pc")
+                sharing.append(shared, "forget", {"memory_ids": [pc]})   # same file again
+                names.append(sharing.log_name())
+            self.assertTrue(all(name.startswith("user-pc-") for name in names))
             self.assertNotEqual(names[1], names[0])
-            self.assertEqual(len(list((shared / "log").glob("*.jsonl"))), 2)
+            self.assertEqual(sorted(p.stem for p in (shared / "log").glob("*.jsonl")),
+                             sorted(names))
 
 
 if __name__ == "__main__":

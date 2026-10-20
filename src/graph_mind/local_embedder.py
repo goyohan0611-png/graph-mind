@@ -159,43 +159,49 @@ class LocalEmbedder:
         pooled /= np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-12, None)
         return pooled.tolist()
 
-    def _encode_paced(self, texts):
-        """A question's few texts at once. A backlog (all memory again after a model change,
-        sent by the capture service itself and by every app's server) in chunks of CHUNK, one
-        backlog chunk at a time in this process, each followed by a rest as long as it took
-        when PACE is set: the model's threads half busy, and a question waits behind one chunk
-        (~5 s), not a whole batch (80 s)."""
-        size = LocalEmbedder.CHUNK if LocalEmbedder.PACE else 128   # 128: benchmarks' speed
-        if len(texts) <= size:
+    def _encode_paced(self, texts, backlog=False):
+        """A question's few texts at once. A chunk of a backlog (all memory again after a model
+        change) takes this process's one backlog lane and, when PACE is set, keeps it for a rest
+        as long as the chunk took: the model's threads half busy, and a question waits behind
+        one chunk (~5 s), never a whole batch."""
+        if not texts:
+            return []
+        if not backlog:
             with LocalEmbedder._lock:
                 self._load()
-                return self._encode(texts) if texts else []
-        vectors = []
-        for start in range(0, len(texts), size):
-            chunk = texts[start:start + size]
-            with LocalEmbedder._backlog:
-                began = time.monotonic()
-                with LocalEmbedder._lock:
-                    self._load()
-                    vectors += self._encode(chunk)
-                if LocalEmbedder.PACE:
-                    time.sleep(time.monotonic() - began)
+                return self._encode(texts)
+        with LocalEmbedder._backlog:
+            began = time.monotonic()
+            with LocalEmbedder._lock:
+                self._load()
+                vectors = self._encode(texts)
+            if LocalEmbedder.PACE:
+                time.sleep(time.monotonic() - began)
         return vectors
+
+    def _keep(self, texts, vectors):
+        with LocalEmbedder._lock:
+            for text, vector in zip(texts, vectors):
+                self.cache.put(self._key(text), vector)
+                self._since += 1
+            if self._since >= LocalEmbedder.FLUSH_EVERY:
+                self.flush()
 
     def embed(self, texts):
         texts = [t.strip()[:2000] for t in texts]
         missing = [t for t in dict.fromkeys(texts) if self._key(t) not in self.cache]
         if not missing:
             return [self.cache.get(self._key(t)) for t in texts]
-        vectors = _service.encode(self.model_name, missing)    # outside the lock: no waiting
-        if vectors is None:
-            vectors = self._encode_paced(missing)
-        with LocalEmbedder._lock:
-            for text, vector in zip(missing, vectors):
-                self.cache.put(self._key(text), vector)
-                self._since += 1
-            if self._since >= LocalEmbedder.FLUSH_EVERY:
-                self.flush()
+        served = _service.encode(self.model_name, missing)     # outside the lock: no waiting
+        if served is not None:
+            self._keep(missing, served)
+        else:
+            size = LocalEmbedder.CHUNK if LocalEmbedder.PACE else 128   # 128: benchmarks' speed
+            for start in range(0, len(missing), size):
+                # the service is asked the same backlog by every app's server: what another
+                # thread embedded meanwhile is skipped, each chunk kept as soon as it is done
+                chunk = [t for t in missing[start:start + size] if self._key(t) not in self.cache]
+                self._keep(chunk, self._encode_paced(chunk, backlog=len(missing) > size))
         return [self.cache.get(self._key(t)) for t in texts]
 
     def flush(self):
@@ -320,7 +326,7 @@ def serve(embedder) -> None:
                     texts = conn.recv()
                 except (EOFError, OSError):
                     return
-                conn.send(LocalEmbedder._encode_paced(embedder, texts))
+                conn.send([list(v) for v in embedder.embed(texts)])   # cached: asked once
 
     def accept():
         while True:

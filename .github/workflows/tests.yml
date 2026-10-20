@@ -12,12 +12,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        # ubuntu-24.04, not -latest: on 26.04 the bundled Postgres misses libxml2.so.2
+        os: [windows-latest, ubuntu-24.04, macos-latest]
         python: ["3.12"]
         include:                     # newest Python, and a 64-bit ARM machine (a NAS, a Pi)
           - os: windows-latest
             python: "3.14"
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python: "3.14"
           - os: ubuntu-24.04-arm
             python: "3.12"

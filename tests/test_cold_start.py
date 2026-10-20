@@ -88,6 +88,9 @@ class SharedModelTests(unittest.TestCase):
             def _encode(self, texts):
                 return [[float(len(text)), 1.0] for text in texts]
 
+            def embed(self, texts):
+                return self._encode(texts)
+
         def no_local_model(*_):
             raise AssertionError("the server loaded its own model")
 
@@ -124,18 +127,17 @@ class SharedModelTests(unittest.TestCase):
                 pass
 
             def _encode(self, texts):
-                time.sleep(0.05)
+                time.sleep(0.1)
                 return [[1.0] for _ in texts]
 
         paced = local_embedder.LocalEmbedder._encode_paced
-        with mock.patch.object(local_embedder.LocalEmbedder, "PACE", True), \
-                mock.patch.object(local_embedder.LocalEmbedder, "CHUNK", 2):
+        with mock.patch.object(local_embedder.LocalEmbedder, "PACE", True):
             began = time.monotonic()
-            self.assertEqual(len(paced(Slow(), ["a"] * 6)), 6)          # 3 chunks
-            self.assertGreaterEqual(time.monotonic() - began, 0.3)      # each one rested
+            self.assertEqual(paced(Slow(), ["a", "b"], backlog=True), [[1.0], [1.0]])
+            self.assertGreaterEqual(time.monotonic() - began, 0.18)     # it rested
             began = time.monotonic()
             self.assertEqual(paced(Slow(), ["question"]), [[1.0]])
-            self.assertLess(time.monotonic() - began, 0.09)
+            self.assertLess(time.monotonic() - began, 0.18)
 
 if __name__ == "__main__":
     unittest.main()

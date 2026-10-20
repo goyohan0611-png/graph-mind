@@ -153,7 +153,8 @@ class VectorCache:
             appendable = (bool(meta) and meta.get("dim") == self.dim
                           and self.index_path.stat().st_mtime_ns == self._stamp
                           and meta.get("generation", 0) == self.generation
-                          and blob.exists() and blob.stat().st_size >= committed * self._rows.itemsize
+                          and blob.exists()
+                          and blob.stat().st_size >= committed * self._rows.itemsize
                           and all(self.keys.get(k) == row for k, row in keys.items()))
             if appendable:
                 with blob.open("r+b") as handle:

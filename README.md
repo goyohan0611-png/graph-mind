@@ -17,6 +17,8 @@
 
 *Decide something with one agent on Monday. Ask another on Wednesday. It knows.*
 
+**English** · [한국어](README.ko.md)
+
 <img src="demo/demo.gif" alt="A decision made with one agent on Monday, recalled by another on Wednesday" width="760">
 
 </div>
@@ -39,7 +41,10 @@ curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scr
 No Python needed; nothing else to set up. Restart your AI apps afterwards. Already have Python?
 `pip install graph-mind-memory && graph-mind-install`. More: [docs/install.md](docs/install.md).
 
-Connecting an MCP client by hand (after `pip install graph-mind-memory`):
+<details>
+<summary>Connecting an MCP client by hand</summary>
+
+After `pip install graph-mind-memory`:
 
 ```json
 {
@@ -54,12 +59,24 @@ Connecting an MCP client by hand (after `pip install graph-mind-memory`):
 
 Claude Code: `claude mcp add graph-mind-memory -- python -m graph_mind.mcp_server`. This gives the
 tools only; `graph-mind-install` also saves every conversation automatically.
+</details>
+
+## Try it
+
+Work as usual for a while, then open a new session, another app, or another model and ask:
+
+- *"Where did we leave off yesterday?"*
+- *"Which database did we pick for the billing service, and why?"*
+- *"What did you change in the auth middleware last week?"*
+- *"What's my dog's name?"* (any fact you mentioned once, in passing)
+
+Nothing to tag or save by hand: every turn is already stored, and the agent pulls back the few
+that answer the question.
 
 ## What it does
 
 - **One shared brain for every agent in your terminal.** Whichever coding agent or model you
-  run, they all read and write the same memory: decide something with one, ask another later,
-  it knows. Switch agents or models; the memory stays. [Which ones](docs/install.md#what-the-installer-does)
+  run, they all read and write the same memory. Switch agents or models; the memory stays.
 - **Remembers conversations word for word**, on your own PC. Saving is a database write: no model
   call, no tokens. When a question depends on the past, the agent gets back the few thousand
   tokens that answer it. Korean and English.
@@ -72,26 +89,82 @@ tools only; `graph-mind-install` also saves every conversation automatically.
 - **Teams, if you want them.** Share a project's decisions and progress with teammates' AIs, never
   your personal memory; files stay in Slack and GitHub. [docs/teams.md](docs/teams.md)
 
+## Works with
+
+The installer finds these and connects them; run it again after installing a new one.
+
+| app | conversations saved | how |
+|---|---|---|
+| Claude Code | every turn | reads its transcripts |
+| Codex CLI | every turn | reads its transcripts |
+| Cursor | every turn | reads its transcripts |
+| Copilot CLI | every turn | reads its transcripts |
+| Claude Desktop (Cowork) | every turn | reads its session files |
+| Gemini CLI | every turn | hooks; also adds relevant memory before each answer |
+| OpenCode | every turn | plugin; also adds relevant memory before each answer, for any model |
+| Claude Desktop chat, Windsurf, VS Code Copilot, Cline, LM Studio | what the model saves | MCP tools |
+
+Any other MCP client works through the tools: see the hand-written config above.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A["Claude Code · Codex · Cursor<br/>Gemini CLI · OpenCode · ..."] -- "transcripts, hooks, plugin" --> C["capture service<br/>(runs in the background)"]
+    C -- "verbatim turns,<br/>secrets masked" --> S[("your memory<br/>on this PC")]
+    S --> I["local search<br/>words + meaning + time"]
+    A -- "a question that needs the past" --> I
+    I -- "the few turns that answer it<br/>(~3k tokens)" --> A
+```
+
+- **Saving costs nothing.** Turns are stored as they were said. No model summarises or extracts
+  anything at write time, so nothing is lost or invented on the way in, and no tokens are spent.
+- **Search runs on your PC.** Word search, a small multilingual embedding model (ONNX, no GPU)
+  and when things were said are combined; the agent gets a short packet with
+  the source turns, not a dump of history.
+- **The model you already use does the thinking.** Graph-MIND hands it evidence; it answers.
+  When models get better, the answers get better without changing the memory.
+
 ## Does it work?
 
-Same 40 questions, same answer model, same official judge, pre-registered before anyone looked:
+[LongMemEval](https://github.com/xiaowu0162/LongMemEval) is the public benchmark for long-term
+chat memory: 500 questions over about 50 past sessions each. Every system below got the same
+answer model (gpt-5-mini), the same prompt and the official gpt-4o judge; only the memory differs.
 
-| | accuracy | model tokens spent **saving** memory |
-|---|---|---|
-| **Graph-MIND** | **85.0%** | **0** |
-| MemPalace 3.10.0 | 57.5% | 0 |
-| Mem0 2.2.1 (open source) | 52.5% | ~640,000 per question |
-
-On all 500 LongMemEval questions: **88.8%**. Against agentmemory on the same 499, its own
-published retrieval (95.2% R@5) handed to the same answer model and judge:
-
-| | accuracy | retrieval R@5 | text the answer model reads, per question |
+| | accuracy | model tokens spent **saving** memory | text the answer model reads |
 |---|---|---|---|
-| **Graph-MIND** | **89.0%** | **98.5%** | **3.4k tokens** |
-| agentmemory (its 5 sessions) | 80.4% | 95.2% | ~16.5k tokens |
+| **Graph-MIND** | **88.8%** (all 500) | **0** | **3.4k tokens** |
+| agentmemory | 80.4% (same 499) | — | ~16.5k tokens |
+| MemPalace 3.10.0 | 57.5% (40 questions) | 0 | — |
+| Mem0 2.2.1 (open source) | 52.5% (40 questions) | ~640,000 per question | — |
+
+On agentmemory's 499 Graph-MIND scored 89.0%; on the 40, 85.0%. Retrieval alone, on agentmemory's own measure
+(an answer session among the first 5 retrieved): Graph-MIND 98.5%, agentmemory 95.2%.
 
 Every question, answer and verdict is in [`research/runs/`](research/runs); method, failures and
 how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
+
+## FAQ
+
+**Will it slow my PC down?** The background service uses about 2% of one CPU core when nothing new
+is coming in and about 830 MB of memory, most of it the search model. A memory search takes
+about 25 ms (95th percentile); the first one after an app starts, about 1.3 s.
+
+**What does it cost?** Nothing. No API key and no model calls of its own; your AI app reads a
+packet of about 3k tokens when a question needs the past.
+
+**Does anything leave my PC?** No, unless you share the memory with your own other PCs or a team.
+No telemetry. Secrets (API keys, passwords, card numbers...) are masked before storing.
+
+**How is this different from CLAUDE.md or an app's built-in memory?** Those keep notes a model
+wrote, one app at a time. Graph-MIND keeps every turn as it was said and shares it across every
+app and model on the PC.
+
+**Korean?** Yes: Korean and English conversations, and questions in either language. A Korean
+question about something said only in English is found most of the time, not always.
+
+**How do I remove it?** `graph-mind-uninstall` disconnects every app and stops the service; the
+memory stays in `~/.graph-mind` unless you add `--purge`.
 
 > [!NOTE]
 > **Alpha.** Used daily on Windows. macOS and Linux pass every test in CI but have not seen daily

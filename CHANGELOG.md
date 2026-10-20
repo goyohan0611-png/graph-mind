@@ -3,6 +3,19 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.13 — 2026-10-20
+Fixes from a code review (Codex, gpt-6.1-sol).
+- **Security:** `~/.graph-mind/embedder.json`, whose key lets a program use the capture service's
+  model, is now readable by your account only (on macOS and Linux another account could read it);
+  the service accepts nothing but lists of texts.
+- **Shared memory:** a PC saved how far it had read the other PCs' logs before importing them, so a
+  crash in between skipped those records for good; now after. A malformed line no longer stops
+  every later sync.
+- **A question no longer waits behind another request of the same app** to the capture service.
+- Concurrent requests for the same backlog embed each text once; restarting an old-model service
+  no longer makes each app load its own model meanwhile; only one capture service runs per PC.
+- Asking about a past moment (`as_of`, `knowledge_cutoff`) now also leaves out later conversations.
+
 ## 0.9.12 — 2026-10-20
 - **Sharing and teams work on Ubuntu 26.04.** The Postgres build used on Linux needed the system's
   libxml2.so.2 and ICU 74, which 26.04 no longer ships. Linux now uses zonky's build, which

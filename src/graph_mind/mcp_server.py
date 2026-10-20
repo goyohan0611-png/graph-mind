@@ -418,12 +418,32 @@ def fuse(*rankings, limit):
 
 
 def excerpt(turn):
-    """A word-search hit, cut to one piece: the answering sentence sits within the first 500
-    characters of every answer-bearing turn in LongMemEval (span_cap_check.py)."""
+    """A word-search hit, initially cut to one fixed-size piece."""
     if len(turn["content"]) <= PIECE:
         return turn
     return {**turn, "content": turn["content"][:PIECE], "span": [0, PIECE],
             "full": turn["content"]}
+
+
+def finish_piece(turn):
+    """Finish a cut sentence by spending the same excerpt budget further right."""
+    full = turn.get("full")
+    body = turn["content"]
+    if not full or len(body) > PIECE:
+        return turn                         # expanded assistant answers stay whole
+    start, end = turn.get("span", (0, len(body)))
+    if end >= len(full) or re.search(r"[.!?]\s*$", body):
+        return turn
+    closing = re.search(r"[.!?](?=\s|$)", full[end:end + PIECE])
+    if closing is None:
+        return turn
+    stop = end + closing.end()
+    starts = [start] + [start + m.end() for m in re.finditer(
+        r"[.!?]\s+", full[start:stop])]
+    begin = next((s for s in starts if stop - s <= len(body)), None)
+    if begin is None:                        # one sentence exceeds the budget
+        return turn
+    return {**turn, "content": full[begin:stop], "span": [begin, stop]}
 
 
 def window(around):
@@ -501,6 +521,7 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             turns = [{**t, "content": t.get("full", t["content"])[:ASSISTANT_TURN_CAP],
                       "span": [0, min(len(t.get("full", t["content"])), ASSISTANT_TURN_CAP)]}
                      if t["role"] == "assistant" else t for t in turns]
+    turns = [finish_piece(t) for t in turns]
     turns = [{k: v for k, v in t.items() if k != "full"} for t in turns
              if not until or t["happened_at"] <= until]
     result["conversation_turns"] = turns

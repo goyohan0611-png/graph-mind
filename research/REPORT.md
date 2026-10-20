@@ -116,6 +116,8 @@ Recorded because a list of dead ends is the part of this work that is expensive 
 | Shipped path: ranking turns *said* near a resolved date ("two weeks ago") first | 11 dev2 questions: evidence up in 2, down in 2 (one 3 → 0) — people mention an event days or weeks before or after it happens. Kept only for "what did we discuss last week", where the said-date is the question |
 | Shipped path: indexing the dates a turn *talks about* (rule-based, no model) | answer sessions covered 15 → 15 on the same 11; removed |
 | Shipped path: one piece per conversation first, for counting questions | answer sessions covered 111 → 111 on 51 questions, answer-bearing pieces 530 → 344; removed |
+| Shipped path: word search over the user's own turns only, unless the question is about the assistant | answer turns in the packet, multi-session 85.9% → 89.1% and 3.4k → 2.8k tokens (every 5th question), but all 500 answered: 443 → 437 (+9/−15), multi-session −4, assistant −2 (`runs/graph-v9.14-full500-mpnet8-speaker-span`); not merged |
+| Shipped path: a second word search without the question's scaffolding words, plus fusion's discarded tail, packed into the space saved by shorter headers | answer turns 92.0% → 92.6%, temporal 90.4% → 92.3%, same size; all 500 answered: 444 → 443 (+8/−9; temporal +2, multi-session +5/−4, preference −3) (`runs/graph-v9.14-full500-mpnet8-rescue`); not merged — more answer turns in the packet did not become more right answers |
 
 ## 5. Head to head with MemPalace, in this harness
 
@@ -333,6 +335,13 @@ of the untuned 24 (p = 0.13). Giving advice requests the smaller packet does not
 run noise, and no size switch was added. The cost is a median packet of 3.4k tokens instead of 2.3k. One question
 (gpt4_d6585ce8) returned no parsable answer after three tries and counts as wrong. `brain_context`
 now defaults to 30 items / 15,000 characters.
+
+**On the mpnet model (0.9.10).** The same 500 through the same path, with the int8 multilingual
+mpnet embedding instead of MiniLM (`runs/graph-v9.14-full500-mpnet8`): 444/500 again (88.8%), and
+the untuned 380 at 333/380 (87.6%, CI 83.9–90.6) against 330. Tuned 111/120. By type, untuned:
+multi-session 68/89, temporal 80/93, preference 21/24, knowledge-update 48/53, assistant 42/44,
+user 46/47, abstention 28/30. One question (gpt4_7abb270c) exhausts the reader's output on every
+try and counts as wrong.
 
 **A measurement error, caught and corrected.** The first pass over the 500 scored 79.2%. The
 shipped server never makes a question wait for embedding: when more than 64 pieces of the store are

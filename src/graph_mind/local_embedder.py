@@ -162,19 +162,19 @@ class LocalEmbedder:
     def _encode_paced(self, texts, backlog=False):
         """A question's few texts at once. A chunk of a backlog (all memory again after a model
         change) takes this process's one backlog lane and, when PACE is set, keeps it for a rest
-        as long as the chunk took: the model's threads half busy, and a question waits behind
-        one chunk (~5 s), never a whole batch."""
+        as long as the chunk took: the model's threads half busy. A question never waits for
+        it."""
         if not texts:
             return []
+        with LocalEmbedder._lock:
+            self._load()
         if not backlog:
-            with LocalEmbedder._lock:
-                self._load()
-                return self._encode(texts)
+            # beside a backlog chunk, not after it: ONNX Runtime runs a session from several
+            # threads at once (one chunk held a question 5 s on CI)
+            return self._encode(texts)
         with LocalEmbedder._backlog:
             began = time.monotonic()
-            with LocalEmbedder._lock:
-                self._load()
-                vectors = self._encode(texts)
+            vectors = self._encode(texts)
             if LocalEmbedder.PACE:
                 time.sleep(time.monotonic() - began)
         return vectors

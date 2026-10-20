@@ -78,7 +78,9 @@ def synthetic_turns(count: int):
 
 def build_store(turns: int) -> Path:
     """The store as a user's PC holds it after capture: turns recorded, indexed, embedded."""
-    folder = CACHE / f"{turns}"
+    from graph_mind.local_embedder import LOCAL_MODEL
+    model = LOCAL_MODEL.rsplit("/", 1)[-1].replace("@", "_").replace("/", "_")
+    folder = CACHE / f"{turns}-{model}"       # another model: built and embedded afresh
     store = folder / "memory.sqlite"
     if (folder / "ready").exists():
         return store

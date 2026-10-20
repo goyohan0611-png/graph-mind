@@ -1025,6 +1025,8 @@ def sync(shared: Path, index: Path) -> dict:
                             outcome = brain.remember(item["record"])
                         else:
                             outcome = turns.record(item["record"])
+                    except (sqlite3.OperationalError, OSError):
+                        raise                       # locked or I/O: retried, the cursor stays
                     except Exception as error:      # a malformed line must not stop sync
                         if str(error) == "SUPERSEDED_LOCAL_MEMORY_NOT_FOUND":
                             retry.append((item, line))
@@ -1039,9 +1041,9 @@ def sync(shared: Path, index: Path) -> dict:
                     waiting = [line for _, line in retry]
                     break
         if forgets:                         # after the imports: a forgotten turn may be in them
-            from graph_mind.forget import erase
-            for record in forgets:
-                erase(index, record)
+            from graph_mind.forget import forget_ids
+            for record in forgets:          # here too: this PC's outbox and staged lines
+                forget_ids(record, index)
         with db:                            # imports are idempotent: a crash before this re-reads
             db.executemany("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)", cursors)
             db.execute("DELETE FROM brain_log_pending")

@@ -92,7 +92,31 @@ def erase(index: Path, ids: dict) -> dict:
                             db.execute(f"DELETE FROM {table} WHERE {column} IN ({em})", engrams)
     finally:
         db.close()
-    return {"turns": len(turns), "memories": len(memories)}
+    return {"turns": len(turns), "memories": len(memories), "memory_ids": memories}
+
+
+def _blank(path: Path, doomed) -> int:
+    """Blank the lines `doomed` picks, in place and at the same length: readers' offsets stay
+    valid, and only those bytes are written. Writing the whole snapshot back let two forgets at
+    once restore each other's text, and a file deleted meanwhile (expired staging) raised."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return 0
+    spans, offset = [], 0
+    for line in data.split(b"\n"):
+        if doomed(line):
+            spans.append((offset, len(line)))
+        offset += len(line) + 1
+    if spans:
+        try:
+            with path.open("r+b") as stream:
+                for start, size in spans:
+                    stream.seek(start)
+                    stream.write(b" " * size)
+        except OSError:
+            return 0
+    return len(spans)
 
 
 def _keys(ids: dict) -> list[str]:
@@ -119,20 +143,10 @@ def scrub_shared(shared, ids: dict) -> int:
                 connection.execute("DELETE FROM sharing WHERE seq = ANY(%s)", (doomed,))
             connection.commit()
         return len(doomed)
-    removed = 0
-    for log in (Path(shared) / "log").glob("*.jsonl"):
-        data = log.read_bytes()
-        lines = data.split(b"\n")
-        changed = False
-        for n, line in enumerate(lines):
-            text = line.decode("utf-8", "replace")
-            if any(key in text for key in keys) and '"kind": "forget"' not in text:
-                lines[n] = b" " * len(line)        # same length: readers' offsets stay valid
-                changed, removed = True, removed + 1
-        if changed:
-            with log.open("r+b") as stream:            # in place: the file is never shorter
-                stream.write(b"\n".join(lines))
-    return removed
+    def doomed(line):
+        text = line.decode("utf-8", "replace")
+        return any(key in text for key in keys) and '"kind": "forget"' not in text
+    return sum(_blank(log, doomed) for log in (Path(shared) / "log").glob("*.jsonl"))
 
 
 def _strings(value):
@@ -156,25 +170,15 @@ def scrub_staging(contents) -> int:
     wanted = {c.strip() for c in contents if c and c.strip()}
     if not wanted:
         return 0
-    home, removed = graph_mind_home(), 0
-    for path in [*(home / "hooks").glob("*/*.jsonl"), *(home / "opencode").glob("*.jsonl")]:
+    def doomed(line):
         try:
-            lines = path.read_bytes().split(b"\n")
-        except OSError:
-            continue
-        changed = False
-        for n, line in enumerate(lines):
-            try:
-                record = json.loads(line.decode("utf-8"))
-            except ValueError:
-                continue
-            if any(_redact(text)[0].strip() in wanted for text in _strings(record)):
-                lines[n] = b" " * len(line)
-                changed, removed = True, removed + 1
-        if changed:
-            with path.open("r+b") as stream:
-                stream.write(b"\n".join(lines))
-    return removed
+            record = json.loads(line.decode("utf-8"))
+        except ValueError:
+            return False
+        return any(_redact(text)[0].strip() in wanted for text in _strings(record))
+    home = graph_mind_home()
+    return sum(_blank(path, doomed) for path in
+               [*(home / "hooks").glob("*/*.jsonl"), *(home / "opencode").glob("*.jsonl")])
 
 
 def drop_from_outbox(ids: dict) -> int:
@@ -215,16 +219,18 @@ def forget_ids(ids: dict, index: Path, shared=None) -> dict:
         finally:
             db.close()
     result = erase(index, ids)
-    result["staging_lines_removed"] = scrub_staging(contents)
+    # memories promoted from these turns go too, and everywhere else the turns go
+    ids["memory_ids"] = result.pop("memory_ids")
+    drop_from_outbox(ids)          # also when a notice arrives: this PC's queue held them too
     if shared:
         # the notice first: append queues it in the outbox when the hub is down, where a scrub
         # that failed first used to lose it, and the other PCs kept their copies
-        drop_from_outbox(ids)
         append(shared, "forget", ids)                  # ids only: the text never leaves here
         try:
             result["shared_lines_removed"] = scrub_shared(shared, ids)
         except Exception:
             result["shared_lines_removed"] = 0         # offline: the notice reaches them later
+    result["staging_lines_removed"] = scrub_staging(contents)
     return result
 
 

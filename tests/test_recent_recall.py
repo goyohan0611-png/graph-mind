@@ -111,5 +111,25 @@ class RecentRecallTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(current, ["busan"], "superseded Seoul stays out, without `recent`")
 
 
+class UntilTests(unittest.TestCase):
+    def test_a_later_turn_does_not_crowd_out_the_past(self):
+        """until was applied after the limit: the newest turn took the one slot, then went."""
+        import tempfile
+        from graph_mind.conversation_memory import ConversationMemoryStore
+        with tempfile.TemporaryDirectory() as directory:
+            with ConversationMemoryStore(Path(directory) / "b.sqlite") as store:
+                for n, day in ((1, "2026-01-05"), (2, "2026-03-05")):
+                    store.record({"turn_id": f"t{n}", "client": "codex", "client_session_id": "s",
+                                  "scope": "global", "role": "user",
+                                  "content_redacted": f"garden note {n}", "raw_sha256": f"h{n}",
+                                  "source_path": "p", "happened_at": day + "T10:00:00",
+                                  "known_at": day + "T10:00:00", "source_ordinal": n})
+                cut = "2026-02-01T00:00:00"
+                self.assertEqual([t["turn_id"] for t in store.latest(limit=1, until=cut)["turns"]],
+                                 ["t1"])
+                self.assertEqual([t["turn_id"] for t in
+                                  store.search("garden", limit=1, until=cut)["turns"]], ["t1"])
+
+
 if __name__ == "__main__":
     unittest.main()

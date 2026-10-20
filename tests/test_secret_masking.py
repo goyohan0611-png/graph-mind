@@ -83,13 +83,15 @@ class SecretMaskingTests(unittest.IsolatedAsyncioTestCase):
                     await client.call_tool("brain_remember", {
                         "content": "deploy notes", "source_ref": f"chat {secret}",
                         "tags": [secret], "entities": [f"key {secret}"],
-                        "attributes": {"password": f"api_key={secret}"}})
+                        "attributes": {"password": f"api_key={secret}",
+                                       "db_password": "plain-hunter77"}})
                     found = await client.call_tool("brain_recall", {"query": "deploy notes"})
                     text = str(found.structured_content)
             finally:
                 wait_for_index()
         self.assertIn("deploy notes", text)
         self.assertNotIn(secret, text)
+        self.assertNotIn("plain-hunter77", text)     # masked by its field's name
 
     def test_credentials_in_config_shapes(self):
         jwt = ("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0."
@@ -99,7 +101,9 @@ class SecretMaskingTests(unittest.IsolatedAsyncioTestCase):
                             "wJalrXUtnFEMI"),
                            (f"Authorization header {jwt}", jwt),
                            ("DO token dop_v1_" + "ab" * 32, "dop_v1_"),
-                           ('API_KEY: "abc def"', "abc def")]:
+                           ('API_KEY: "abc def"', "abc def"),
+                           ('{"password": "don\'t tell anyone"}', "tell anyone"),
+                           ('{"token": "ab\\"cd ef"}', "cd ef")]:
             self.assertNotIn(gone, _redact(text)[0], text)
         for kept in ("def login(password: str, token: str):", "the token is stored safely",
                      "password: Optional[str] = None"):

@@ -459,19 +459,21 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
         if recent:
             names = sorted({name for match in result["matches"] for name in match["named"]})
             if names:      # "what did Kongi do lately": turns about Kongi, newest first
-                hits = conversations.search(" ".join(names), scopes=scopes, limit=50)["turns"]
+                hits = conversations.search(" ".join(names), scopes=scopes, limit=50,
+                                            until=until)["turns"]
                 turns = sorted((t for t in hits if not since or t["happened_at"] >= since),
                                key=lambda t: t["happened_at"], reverse=True)[:limit]
             else:          # "what was I doing": simply the latest turns
-                turns = conversations.latest(scopes=scopes, since=since, limit=limit)["turns"]
+                turns = conversations.latest(scopes=scopes, since=since, limit=limit,
+                                             until=until)["turns"]
         else:
             words = [excerpt(t) for t in conversations.search(
-                         query, scopes=scopes, limit=max(limit, 20))["turns"]
+                         query, scopes=scopes, limit=max(limit, 20), until=until)["turns"]
                      if not since or t["happened_at"] >= since]
     if not recent:
         try:
             meaning = semantic_turns(database, query, scopes=scopes, since=since,
-                                     limit=max(limit, 20),
+                                     until=until, limit=max(limit, 20),
                                      embedder=embedder or embedder_for(database),
                                      about_assistant=about_assistant)
         except Exception:                 # no local model yet: word search still answers
@@ -482,7 +484,8 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             # A boost, not a filter: a wrong or loose date still leaves the overall ranking in.
             try:
                 inside = semantic_turns(database, query, scopes=scopes, since=span[0],
-                                        until=span[1], limit=max(limit, 20),
+                                        until=min(span[1], until) if until else span[1],
+                                        limit=max(limit, 20),
                                         embedder=embedder or embedder_for(database),
                                         about_assistant=about_assistant)
             except Exception:
@@ -654,15 +657,16 @@ def build_server(db_path=None, terminal=False):
         """
         # Saving is proactive, so a key the user pastes can arrive here too: mask it with the same
         # rules as captured conversations before it reaches the store or the shared log.
-        from graph_mind.conversation_memory import _redact
+        from graph_mind.conversation_memory import CREDENTIAL_NAME, _redact
 
         def masked(value):          # every text the memory carries, not only content and title
             if isinstance(value, str):
                 return _redact(value)[0]
             if isinstance(value, list):
                 return [masked(v) for v in value]
-            if isinstance(value, dict):
-                return {k: masked(v) for k, v in value.items()}
+            if isinstance(value, dict):     # {"password": "x"}: the name says what the value is
+                return {k: "[REDACTED]" if isinstance(v, str) and v and CREDENTIAL_NAME.fullmatch(
+                        str(k)) else masked(v) for k, v in value.items()}
             return value
         content = _redact(content)[0]
         title = _redact(title)[0] if title else content.strip().splitlines()[0][:80]
@@ -690,7 +694,7 @@ def build_server(db_path=None, terminal=False):
         with LocalBrainStore(database) as store:
             result = store.remember(memory)
         from graph_mind.sharing import append, folder
-        if result.get("disposition") != "ALREADY_RECORDED":
+        if result.get("disposition") == "RECORDED":       # not a forgotten one, either
             try:
                 shared = folder()
                 if shared:

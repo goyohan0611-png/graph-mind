@@ -83,6 +83,8 @@ def _append(path, line: dict) -> None:
     # what was typed, before masking: readable by this user only (umask 022 left it 0644)
     descriptor = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
     with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+        if hasattr(os, "fchmod"):          # a file made before 0.9.14 kept its 0644
+            os.fchmod(handle.fileno(), 0o600)
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 

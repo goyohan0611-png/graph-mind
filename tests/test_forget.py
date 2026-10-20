@@ -133,6 +133,33 @@ class PromotedCopyTests(unittest.TestCase):
             self.assertEqual(find(index, "북쪽 계단"), {"turn_ids": [], "memory_ids": []})
 
 
+class OutboxTests(unittest.TestCase):
+    def test_a_promoted_memory_leaves_the_outbox_with_its_turn(self):
+        """forget_ids erased the memory promoted from a turn here, but kept sending it."""
+        import json
+        from graph_mind.forget import forget_ids
+        from graph_mind.semantic_memory import SemanticMemoryIngestion
+        from graph_mind.sharing import _outbox
+        with tempfile.TemporaryDirectory() as directory:
+            index = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(index) as store:
+                store.record(turn(1, "기억해줘: 금고 비밀번호 힌트는 고양이 이름이야"))
+            with SemanticMemoryIngestion(index) as ingestion:
+                ingestion.process_new(limit=10)
+            promoted = find(index, "고양이 이름")["memory_ids"]
+            self.assertTrue(promoted)
+            outbox = _outbox()
+            outbox.parent.mkdir(parents=True, exist_ok=True)
+            outbox.write_text(json.dumps({"kind": "memory", "record": {"memory_id": promoted[0]}},
+                                         sort_keys=True) + "\n", encoding="utf-8")
+            try:
+                forget_ids({"turn_ids": ["t1"]}, index)
+                left = outbox.read_text(encoding="utf-8")
+            finally:
+                outbox.unlink()
+        self.assertNotIn(promoted[0], left)
+
+
 class StagingTests(unittest.TestCase):
     def test_forgetting_blanks_the_hooks_own_copy(self):
         """A hook keeps what was typed, unmasked, until its session has been idle an hour."""

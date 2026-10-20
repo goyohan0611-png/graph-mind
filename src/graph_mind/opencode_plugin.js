@@ -8,7 +8,7 @@
 //    prompt (python -m graph_mind.inject), so every model gets the past, not only the ones that
 //    think to call brain_context.
 // Any failure is silent: memory must never stand in the way of a message.
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, closeSync, fchmodSync, mkdirSync, openSync } from "node:fs";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 
@@ -19,8 +19,13 @@ const INJECT_TIMEOUT_MS = 15000;
 function write(sessionID, record) {
   try {
     mkdirSync(TRANSCRIPTS, { recursive: true, mode: 0o700 });   // what was typed: this user only
-    appendFileSync(join(TRANSCRIPTS, sessionID + ".jsonl"), JSON.stringify(record) + "\n",
-                   { mode: 0o600 });
+    const fd = openSync(join(TRANSCRIPTS, sessionID + ".jsonl"), "a", 0o600);
+    try {   // a file made before 0.9.14 kept its 0644: the mode above applies only to new ones
+      if (process.platform !== "win32") fchmodSync(fd, 0o600);
+      appendFileSync(fd, JSON.stringify(record) + "\n");
+    } finally {
+      closeSync(fd);
+    }
   } catch {}
 }
 

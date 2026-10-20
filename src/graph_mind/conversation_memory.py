@@ -19,13 +19,16 @@ from graph_mind.paths import use_wal
 CAPTURE_VERSION = "codex-conversation-capture-v0.1"
 # what follows "password:" in code is often its type, not a value
 TYPE_NAME = r"(?!(?:str|int|bytes|bool|None|Optional|SecretStr|Any|string|number)\b)"
+CREDENTIAL_NAME = re.compile(r"(?i)[\w-]*(?:password|passwd|pwd|secret|token|api[_ -]?key|"
+                             r"access[_ -]?key|private[_ -]?key|authorization)")
 SECRET_PATTERNS = (
     (re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b"), "[REDACTED_OPENAI_KEY]"),
     (re.compile(r"\bkey_[A-Za-z0-9_-]{10,}\b"), "[REDACTED_API_KEY]"),
     (re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer\s+)?)[^\s]+"), r"\1[REDACTED]"),
     # a value quoted after its name, as JSON, YAML and .env write it: "password": "x y"
     (re.compile(r"""(?i)(["']?(?:password|passwd|pwd|secret|token|api[_ -]?key|access[_ -]?key|"""
-                r"""private[_ -]?key|client[_ -]?secret)["']?\s*[:=]\s*)(["'])[^"'\n]+\2"""),
+                r"""private[_ -]?key|client[_ -]?secret)["']?\s*[:=]\s*)(["'])"""
+                r"""(?:(?!\2)[^\\\n]|\\.)+\2"""),       # "don't" inside "...", an escaped \"
      r"\1\2[REDACTED]\2"),
     (re.compile(r"(?i)((?:api[_ -]?key|secret|token|access[_ -]?key|client[_ -]?secret)\s*[:=]\s*)"
                 + TYPE_NAME + r"[^\s\"']+"),
@@ -79,10 +82,10 @@ def _forgotten(db, record_id) -> bool:
 def _complete_size(path, window=1 << 16):
     """The file's size up to its last complete line: a baseline taken while the app was writing
     a line started inside it, and that turn was never stored."""
-    size = path.stat().st_size
     with path.open("rb") as handle:
+        size = handle.seek(0, 2)               # not stat(): the file may grow before the read
         handle.seek(max(0, size - window))
-        tail = handle.read()
+        tail = handle.read(size - handle.tell())
     end = tail.rfind(b"\n")
     return size - len(tail) + end + 1 if end >= 0 else (0 if size <= window else size)
 
@@ -286,7 +289,7 @@ class ConversationMemoryStore:
         return {"turn_id": normalized["turn_id"], "revision": cursor.lastrowid,
                 "disposition": "RECORDED"}
 
-    def search(self, query, *, scopes=None, limit=10):
+    def search(self, query, *, scopes=None, limit=10, until=None):
         query = _text(query, "CONVERSATION_QUERY_REQUIRED")
         if type(limit) is not int or not 1 <= limit <= 50:
             raise ValueError("INVALID_CONVERSATION_QUERY_LIMIT")
@@ -301,6 +304,9 @@ class ConversationMemoryStore:
         if scopes:
             where.append("t.scope IN (" + ",".join("?" for _ in scopes) + ")")
             parameters.extend(scopes)
+        if until:                       # before the limit: a later turn must not crowd it out
+            where.append("t.happened_at<=?")
+            parameters.append(self._time(until))
         parameters.append(limit)
         rows = self.db.execute("""SELECT t.*,bm25(conversation_turns_fts) AS rank
           FROM conversation_turns_fts JOIN conversation_turns t
@@ -312,7 +318,7 @@ class ConversationMemoryStore:
                 "reason": "CONVERSATION_TURNS_FOUND" if turns else "NO_MATCHING_TURN",
                 "scope_completeness": "UNATTESTED", "turns": turns}
 
-    def latest(self, *, scopes=None, since=None, limit=10):
+    def latest(self, *, scopes=None, since=None, limit=10, until=None):
         """The most recent turns, newest first: what "what was I just doing?" is asking for."""
         if type(limit) is not int or not 1 <= limit <= 50:
             raise ValueError("INVALID_CONVERSATION_QUERY_LIMIT")
@@ -323,6 +329,9 @@ class ConversationMemoryStore:
         if since:
             where.append("happened_at>=?")
             parameters.append(self._time(since))
+        if until:
+            where.append("happened_at<=?")
+            parameters.append(self._time(until))
         rows = self.db.execute("SELECT * FROM conversation_turns WHERE " + " AND ".join(where)
                                + " ORDER BY happened_at DESC, revision DESC LIMIT ?",
                                [*parameters, limit]).fetchall()
@@ -530,7 +539,7 @@ class CodexConversationCapture:
                         "redaction_count": count, "source_path": key,
                         "source_ordinal": ordinal}
                     outcome = self.store.record(turn)
-                    if self.publish and outcome.get("disposition") != "ALREADY_RECORDED":
+                    if self.publish and outcome.get("disposition") == "RECORDED":
                         try:
                             self.publish(turn)
                         except Exception:
@@ -767,7 +776,11 @@ class CursorConversationCapture(CodexConversationCapture):
         return sorted(self.sessions_root.glob("*/agent-transcripts/**/*.jsonl"))
 
     def _session_meta(self, path):
-        self._said_at = None                     # replies are dated by the message they answer
+        # replies are dated by the message they answer, which an earlier scan may have read
+        # ponytail: kept per process; a reply read first after a restart gets the scan time
+        self._said_ats = getattr(self, "_said_ats", {})
+        self._source = str(path)
+        self._said_at = self._said_ats.get(self._source)
         return path.stem, None, "global"
 
     def _forget_call(self, item):
@@ -787,6 +800,7 @@ class CursorConversationCapture(CodexConversationCapture):
                          if isinstance(block, dict) and block.get("type") == "text")
         if role == "user":
             self._said_at = cursor_time(text) or getattr(self, "_said_at", None)
+            getattr(self, "_said_ats", {})[getattr(self, "_source", "")] = self._said_at
             query = CURSOR_QUERY.search(text)
             text = query.group(1) if query else re.sub(r"<timestamp>.*?</timestamp>", "", text)
         if getattr(self, "_said_at", None):

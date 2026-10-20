@@ -480,13 +480,14 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             else:          # "what was I doing": simply the latest turns
                 turns = conversations.latest(scopes=scopes, since=since, limit=limit)["turns"]
         else:
-            # the user's turns, as search by meaning does, unless the question is about what the
-            # assistant said: its suggestions were counted as the user's ("how many citrus
-            # fruits did I buy" took in the grapefruit it had recommended)
-            words = [excerpt(t) for t in conversations.search(
-                         query, scopes=scopes, limit=max(limit, 20),
-                         roles=None if about_assistant else ("user",))["turns"]
-                     if not since or t["happened_at"] >= since]
+            # the user's turns first, unless the question is about what the assistant said: its
+            # suggestions were counted as the user's ("how many citrus fruits did I buy" took in
+            # the grapefruit it had recommended). Its turns still come after them, not never: a
+            # question about its words that is not recognised as one still finds them.
+            found = conversations.search(query, scopes=scopes, limit=max(limit, 20))["turns"]
+            if not about_assistant:
+                found = sorted(found, key=lambda t: t["role"] != "user")     # stable
+            words = [excerpt(t) for t in found if not since or t["happened_at"] >= since]
     if not recent:
         try:
             meaning = semantic_turns(database, query, scopes=scopes, since=since,

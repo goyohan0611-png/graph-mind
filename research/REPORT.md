@@ -118,6 +118,8 @@ Recorded because a list of dead ends is the part of this work that is expensive 
 | Shipped path: one piece per conversation first, for counting questions | answer sessions covered 111 → 111 on 51 questions, answer-bearing pieces 530 → 344; removed |
 | Shipped path: word search over the user's own turns only, unless the question is about the assistant | answer turns in the packet, multi-session 85.9% → 89.1% and 3.4k → 2.8k tokens (every 5th question), but all 500 answered: 443 → 437 (+9/−15), multi-session −4, assistant −2 (`runs/graph-v9.14-full500-mpnet8-speaker-span`); not merged |
 | Shipped path: a second word search without the question's scaffolding words, plus fusion's discarded tail, packed into the space saved by shorter headers | answer turns 92.0% → 92.6%, temporal 90.4% → 92.3%, same size; all 500 answered: 444 → 443 (+8/−9; temporal +2, multi-session +5/−4, preference −3) (`runs/graph-v9.14-full500-mpnet8-rescue`); not merged — more answer turns in the packet did not become more right answers |
+| Packet: an excerpt cut mid-sentence moved right to the sentence's end, the same length kept by dropping whole sentences from its start | fixed the clipped cases it was aimed at (945e3d21 "three tim", 352ab8bd "20%"), packet 3.4k → 3.2k tokens; all 500 answered twice each: 887 → 891 of 992 (21 better, 16 worse, p = 0.51) against 21 flips between two runs of the same packets (`runs/graph-v9.14-full500-mpnet8-finish-piece`, `-r2`); not merged |
+| Packet: the selected excerpts of one conversation kept together, conversations in first-hit order | 444 → 439 (+6/−11) (`runs/graph-v9.14-full500-mpnet8-group-conv`); not merged |
 
 ## 5. Head to head with MemPalace, in this harness
 

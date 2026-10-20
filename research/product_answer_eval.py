@@ -130,8 +130,8 @@ def answer():
     judge.SRC, judge.OUT = OUT, OUT / "official-judge.jsonl"
     report = judge.run()
 
-    mine = {json.loads(l)["question_id"]: json.loads(l)["label"]
-            for l in (OUT / "official-judge.jsonl").open(encoding="utf-8")}
+    mine = {r["question_id"]: r["label"] for r in map(json.loads, (OUT / "official-judge.jsonl")
+            .open(encoding="utf-8")) if "label" in r}     # a failed verdict is asked again next run
     base = {json.loads(l)["question_id"]: json.loads(l)["label"]
             for l in BASELINE.open(encoding="utf-8")}
     if not set(mine) & set(base):                  # the clean pool has no benchmark-path run

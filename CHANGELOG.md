@@ -3,6 +3,14 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.19 — 2026-10-21
+- **Less work while you are idle.** The capture service no longer re-reads every stored turn
+  every five seconds to find unembedded ones, and skips the memory-indexing passes while the
+  store has not changed. Cursor, health and code-manifest files are written only when they
+  change; shared sync skips logs it has already read.
+- The embedding model's worker threads no longer spin after a batch, and each memory server
+  reuses its own embedder for background index refreshes instead of loading a second cache.
+
 ## 0.9.18 — 2026-10-21
 - **No more hour of re-embedding after every upgrade or restart.** The startup check on the
   cached search vectors threw the whole cache away whenever two of its 16 samples moved a

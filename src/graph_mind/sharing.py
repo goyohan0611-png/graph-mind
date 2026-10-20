@@ -994,7 +994,10 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple]]:
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
                          (log.name,)).fetchone()
         start = row[0] if row else 0
-        if log.stat().st_size < start:   # replaced by the sync client: re-read (imports idempotent)
+        size = log.stat().st_size
+        if size == start:
+            continue
+        if size < start:   # replaced by the sync client: re-read (imports idempotent)
             start = 0
         with log.open("rb") as handle:
             handle.seek(start)
@@ -1016,6 +1019,8 @@ def sync(shared: Path, index: Path) -> dict:
         pending = [row[0] for row in db.execute("SELECT line FROM brain_log_pending")]
         fresh, cursors = _new_lines(db, shared)
         lines = pending + fresh
+        if not lines and not cursors:
+            return {"imported": 0, "conflicts": 0, "waiting": 0}
         items = []
         for line in lines:
             try:

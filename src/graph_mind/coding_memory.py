@@ -441,7 +441,8 @@ class CodingMemoryCapture:
                             "file_path": path,
                             "symbols": list(dict.fromkeys(item["name"] for item in symbols)),
                             "diff_ref": str(diff_path)})
-        self._write_manifest(current)
+        if current != previous:
+            self._write_manifest(current)
         return {"status": "CHANGES_RECORDED" if changes else "NO_CHANGES",
                 "change_count": len(changes), "changes": changes,
                 "record_results": recorded}

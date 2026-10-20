@@ -119,6 +119,8 @@ class LocalEmbedder:
             # 2.9 GB after 128 long texts; 810 MB without, 4% slower), and every core busy
             # froze the PC while a backlog was embedded
             options.enable_cpu_mem_arena = False
+            options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+            options.add_session_config_entry("session.inter_op.allow_spinning", "0")
             options.intra_op_num_threads = max(1, (os.cpu_count() or 2) // 2)
             LocalEmbedder._tok = tokenizer
             LocalEmbedder._model = onnxruntime.InferenceSession(

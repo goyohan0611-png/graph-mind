@@ -467,6 +467,7 @@ class CodexConversationCapture:
     def scan(self):
         offsets = self._load_state()
         new_offsets = dict(offsets)
+        forget_before = {sid: dict(state) for sid, state in self._forget_sessions.items()}
         recorded, scanned_rows, redactions = [], 0, 0
         known_at = self.now()
         for path in self._files():
@@ -548,7 +549,8 @@ class CodexConversationCapture:
                             pass
                     recorded.append(outcome)
                 new_offsets[key] = committed
-        self._write_state(new_offsets)
+        if new_offsets != offsets or self._forget_sessions != forget_before:
+            self._write_state(new_offsets)
         return {"status": "TURNS_RECORDED" if recorded else "NO_NEW_TURNS",
                 "recorded_turns": len(recorded), "scanned_rows": scanned_rows,
                 "redactions": redactions, "record_results": recorded}

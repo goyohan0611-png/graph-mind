@@ -283,19 +283,37 @@ class AutomaticCaptureService:
         except Exception as error:
             errors.append({"source": "conversation", "error": type(error).__name__,
                            "detail": str(error)})
-        try:
-            with SemanticMemoryIngestion(self.db_path, now=self.now) as ingestion:
-                semantic = ingestion.process_new(limit=200)
-        except Exception as error:
-            errors.append({"source": "semantic", "error": type(error).__name__,
-                           "detail": str(error)})
+        # Idle passes re-read ~11k turns twice for nothing: skip them while the store's files
+        # (the database and its write-ahead log) are exactly as the last idle pass left them.
+        version = []
+        for suffix in ("", "-wal"):
+            try:
+                info = os.stat(str(self.db_path) + suffix)
+                version.append((info.st_mtime_ns, info.st_size))
+            except OSError:
+                version.append(None)
+        unchanged = version is not None and version == getattr(self, "_maintenance_version", None)
         associative = None
-        try:
-            with AssociativeMemoryIndex(self.db_path) as index:
-                associative = index.sync_sources(limit=1000)
-        except Exception as error:
-            errors.append({"source": "associative", "error": type(error).__name__,
-                           "detail": str(error)})
+        if unchanged:
+            semantic, associative = self._idle_indexes
+        else:
+            try:
+                with SemanticMemoryIngestion(self.db_path, now=self.now) as ingestion:
+                    semantic = ingestion.process_new(limit=200)
+            except Exception as error:
+                errors.append({"source": "semantic", "error": type(error).__name__,
+                               "detail": str(error)})
+            associative = None
+            try:
+                with AssociativeMemoryIndex(self.db_path) as index:
+                    associative = index.sync_sources(limit=1000)
+            except Exception as error:
+                errors.append({"source": "associative", "error": type(error).__name__,
+                               "detail": str(error)})
+            if (not errors and semantic["processed_turns"] == 0
+                    and associative["indexed_total"] == 0):
+                self._maintenance_version = version
+                self._idle_indexes = semantic, associative
         result = {"status": "CAPTURE_ERRORS" if errors else "CAPTURE_OK",
                   "service_version": SERVICE_VERSION, "started_at": started,
                   "completed_at": self.now(), "coding": coding,
@@ -318,6 +336,7 @@ class AutomaticCaptureService:
             health = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             health = {}
+        before = json.dumps(health, sort_keys=True)
         warnings = []
         for name, outcome in conversation.items():
             if not isinstance(outcome, dict) or "scanned_rows" not in outcome:
@@ -332,7 +351,8 @@ class AutomaticCaptureService:
                     f"{name}: {entry['rows_without_turns']} new transcript lines and no "
                     f"conversation found in them since {entry['last_turn_at'] or 'capture began'}"
                     " - the app may have changed its format; update Graph-MIND or report it")
-        _atomic_json(path, health)
+        if json.dumps(health, sort_keys=True) != before:
+            _atomic_json(path, health)
         return warnings
 
     def _write_status(self, result):

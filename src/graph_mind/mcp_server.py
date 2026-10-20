@@ -60,7 +60,7 @@ def index_in_background(database):
                     with AssociativeMemoryIndex(database) as index:
                         index.sync_sources(limit=200)
                     from graph_mind.warmup import warm
-                    warm(database, limit=200)
+                    warm(database, limit=200, embedder=embedder_for(database))
                 except Exception:               # never lose a save over an index refresh;
                     pass                        # brain_index reports and repairs the backlog
         finally:
@@ -300,7 +300,7 @@ class PieceIndex:
         self.pending = [entry for entry in self.pending if entry.key not in embedder.cache]
         vectors = np.asarray([embedder.cache.get(entry.key) for entry in ready], dtype=np.float32)
         self.matrix = vectors if self.matrix is None else np.concatenate([self.matrix, vectors])
-        norms = np.linalg.norm(vectors.astype(np.float64), axis=1)
+        norms = np.sqrt(np.einsum("ij,ij->i", vectors, vectors, dtype=np.float64))
         self.norms = np.concatenate([self.norms, norms])
         self.turn_ids.extend(entry.turn_id for entry in ready)
         self.revisions = np.concatenate([self.revisions, [e.revision for e in ready]])

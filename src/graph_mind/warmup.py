@@ -80,16 +80,22 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
     embedder = embedder or default_embedder(db_path)
     if hasattr(embedder.cache, "refresh"):
         embedder.cache.refresh()                 # what the memory servers embedded meanwhile
+    progress = getattr(embedder, "_turn_progress", {})
+    token = (str(Path(db_path).resolve()), id(embedder.cache),
+             getattr(embedder.cache, "generation", 0))
+    after = high = progress.get(token, 0)
+    complete = True
     db = sqlite3.connect(db_path, timeout=30)
     try:
         # the user's turns first (every search uses them), then the assistant's (searched when
         # the question is about what it said: left to the server, a fresh server spent minutes
         # embedding all of them on the first such question, and every query waited meanwhile)
-        rows = db.execute("SELECT content_redacted FROM conversation_turns "
-                          "WHERE role IN ('user','assistant') "
-                          "ORDER BY role='user' DESC, happened_at DESC")
+        rows = db.execute("SELECT rowid,content_redacted FROM conversation_turns "
+                          "WHERE rowid>? AND role IN ('user','assistant') "
+                          "ORDER BY role='user' DESC, happened_at DESC", (after,))
         texts, seen, cached = [], set(), []
-        for (content,) in rows:
+        for revision, content in rows:
+            high = max(high, revision)
             for _, piece in turn_pieces(content or ""):
                 key = piece.strip()[:2000]
                 if key not in seen and embedder._key(key) not in embedder.cache:
@@ -98,6 +104,7 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
                 elif len(cached) < 400:
                     cached.append(piece)
             if len(texts) >= limit:
+                complete = False
                 break
     except sqlite3.OperationalError as error:
         if "no such table" not in str(error):
@@ -116,6 +123,9 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
         embedder.embed(texts[start:start + BATCH])
     if texts and hasattr(embedder, "flush"):
         embedder.flush()
+    if complete:
+        progress[token] = high
+        embedder._turn_progress = progress
     return len(texts)
 
 

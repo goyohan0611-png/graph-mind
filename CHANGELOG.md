@@ -3,6 +3,22 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.14 — 2026-10-20
+Fixes from a second code review (Codex, gpt-6.1-sol).
+- **Security:** a folder or file path holding shell characters (`" ; & | $` ...) is refused
+  instead of being put into the command the AI asks you to paste: a crafted path ran whatever
+  followed it.
+- **More secrets masked:** quoted JSON/YAML/.env values, AWS secret access keys, signed JWTs,
+  DigitalOcean, GitLab, npm and Hugging Face tokens. `brain_remember` now masks tags, entities,
+  source and attributes too. Type annotations (`password: str`) are no longer changed.
+- **Forgetting reaches every copy:** the memory a "remember this" turn was promoted to, and the
+  Gemini hooks' and OpenCode plugin's own transcripts (unmasked until the session is idle an hour).
+  Those transcripts are now readable by your account only.
+- **Capture:** one malformed record or a stray Unicode surrogate no longer stops every later line
+  of a transcript; a line still being written when capture started is no longer lost.
+- The Gemini hook reads only the end of its transcript (it read all of it for every reply).
+- Uninstall removes the OpenCode plugin even when `opencode.jsonc` has comments.
+
 ## 0.9.13 — 2026-10-20
 Fixes from a code review (Codex, gpt-6.1-sol).
 - **Security:** `~/.graph-mind/embedder.json`, whose key lets a program use the capture service's

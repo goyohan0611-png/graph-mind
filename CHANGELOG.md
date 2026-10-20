@@ -3,6 +3,12 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.22 — 2026-10-21
+- **Two PCs with the same computer name no longer share one log file** in a synced brain
+  folder. Both appended to the same file, and the sync client could keep only one PC's copy,
+  losing the other's memories. A PC that joins a folder already holding a log under its name
+  now gets its own name with a short suffix.
+
 ## 0.9.21 — 2026-10-21
 - **Code changes no longer keep secrets.** A password in a config file under a watched
   project was stored in the file's copy and its diff as typed; both are masked now. Files over

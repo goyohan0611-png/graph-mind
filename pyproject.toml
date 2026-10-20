@@ -15,7 +15,7 @@ keywords = ["mcp", "mcp-server", "memory", "agent-memory", "long-term-memory", "
             "codex", "cursor", "gemini-cli", "copilot", "opencode", "llm", "longmemeval",
             "local-first"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]

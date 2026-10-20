@@ -167,7 +167,7 @@ question about something said only in English is found most of the time, not alw
 memory stays in `~/.graph-mind` unless you add `--purge`.
 
 > [!NOTE]
-> **Alpha.** Used daily on Windows. macOS and Linux pass every test in CI but have not seen daily
+> **Beta.** Used daily on Windows. macOS and Linux pass every test in CI but have not seen daily
 > use yet.
 
 ## More

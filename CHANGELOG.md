@@ -10,9 +10,11 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   4/5 (was 3/5). English evidence on 100 LongMemEval questions: same recall, answer session in
   the first 5 for 99.0% (was 97.9%). Loaded it takes 699 MB (was 869 MB) and a 266 MB download
   (was 449 MB, which the installer now removes). It is 2.4x slower to embed and a query takes
-  10 ms. Results: `research/runs/graph-v9.13-int8-models`.
-- **After the upgrade, existing memory is embedded again once, at half pace** (about 30 minutes
-  for 11,000 pieces on a 4-core PC); until then older turns are found by words. A capture
+  10 ms. Results: `research/runs/graph-v9.13-int8-models`. The 88.8% LongMemEval score was
+  measured with MiniLM; the full run on this model is still to come.
+- **After the upgrade, existing memory is embedded again once, at half pace** (about an hour for
+  11,000 pieces on an 8-thread PC, the service at ~1.4 cores meanwhile); until then older turns
+  are found by words. Every app's server asking for the same backlog is answered once. A capture
   service still running the old model is restarted by the first app that starts on the new
   version, so apps do not each load their own model.
 

@@ -147,7 +147,7 @@ how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
 ## FAQ
 
 **Will it slow my PC down?** The background service uses about 2% of one CPU core when nothing new
-is coming in and about 830 MB of memory, most of it the search model. A memory search takes
+is coming in and about 650 MB of memory, most of it the search model. A memory search takes
 about 25 ms (95th percentile); the first one after an app starts, about 1.3 s.
 
 **What does it cost?** Nothing. No API key and no model calls of its own; your AI app reads a

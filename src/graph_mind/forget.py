@@ -45,6 +45,13 @@ def erase(index: Path, ids: dict) -> dict:
     db = sqlite3.connect(index, timeout=30)
     try:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
+        if turns and "semantic_ingestion_audit" in tables:
+            # a turn the capture service promoted to a memory lives on in that memory, word for
+            # word: forgetting the turn by id left the copy behind
+            marks = ",".join("?" * len(turns))
+            memories += [row[0] for row in db.execute(
+                f"SELECT memory_id FROM semantic_ingestion_audit WHERE turn_id IN ({marks}) "
+                "AND memory_id IS NOT NULL", turns) if row[0] not in memories]
         with db:
             if turns and "conversation_turns" in tables:
                 marks = ",".join("?" * len(turns))

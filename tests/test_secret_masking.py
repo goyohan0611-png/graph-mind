@@ -74,6 +74,37 @@ class SecretMaskingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("pw1234", text)
         self.assertIn("[REDACTED_OPENAI_KEY]", text)
 
+    async def test_brain_remember_masks_its_metadata_too(self):
+        """A key in tags, entities, source_ref or attributes was stored and shared as written."""
+        secret = "sk-proj-" + "q" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                async with Client(build_server(Path(directory) / "brain.sqlite")) as client:
+                    await client.call_tool("brain_remember", {
+                        "content": "deploy notes", "source_ref": f"chat {secret}",
+                        "tags": [secret], "entities": [f"key {secret}"],
+                        "attributes": {"password": f"api_key={secret}"}})
+                    found = await client.call_tool("brain_recall", {"query": "deploy notes"})
+                    text = str(found.structured_content)
+            finally:
+                wait_for_index()
+        self.assertIn("deploy notes", text)
+        self.assertNotIn(secret, text)
+
+    def test_credentials_in_config_shapes(self):
+        jwt = ("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+               "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U")
+        for text, gone in [('{"password": "hunter2 extra", "user": "bob"}', "hunter2"),
+                           ("aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLE",
+                            "wJalrXUtnFEMI"),
+                           (f"Authorization header {jwt}", jwt),
+                           ("DO token dop_v1_" + "ab" * 32, "dop_v1_"),
+                           ('API_KEY: "abc def"', "abc def")]:
+            self.assertNotIn(gone, _redact(text)[0], text)
+        for kept in ("def login(password: str, token: str):", "the token is stored safely",
+                     "password: Optional[str] = None"):
+            self.assertEqual(_redact(kept)[0], kept)
+
 
 if __name__ == "__main__":
     unittest.main()

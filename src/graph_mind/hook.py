@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 import sys
 import uuid
 
@@ -39,7 +40,7 @@ def record(agent: str, event_name: str, event: dict) -> str | None:
         # (docs/privacy.md). Claude Code's record of a tool call, which the capture reads as that
         tool = str(event.get("tool_name") or "")
         if tool.endswith("brain_forget"):
-            folder.mkdir(parents=True, exist_ok=True)
+            folder.mkdir(mode=0o700, parents=True, exist_ok=True)
             _append(path, {"type": "assistant", "uuid": str(uuid.uuid4()), "sessionId": session,
                            "cwd": event.get("cwd"), "timestamp": _now(),
                            "message": {"content": [{"type": "tool_use", "name": tool}]}})
@@ -48,12 +49,12 @@ def record(agent: str, event_name: str, event: dict) -> str | None:
     text = event.get(field)
     if not isinstance(text, str) or not text.strip():
         return None
-    folder.mkdir(parents=True, exist_ok=True)
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
     if role == "assistant" and path.exists():
         # AfterAgent can fire again for the same reply (a retry another hook asked for); each
         # line gets a fresh uuid, so the same reply would be stored twice
-        lines = path.read_text(encoding="utf-8").splitlines()
-        last = json.loads(lines[-1]) if lines else {}
+        # only the end of the file: reading all of it per reply grew with the session
+        last = _last_record(path, len(text.encode("utf-8")) * 2 + 4096)
         if last.get("type") == role and last.get("message", {}).get("content") == text:
             return text
     _append(path, {"type": role, "uuid": str(uuid.uuid4()), "sessionId": session,
@@ -65,8 +66,23 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _last_record(path, window: int) -> dict:
+    with path.open("rb") as handle:
+        handle.seek(0, 2)
+        size = handle.tell()
+        handle.seek(max(0, size - window))
+        lines = handle.read().splitlines()
+    try:
+        record = json.loads(lines[-1].decode("utf-8")) if lines else {}
+    except ValueError:                     # the window began inside a longer line
+        return {}
+    return record if isinstance(record, dict) else {}
+
+
 def _append(path, line: dict) -> None:
-    with path.open("a", encoding="utf-8") as handle:
+    # what was typed, before masking: readable by this user only (umask 022 left it 0644)
+    descriptor = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 

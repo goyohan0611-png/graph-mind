@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 import json
 import os
+import re
 import sys
 import threading
 import uuid
@@ -562,8 +563,17 @@ def type_name(error) -> str:
     return type(error).__name__
 
 
+# Characters that end or extend a quoted argument in PowerShell, cmd or a POSIX shell. A command
+# the user is told to paste must run exactly what it shows: a path from a chat (or a web page the
+# AI read) like  C:\\Memory"; evil; #  ran "evil" once pasted. No real folder or file needs them.
+UNSAFE_ARGUMENT = re.compile(r"[\"'`$;&|<>%^!\r\n\x00]")
+
+
 def folder_commands(path, share_existing, export_to, import_from) -> str:
     """The terminal commands that do what brain_folder will not do for a chat."""
+    for value in (path, export_to, import_from):
+        if value and UNSAFE_ARGUMENT.search(value):
+            raise ValueError("UNSAFE_PATH_CHARACTERS")
     commands = []
     if path or share_existing:
         commands.append("graph-mind folder" + (f' "{path.strip()}"' if path else "")
@@ -645,8 +655,19 @@ def build_server(db_path=None, terminal=False):
         # Saving is proactive, so a key the user pastes can arrive here too: mask it with the same
         # rules as captured conversations before it reaches the store or the shared log.
         from graph_mind.conversation_memory import _redact
+
+        def masked(value):          # every text the memory carries, not only content and title
+            if isinstance(value, str):
+                return _redact(value)[0]
+            if isinstance(value, list):
+                return [masked(v) for v in value]
+            if isinstance(value, dict):
+                return {k: masked(v) for k, v in value.items()}
+            return value
         content = _redact(content)[0]
         title = _redact(title)[0] if title else content.strip().splitlines()[0][:80]
+        tags, entities, source_ref, attributes, about, attribute = masked(
+            [tags, entities, source_ref, attributes, about, attribute])
         known_at = _now()
         if about and attribute:
             from graph_mind.local_brain import fact_key
@@ -856,8 +877,14 @@ def build_server(db_path=None, terminal=False):
         if path and path.strip().startswith("gmt1."):        # a team invite, not a brain folder
             return brain_checkpoint(action="join_team", code=path.strip())
         if not terminal and (path or share_existing or export_to or import_from):
+            try:
+                command = folder_commands(path, share_existing, export_to, import_from)
+            except ValueError as error:
+                return {"status": "REFUSED", "reason": str(error),
+                        "note": "The path holds characters a terminal would treat as commands. "
+                                "Ask the user for the folder or file name again."}
             return {"status": "RUN_IN_TERMINAL",
-                    "command": folder_commands(path, share_existing, export_to, import_from),
+                    "command": command,
                     "note": "For the user's safety this is not done from a chat: show them this "
                             "command to run in a terminal (PowerShell or Terminal). It prints the "
                             "result there."}

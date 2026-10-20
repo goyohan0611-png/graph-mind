@@ -39,6 +39,22 @@ curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scr
 No Python needed; nothing else to set up. Restart your AI apps afterwards. Already have Python?
 `pip install graph-mind-memory && graph-mind-install`. More: [docs/install.md](docs/install.md).
 
+Connecting an MCP client by hand (after `pip install graph-mind-memory`):
+
+```json
+{
+  "mcpServers": {
+    "graph-mind-memory": {
+      "command": "python",
+      "args": ["-m", "graph_mind.mcp_server"]
+    }
+  }
+}
+```
+
+Claude Code: `claude mcp add graph-mind-memory -- python -m graph_mind.mcp_server`. This gives the
+tools only; `graph-mind-install` also saves every conversation automatically.
+
 ## What it does
 
 - **One shared brain for every agent in your terminal.** Whichever coding agent or model you

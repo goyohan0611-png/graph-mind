@@ -254,6 +254,28 @@ class SyncCursorTests(unittest.TestCase):
                 db.close()
 
 
+class SameNameTests(unittest.TestCase):
+    def test_two_pcs_with_one_name_write_separate_logs(self):
+        """Both appended to user-pc.jsonl, and the sync client kept only one PC's copy."""
+        from graph_mind import sharing
+        with tempfile.TemporaryDirectory() as directory, \
+                unittest.mock.patch.dict(os.environ, {}, clear=False), \
+                unittest.mock.patch.object(sharing.platform, "node", return_value="USER-PC"):
+            os.environ.pop("GRAPH_MIND_DEVICE", None)
+            shared = Path(directory) / "shared"
+            names = []
+            for pc in ("first", "second"):
+                os.environ["GRAPH_MIND_CONFIG"] = str(Path(directory) / pc / "config.json")
+                sharing.set_folder(shared)
+                sharing.append(shared, "forget", {"memory_ids": [pc]})
+                names.append(sharing.device_name())
+                sharing.set_folder(shared)                    # choosing it again keeps the name
+                self.assertEqual(sharing.device_name(), names[-1])
+            self.assertEqual(names[0], "user-pc")
+            self.assertNotEqual(names[1], names[0])
+            self.assertEqual(len(list((shared / "log").glob("*.jsonl"))), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
 

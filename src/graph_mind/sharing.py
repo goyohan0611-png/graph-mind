@@ -42,8 +42,10 @@ KINDS = ("memory", "turn", "forget")   # forget: ids another PC erased (forget.p
 
 
 def device_name() -> str:
-    """This machine's log name. GRAPH_MIND_DEVICE overrides it (tests, two accounts on one PC)."""
-    raw = os.environ.get("GRAPH_MIND_DEVICE") or platform.node() or "device"
+    """This machine's log name. GRAPH_MIND_DEVICE overrides it (tests, two accounts on one PC);
+    otherwise the name chosen with the folder (set_folder), else the computer's name."""
+    raw = (os.environ.get("GRAPH_MIND_DEVICE") or _config().get("device") or platform.node()
+           or "device")
     return re.sub(r"[^a-z0-9]+", "-", raw.casefold()).strip("-") or "device"
 
 
@@ -648,6 +650,14 @@ def set_folder(path) -> Path:
     else:
         chosen = Path(path).expanduser().resolve()
         (chosen / "log").mkdir(parents=True, exist_ok=True)
+        if not os.environ.get("GRAPH_MIND_DEVICE") and "device" not in _config():
+            # two PCs named alike (DESKTOP-1, user-pc) appended to one log file, and the sync
+            # client kept one PC's copy of it: the other's memories were lost
+            name = device_name()
+            if (chosen / "log" / f"{name}.jsonl").exists():
+                import secrets
+                name = f"{name}-{secrets.token_hex(3)}"
+            _save({"device": name})
     if str(chosen) != str(_config().get("memory_folder")):
         # the queue was for the old hub and would go to the new one; everything in it is in this
         # PC's store, which `share_existing` sends on purpose

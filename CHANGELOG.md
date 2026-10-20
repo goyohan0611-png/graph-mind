@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.17 — 2026-10-20
+- **Switching to another shared brain** no longer sends what was queued for the old one to the
+  new one. It is all in this PC's store; `share_existing` sends it on purpose.
+- **The settings file** (share password, join codes) is readable by you only on macOS and Linux,
+  and two apps saving settings at once no longer lose one of them.
+- **An unreachable hub** gives up after 5 seconds instead of holding a recall for the system's
+  network timeout.
+- **Python 3.10:** the server, hooks and OpenCode plugin no longer import a `graph_mind` folder
+  from the project they are started in (3.10 ignores PYTHONSAFEPATH).
+- An apostrophe in a path no longer breaks the Codex config or the startup shortcut; uninstall
+  goes on when `claude` is blocked; an entity's history is capped at 500 entries.
+
 ## 0.9.16 — 2026-10-20
 - **Forgetting reaches every copy.** A memory the capture service made from a forgotten turn
   now also leaves the outbox and the shared log, and other PCs are told about it. A forget

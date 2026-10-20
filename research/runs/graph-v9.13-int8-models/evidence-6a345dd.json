@@ -1,0 +1,81 @@
+{
+ "commit": "6a345dd",
+ "measured_at": "2026-10-20T01:05:38",
+ "context_limit": 30,
+ "context_chars": 15000,
+ "questions_seen": 500,
+ "report": {
+  "all": {
+   "questions": 97,
+   "question_recall": 0.9588,
+   "turn_coverage": 0.9148,
+   "packet_tokens_median": 3359,
+   "recall_any@5": 0.9794,
+   "recall_any@10": 1.0
+  },
+  "untuned": {
+   "questions": 72,
+   "question_recall": 0.9722,
+   "turn_coverage": 0.9091,
+   "packet_tokens_median": 3338,
+   "recall_any@5": 0.9861,
+   "recall_any@10": 1.0
+  },
+  "tuned": {
+   "questions": 25,
+   "question_recall": 0.92,
+   "turn_coverage": 0.9318,
+   "packet_tokens_median": 3375,
+   "recall_any@5": 0.96,
+   "recall_any@10": 1.0
+  },
+  "knowledge-update": {
+   "questions": 14,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3405,
+   "recall_any@5": 1.0,
+   "recall_any@10": 1.0
+  },
+  "multi-session": {
+   "questions": 26,
+   "question_recall": 0.9615,
+   "turn_coverage": 0.8438,
+   "packet_tokens_median": 3385,
+   "recall_any@5": 1.0,
+   "recall_any@10": 1.0
+  },
+  "single-session-assistant": {
+   "questions": 11,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3127,
+   "recall_any@5": 1.0,
+   "recall_any@10": 1.0
+  },
+  "single-session-preference": {
+   "questions": 6,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3002,
+   "recall_any@5": 0.8333,
+   "recall_any@10": 1.0
+  },
+  "single-session-user": {
+   "questions": 13,
+   "question_recall": 1.0,
+   "turn_coverage": 1.0,
+   "packet_tokens_median": 3290,
+   "recall_any@5": 1.0,
+   "recall_any@10": 1.0
+  },
+  "temporal-reasoning": {
+   "questions": 27,
+   "question_recall": 0.8889,
+   "turn_coverage": 0.9038,
+   "packet_tokens_median": 3517,
+   "recall_any@5": 0.963,
+   "recall_any@10": 1.0
+  }
+ }
+}

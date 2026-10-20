@@ -369,6 +369,8 @@ class AutomaticCaptureService:
             return                              # one service per PC (login item + a restart)
         self.pid_path.write_text(str(os.getpid()) + "\n", encoding="ascii")
         if max_iterations is None:
+            from graph_mind.local_embedder import LocalEmbedder
+            LocalEmbedder.PACE = True       # it runs beside the user's work: backlogs at half pace
             self.lend_model()
         iteration = 0
         last_code_scan = None

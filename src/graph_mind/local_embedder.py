@@ -1,4 +1,4 @@
-"""The on-device embedder: multilingual MiniLM, mean pooling, vectors cached on disk.
+"""The on-device embedder: multilingual mpnet (int8), mean pooling, vectors cached on disk.
 
 No text leaves the machine. Split out of the v0.7.3 research script (semantic_grounding_v073.py),
 which still imports it from here, so the product no longer pulls that script's experiment chain.
@@ -15,7 +15,12 @@ import time
 
 from graph_mind.vector_cache import VectorCache, convert
 
-LOCAL_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# "repo@file": the int8 export in the model's own repo. Against MiniLM (0.9.9 and before), on
+# research/runs/graph-v9.13-int8-models: Korean questions 19/20 vs 17/20, formal Korean 17 vs 13,
+# English evidence R@5 99.0% vs 97.9%, 699 MB vs 869 MB loaded; 2.4x slower to embed, 10 ms a query
+LOCAL_MODEL = ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+               "@onnx/model_quint8_avx2.onnx")
+OLD_MODELS = ("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",)
 
 
 def own_hf_home() -> Path:
@@ -38,22 +43,27 @@ use_own_hf_home()
 MODEL_FILES = ("tokenizer.json", "onnx/model.onnx")
 
 
+def model_files(model=LOCAL_MODEL) -> tuple:
+    """(repo, (tokenizer file, ONNX file)) for "repo" or "repo@onnx/another.onnx"."""
+    repo, _, onnx_file = model.partition("@")
+    return repo, (MODEL_FILES[0], onnx_file or MODEL_FILES[1])
+
+
 def model_on_disk() -> bool:
     """Both files the embedder reads are already downloaded (an install from before 0.4 has the
     torch weights in the same folder, but not the ONNX file)."""
     hf_home = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface")
-    snapshots = hf_home / "hub" / ("models--" + LOCAL_MODEL.replace("/", "--")) / "snapshots"
-    return any(all((snapshot / name).exists() for name in MODEL_FILES)
+    repo, files = model_files()
+    snapshots = hf_home / "hub" / ("models--" + repo.replace("/", "--")) / "snapshots"
+    return any(all((snapshot / name).exists() for name in files)
                for snapshot in (snapshots.iterdir() if snapshots.is_dir() else []))
 
 
 def model_paths(model=LOCAL_MODEL) -> tuple:
     """Local paths of the tokenizer and the ONNX model, downloaded on first use."""
     from huggingface_hub import hf_hub_download
-    # "repo@onnx/model_quint8_avx2.onnx": another export in the same repo (research/model_eval.py)
-    repo, _, onnx_file = model.partition("@")
-    return tuple(hf_hub_download(repo, name)
-                 for name in (MODEL_FILES[0], onnx_file or MODEL_FILES[1]))
+    repo, files = model_files(model)
+    return tuple(hf_hub_download(repo, name) for name in files)
 
 
 class LocalEmbedder:
@@ -77,6 +87,11 @@ class LocalEmbedder:
     # starts its own server, and each one loading the model cost 7-17 s before search by meaning
     # worked and ~500 MB of memory per app, while the capture service has it loaded all day.
     USE_SERVICE = False
+    # Rest between backlog chunks (_encode_paced). The capture service and the MCP server set
+    # it; benchmarks and tests run at full speed.
+    PACE = False
+    CHUNK = 32
+    _backlog = threading.Lock()
     _loaded = threading.Event()
     _loading = threading.Lock()
 
@@ -144,22 +159,39 @@ class LocalEmbedder:
         pooled /= np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-12, None)
         return pooled.tolist()
 
+    def _encode_paced(self, texts):
+        """A question's few texts at once. A backlog (all memory again after a model change,
+        sent by the capture service itself and by every app's server) in chunks of CHUNK, one
+        backlog chunk at a time in this process, each followed by a rest as long as it took
+        when PACE is set: the model's threads half busy, and a question waits behind one chunk
+        (~5 s), not a whole batch (80 s)."""
+        size = LocalEmbedder.CHUNK if LocalEmbedder.PACE else 128   # 128: benchmarks' speed
+        if len(texts) <= size:
+            with LocalEmbedder._lock:
+                self._load()
+                return self._encode(texts) if texts else []
+        vectors = []
+        for start in range(0, len(texts), size):
+            chunk = texts[start:start + size]
+            with LocalEmbedder._backlog:
+                began = time.monotonic()
+                with LocalEmbedder._lock:
+                    self._load()
+                    vectors += self._encode(chunk)
+                if LocalEmbedder.PACE:
+                    time.sleep(time.monotonic() - began)
+        return vectors
+
     def embed(self, texts):
         texts = [t.strip()[:2000] for t in texts]
         missing = [t for t in dict.fromkeys(texts) if self._key(t) not in self.cache]
         if not missing:
             return [self.cache.get(self._key(t)) for t in texts]
-        served = _service.encode(self.model_name, missing)     # outside the lock: no waiting
+        vectors = _service.encode(self.model_name, missing)    # outside the lock: no waiting
+        if vectors is None:
+            vectors = self._encode_paced(missing)
         with LocalEmbedder._lock:
-            if served is not None:
-                pairs = zip(missing, served)
-            else:
-                missing = [t for t in missing if self._key(t) not in self.cache]
-                self._load()
-                pairs = ((text, vector) for start in range(0, len(missing), 128)
-                         for text, vector in zip(missing[start:start + 128],
-                                                 self._encode(missing[start:start + 128])))
-            for text, vector in pairs:                  # larger batch = higher CPU throughput
+            for text, vector in zip(missing, vectors):
                 self.cache.put(self._key(text), vector)
                 self._since += 1
             if self._since >= LocalEmbedder.FLUSH_EVERY:
@@ -217,6 +249,7 @@ class _Service:
         from multiprocessing.connection import Client
         info = json.loads(service_file().read_text(encoding="utf-8"))
         if info["model"] != model:
+            _replace_old_service(info, model)
             raise LookupError("the service runs another model")
         return Client(("127.0.0.1", info["port"]), authkey=bytes.fromhex(info["key"]))
 
@@ -246,6 +279,24 @@ class _Service:
 _service = _Service()
 
 
+def _replace_old_service(info, model) -> None:
+    """The capture service lends an older version's model: this process is newer (Graph-MIND was
+    updated while it ran). Restart it on this version, or every app's server would load its own
+    copy of the new model, ~700 MB each. An older server never restarts a newer service."""
+    if info.get("model") not in OLD_MODELS or model != LOCAL_MODEL:
+        return
+    try:
+        import psutil
+        old = psutil.Process(int(info["pid"]))
+        if "capture_cli" in " ".join(old.cmdline()):
+            old.terminate()
+            old.wait(15)
+        from graph_mind.automatic_capture import ensure_service
+        ensure_service()
+    except Exception:                 # gone already, or not ours: the next try looks again
+        pass
+
+
 def serve(embedder) -> None:
     """Lend this process's model to the memory servers on this PC (the capture service calls it).
 
@@ -269,11 +320,7 @@ def serve(embedder) -> None:
                     texts = conn.recv()
                 except (EOFError, OSError):
                     return
-                with LocalEmbedder._lock:
-                    embedder._load()
-                    vectors = [v for start in range(0, len(texts), 128)
-                               for v in embedder._encode(texts[start:start + 128])]
-                conn.send(vectors)
+                conn.send(LocalEmbedder._encode_paced(embedder, texts))
 
     def accept():
         while True:
@@ -295,4 +342,7 @@ def cosine(a, b):
 
 def default_embedder(db_path):
     """Local, on-device embedder with a cache persisted beside the memory DB."""
-    return LocalEmbedder(Path(db_path).with_name(Path(db_path).stem + ".semantic-embed-cache.json"))
+    # a new name per model: the old cache holds another model's vectors (384 dims, not 768),
+    # and servers of the old version still running write to it
+    db_path = Path(db_path)
+    return LocalEmbedder(db_path.with_name(db_path.stem + ".semantic-embed-mpnet8.json"))

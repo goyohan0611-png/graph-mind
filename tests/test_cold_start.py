@@ -114,5 +114,28 @@ class SharedModelTests(unittest.TestCase):
             self.assertEqual([list(v) for v in embedder.embed(["abc"])], [[7.0, 0.0]])
 
 
+    def test_a_backlog_rests_as_long_as_it_works_and_a_question_does_not(self):
+        """After a model change every stored turn is embedded again, beside the user's work."""
+        import time
+        from graph_mind import local_embedder
+
+        class Slow:
+            def _load(self):
+                pass
+
+            def _encode(self, texts):
+                time.sleep(0.05)
+                return [[1.0] for _ in texts]
+
+        paced = local_embedder.LocalEmbedder._encode_paced
+        with mock.patch.object(local_embedder.LocalEmbedder, "PACE", True), \
+                mock.patch.object(local_embedder.LocalEmbedder, "CHUNK", 2):
+            began = time.monotonic()
+            self.assertEqual(len(paced(Slow(), ["a"] * 6)), 6)          # 3 chunks
+            self.assertGreaterEqual(time.monotonic() - began, 0.3)      # each one rested
+            began = time.monotonic()
+            self.assertEqual(paced(Slow(), ["question"]), [[1.0]])
+            self.assertLess(time.monotonic() - began, 0.09)
+
 if __name__ == "__main__":
     unittest.main()

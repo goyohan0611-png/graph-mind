@@ -39,7 +39,7 @@ from longmemeval_m_fetch import stream_instances  # noqa: E402
 
 from graph_mind.context_packet import build_context_pack  # noqa: E402
 from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
-from graph_mind.local_embedder import LocalEmbedder  # noqa: E402
+from graph_mind.local_embedder import LOCAL_MODEL, LocalEmbedder  # noqa: E402
 from graph_mind.mcp_server import _PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, gather  # noqa: E402
 from graph_mind.warmup import warm_turns  # noqa: E402
 
@@ -161,8 +161,9 @@ def main() -> None:
             record = json.loads(line)
             done[record["question_id"]] = record
     tuned = set(json.loads(TUNED.read_text(encoding="utf-8"))["question_ids"])
-    embedder = (LocalEmbedder(CACHE / f"embed-{slug}.json", model=args.model) if slug
-                else LocalEmbedder(CACHE / "embed-cache.json"))
+    model = args.model or LOCAL_MODEL                # each model its own vectors
+    embedder = LocalEmbedder(CACHE / f"embed-{model.replace('/', '_').replace('@', '_')}.json",
+                             model=model)
     records, seen = [], 0
     with tempfile.TemporaryDirectory() as directory, progress.open("a", encoding="utf-8") as log:
         for row in stream_instances(DATA):

@@ -186,6 +186,7 @@ class InstallTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
                 mock.patch.object(local_embedder, "model_paths", locked), \
+                mock.patch("graph_mind.install.remove_old_models"), \
                 mock.patch("graph_mind.install.subprocess.run") as retry:
             os.environ.pop("HF_HOME", None)
             install.embedding_model()

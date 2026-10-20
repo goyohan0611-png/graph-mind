@@ -180,8 +180,11 @@ def embed_in_background(embedder, texts):
     def work():
         try:
             for start in range(0, len(texts), 256):
+                # skip what the capture service or another app's server embedded meanwhile, and
+                # share each batch at once: after a model change all of them start on the same
+                embedder.cache.refresh()
                 embedder.embed(texts[start:start + 256])
-            embedder.flush()
+                embedder.flush()
         except Exception:
             pass
         finally:
@@ -1262,6 +1265,7 @@ def main():
     from graph_mind.local_embedder import LocalEmbedder
     LocalEmbedder.WAIT_FOR_MODEL = 0.5      # an app's question never waits out a model load
     LocalEmbedder.USE_SERVICE = True        # the capture service's model, when it runs
+    LocalEmbedder.PACE = True               # a backlog it embeds itself, at half pace
     keep_capture_running()
     preload(configured_db_path())
     build_server().run(transport="stdio")

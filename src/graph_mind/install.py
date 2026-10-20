@@ -363,7 +363,7 @@ def capture_service(start: bool) -> str:
 
 
 def embedding_model():
-    from graph_mind.local_embedder import LOCAL_MODEL, MODEL_FILES, model_paths, own_hf_home
+    from graph_mind.local_embedder import model_files, model_paths, own_hf_home
     try:
         import onnxruntime  # noqa: F401  (a DLL failure here would leave search on words only)
     except ImportError as error:
@@ -388,10 +388,29 @@ def embedding_model():
         # huggingface_hub fixed its folders when it was imported: download in a fresh process
         subprocess.run([sys.executable, "-c",
                         "from huggingface_hub import hf_hub_download; "
-                        + "; ".join(f"hf_hub_download({LOCAL_MODEL!r}, {name!r})"
-                                    for name in MODEL_FILES)],
+                        + "; ".join(f"hf_hub_download({model_files()[0]!r}, {name!r})"
+                                    for name in model_files()[1])],
                        env={**os.environ, "HF_HOME": str(own),
                             "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"}, check=True)
+    remove_old_models()
+
+
+def remove_old_models():
+    """The model 0.9.9 and before used (~450 MB): nothing reads it once the apps restart. Through
+    Hugging Face's own cache API: its files live in a shared blobs folder, not the repo's."""
+    from huggingface_hub import scan_cache_dir
+    from huggingface_hub.constants import HF_HUB_CACHE
+
+    from graph_mind.local_embedder import OLD_MODELS, own_hf_home
+    for cache in {Path(HF_HUB_CACHE), own_hf_home() / "hub"}:
+        try:
+            found = scan_cache_dir(cache)
+            old = [revision.commit_hash for repo in found.repos if repo.repo_id in OLD_MODELS
+                   for revision in repo.revisions]
+            if old:
+                found.delete_revisions(*old).execute()
+        except Exception:            # no cache there, or a file in use: try again next install
+            pass
 
 
 def main(argv=None):

@@ -3,6 +3,19 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.10 — 2026-10-20
+- **Better search by meaning in Korean, with less memory.** The embedding model is now the int8
+  export of multilingual mpnet (was MiniLM). Korean questions found among the first 10: 19/20
+  (was 17/20); formal Korean 17/20 (was 13/20); a Korean question about an English-only memory
+  4/5 (was 3/5). English evidence on 100 LongMemEval questions: same recall, answer session in
+  the first 5 for 99.0% (was 97.9%). Loaded it takes 699 MB (was 869 MB) and a 266 MB download
+  (was 449 MB, which the installer now removes). It is 2.4x slower to embed and a query takes
+  10 ms. Results: `research/runs/graph-v9.13-int8-models`.
+- **After the upgrade, existing memory is embedded again once, at half pace** (about 30 minutes
+  for 11,000 pieces on a 4-core PC); until then older turns are found by words. A capture
+  service still running the old model is restarted by the first app that starts on the new
+  version, so apps do not each load their own model.
+
 ## 0.9.9 — 2026-10-20
 - **Security: a chat can no longer move your memory.** Choosing the memory folder, sharing it with
   your other PCs, joining with a code and exporting or importing a memory file are now terminal

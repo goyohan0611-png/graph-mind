@@ -3,6 +3,14 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.18 — 2026-10-21
+- **No more hour of re-embedding after every upgrade or restart.** The startup check on the
+  cached search vectors threw the whole cache away whenever two of its 16 samples moved a
+  little, which the int8 model (0.9.10 and later) does by design: the same text comes out
+  slightly different in different batches. The capture service then re-embedded everything,
+  about an hour at a fifth of the CPU. It now clears the cache only when most samples are far
+  off, as a truly corrupt cache is.
+
 ## 0.9.17 — 2026-10-20
 - **Switching to another shared brain** no longer sends what was queued for the old one to the
   new one. It is all in this PC's store; `share_existing` sends it on purpose.

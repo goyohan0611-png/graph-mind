@@ -77,7 +77,11 @@ def turn_pieces(text: str, user: bool = True) -> list[tuple[int, str]]:
         for match in SENTENCE.finditer(text):
             sentence = match.group().strip()
             if sentence and sentence != text.strip():
-                start = max(0, min(match.start() - 150, len(text) - PIECE))
+                # within the turn's first 500 characters: show them, as for the first piece (a
+                # window centred on the sentence cut off the opening that carries the fact:
+                # "I just got rid of the old toaster", "started my camping trip today")
+                start = (0 if match.end() <= PIECE
+                         else max(0, min(match.start() - 150, len(text) - PIECE)))
                 pieces.append((start, sentence))
     return pieces
 

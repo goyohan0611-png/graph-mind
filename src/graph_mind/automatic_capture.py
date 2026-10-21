@@ -379,6 +379,11 @@ class AutomaticCaptureService:
         try:
             with ConversationMemoryStore(self.db_path) as store:
                 if not store.packing():
+                    # at most every 10 minutes: while turns arrive this ran every 5 s, and
+                    # each look at the PC's processes costs CPU (8% of a core measured)
+                    if time.monotonic() - getattr(self, "_older_checked", -1e9) < 600:
+                        return False
+                    self._older_checked = time.monotonic()
                     from graph_mind.packing import older_processes
                     if older_processes():
                         return False             # asked again at the next recheck

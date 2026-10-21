@@ -57,6 +57,10 @@ class PackingTests(unittest.TestCase):
                 self.assertFalse(service.compress_stored())
             with ConversationMemoryStore(db) as store:
                 self.assertFalse(store.packing())
+            with mock.patch("graph_mind.packing.older_processes",
+                            side_effect=AssertionError("looked again within 10 minutes")):
+                self.assertFalse(service.compress_stored())       # not every 5 s
+            service._older_checked -= 601
             with mock.patch("graph_mind.packing.older_processes", return_value=False):
                 self.assertTrue(service.compress_stored())
                 self.assertFalse(service.compress_stored())       # one round, then done

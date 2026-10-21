@@ -21,6 +21,9 @@ Security fixes for team project hubs (Codex review round 9). Upgrade the hub's P
 - **Leaving a project yourself works** (it was rolled back every time).
 - Installer: re-installing no longer breaks a Codex config that writes Graph-MIND's table with
   quotes, and the Windows hook command keeps a `$` in the Python path literal.
+- **The capture service is quiet again while you chat.** Since 0.9.27 it looked through every
+  process on the PC each time a turn arrived (4 s of work on Windows, 8% of a core while
+  chatting); it now looks at most every 10 minutes, at Python processes only (0.5 s).
 
 ## 0.9.29 — 2026-10-21
 - **`graph-mind compact` shrinks the memory file.** Compressing conversations frees space

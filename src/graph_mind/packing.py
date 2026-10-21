@@ -52,12 +52,18 @@ def older_processes() -> bool:
     import psutil
     me = os.getpid()
     since = max(os.path.getmtime(__file__), psutil.Process(me).create_time())
-    for process in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
+    # names first: reading every process's command line took 4 s on Windows
+    for process in psutil.process_iter(["pid", "name"]):
         info = process.info
         if info["pid"] == me or not (info["name"] or "").lower().startswith(
                 ("python", "graph-mind")):
             continue
-        line, started = " ".join(info["cmdline"] or []), info["create_time"]
+        try:
+            line, started = " ".join(process.cmdline() or []), process.create_time()
+        except psutil.NoSuchProcess:
+            continue
+        except psutil.Error:
+            line, started = "", None
         if not line or started is None:
             return True                      # unreadable: assume the worst
         if started < since and any(mark in line for mark in MARKS):

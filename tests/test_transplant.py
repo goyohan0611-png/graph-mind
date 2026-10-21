@@ -1,5 +1,6 @@
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
+import os
 import tempfile
 import unittest
 
@@ -72,6 +73,7 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
                 for i, (cwd, text) in enumerate([(alpha, "alpha: launch is Nov 14"),
                                                  (alpha / "web", "alpha web: new login page"),
                                                  (beta, "beta: my salary talk"),
+                                                 ("alpha", "relative: from another PC's path"),
                                                  (None, "no folder: dentist on Friday")]):
                     turns.record({"turn_id": f"t{i}", "client": "claude-code",
                                   "client_session_id": "s", "scope": "global", "role": "user",
@@ -84,11 +86,17 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
                     "export_to": str(out), "project": str(alpha)})).structured_content
             self.assertEqual(asked["command"],
                              f'graph-mind export "{out}" --project "{alpha}"')
-            async with Client(build_server(old, terminal=True)) as client:
-                done = (await client.call_tool("brain_folder", {
-                    "export_to": str(out), "project": str(alpha)})).structured_content
-                missing = (await client.call_tool("brain_folder", {
-                    "export_to": str(out), "project": str(root / "nope")})).structured_content
+            here = os.getcwd()
+            os.chdir(root)      # a path that is not absolute here must not resolve into alpha
+            try:
+                async with Client(build_server(old, terminal=True)) as client:
+                    done = (await client.call_tool("brain_folder", {
+                        "export_to": str(out), "project": str(alpha)})).structured_content
+                    missing = (await client.call_tool("brain_folder", {
+                        "export_to": str(out), "project": str(root / "nope")})
+                        ).structured_content
+            finally:
+                os.chdir(here)
             self.assertEqual(done["exported"]["turns"], 2)
             self.assertEqual(missing["status"], "REFUSED")
             async with Client(build_server(new, terminal=True)) as client:

@@ -783,7 +783,7 @@ def build_server(db_path=None, terminal=False):
                 {"turn_id": t["turn_id"], "role": t["role"], "happened_at": t["happened_at"],
                  "here": t["source_ordinal"] == int(ordinal),
                  "content": t["content"][:SOURCE_TURN_CHARS], "cut": len(t["content"]) >
-                 SOURCE_TURN_CHARS} for t in turns]}
+                 SOURCE_TURN_CHARS} for t in turns if not scopes or t["scope"] in scopes]}
         if entity or not query:
             import sqlite3
 

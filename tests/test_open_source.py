@@ -39,7 +39,10 @@ class OpenSourceTests(unittest.TestCase):
                     "source": found.group(1), "limit": 2})).structured_content
                 bad = (await client.call_tool("brain_recall", {"source": "no-number"})
                        ).structured_content
-            return opened, bad
+                scoped = (await client.call_tool("brain_recall", {
+                    "source": found.group(1), "limit": 2, "scopes": ["global"]})
+                    ).structured_content
+            return opened, bad, scoped
 
         with tempfile.TemporaryDirectory() as directory:
             db = Path(directory) / "brain.sqlite"
@@ -47,16 +50,18 @@ class OpenSourceTests(unittest.TestCase):
                 for i, (role, text) in enumerate(TALK):
                     when = f"2026-10-01T09:0{i}:00"
                     store.record({"turn_id": f"t{i}", "client": "claude-code",
-                                  "client_session_id": "s", "scope": "global", "role": role,
+                                  "client_session_id": "s", "role": role,
+                                  "scope": "private" if i == 4 else "global",
                                   "content_redacted": text, "raw_sha256": f"t{i}",
                                   "source_path": "C:/talk.jsonl", "happened_at": when,
                                   "known_at": when, "source_ordinal": i})
             wait_for_index()
-            opened, bad = asyncio.run(run(db))
+            opened, bad, scoped = asyncio.run(run(db))
         self.assertEqual([t["turn_id"] for t in opened["turns"]], ["t0", "t1", "t2", "t3", "t4"])
         self.assertEqual([t["turn_id"] for t in opened["turns"] if t["here"]], ["t2"])
         self.assertIn("Transcriptionist", opened["turns"][3]["content"])
         self.assertEqual(bad["status"], "REFUSED")
+        self.assertEqual([t["turn_id"] for t in scoped["turns"]], ["t0", "t1", "t2", "t3"])
 
 
 if __name__ == "__main__":

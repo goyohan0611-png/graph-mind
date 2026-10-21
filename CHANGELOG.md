@@ -9,6 +9,11 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   once the capture service has compressed them (after restarting your AI apps) to give that
   space back to the disk. It needs about the database's size in free disk and refuses
   otherwise; an interruption leaves the old file intact.
+- **Project export no longer picks up conversations from another kind of PC.** A memory
+  imported from Windows and exported on a Mac or Linux (or the other way round) could count
+  a conversation held in an unrelated folder as part of the project, and put its text in the
+  file. A folder that is not a full path on this PC now never matches.
+- `brain_recall(source=...)` keeps to `scopes` when they are given.
 
 ## 0.9.28 — 2026-10-21
 - **Export one project's conversations.** `graph-mind export FILE --project FOLDER` writes only

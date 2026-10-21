@@ -818,9 +818,11 @@ def _in_project(db, items, project) -> list:
         raise ValueError("PROJECT_FOLDER_NOT_FOUND")
 
     def inside(cwd):
-        if not cwd:
+        # a folder recorded on another kind of PC (C:\... read on a Mac) is not absolute here:
+        # made absolute against the current folder it could land inside the project
+        if not cwd or not os.path.isabs(cwd):
             return False
-        folder = os.path.normcase(os.path.abspath(cwd))
+        folder = os.path.normcase(os.path.normpath(cwd))
         return folder == root or folder.startswith(root.rstrip(os.sep) + os.sep)
 
     turns = {record["turn_id"] for kind, record in items

@@ -144,7 +144,8 @@ class SharedModelTests(unittest.TestCase):
             time.sleep(0.05)
             asked = time.monotonic()
             self.assertEqual(list(embedder.embed(["question"])[0]), [1.0, 8.0])
-            self.assertLess(time.monotonic() - asked, 0.18)           # beside the backlog
+            # beside the backlog: waiting it out is >= 0.35 s; macOS CI took 0.24 s without waiting
+            self.assertLess(time.monotonic() - asked, 0.3)
             for thread in twice:
                 thread.join()
             # 2 chunks, each rested: ~0.4 s, 0.2 s without the rests; Windows' clock ticks 15.6 ms

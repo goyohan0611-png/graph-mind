@@ -3,6 +3,12 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.32 — 2026-10-21
+- **A newly skipped folder is not recorded as deleted.** With 0.9.31, a workspace whose
+  virtual environment had been watched recorded every file in it as a deleted file on the
+  first scan (7,394 changes and five minutes of work on one PC). A file that still exists but
+  is no longer watched is now simply dropped.
+
 ## 0.9.31 — 2026-10-21
 - **Code capture skips Python virtual environments by any name.** A folder holding
   `pyvenv.cfg` is not walked: a `.venv-rivals` with 16,000 files was walked every two minutes

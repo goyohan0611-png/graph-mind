@@ -431,6 +431,10 @@ class CodingMemoryCapture:
                 continue
             if before and after and before["sha256"] == after["sha256"]:
                 continue
+            if after is None and (self.workspace / path).exists():
+                # left out now (a folder newly excluded), not deleted: 7,394 "deleted" files
+                # and 5 minutes of work when a virtual environment stopped being walked
+                continue
             kind = "ADDED" if before is None else "DELETED" if after is None else "MODIFIED"
             before_bytes = Path(before["blob_ref"]).read_bytes() if before else b""
             after_bytes = Path(after["blob_ref"]).read_bytes() if after else b""

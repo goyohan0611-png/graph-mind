@@ -98,6 +98,24 @@ class CodingMemoryTests(unittest.TestCase):
                 self.assertEqual(second["a.py"], first["a.py"])
                 self.assertNotEqual(second["b.py"]["sha256"], first["b.py"]["sha256"])
 
+    def test_a_newly_excluded_folder_is_not_recorded_as_deleted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            (workspace / "envy").mkdir(parents=True)
+            (workspace / "envy" / "lib.py").write_text("x = 1\n")
+            (workspace / "app.py").write_text("a = 1\n")
+            with CodingMemoryStore(root / "brain.sqlite") as store:
+                capture = CodingMemoryCapture(workspace, store, project_id="project:demo",
+                                              session_id="session:1", state_dir=root / "state",
+                                              now=lambda: T1)
+                capture.initialize_baseline()
+                (workspace / "envy" / "pyvenv.cfg").write_text("home = x\n")  # now excluded
+                self.assertEqual(capture.scan(reason="r")["status"], "NO_CHANGES")
+                (workspace / "app.py").unlink()                         # a real deletion
+                self.assertEqual(capture.scan(reason="r")["changes"][0]["change_kind"],
+                                 "DELETED")
+
     def test_secrets_in_changed_files_are_not_stored(self):
         """A config file's password went into the stored copy and its diff as typed."""
         with tempfile.TemporaryDirectory() as directory:

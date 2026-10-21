@@ -16,7 +16,7 @@ import math
 import os
 import tempfile
 
-from graph_mind.mcp_server import DEFAULT_CONTEXT_POLICY, PIECE, gather
+from graph_mind.mcp_server import DEFAULT_CONTEXT_POLICY, PIECE, gather, local_time
 from longmemeval_m_fetch import stream_instances
 from product_recall_eval import CACHE, DATA, IDS, fill, iso
 from longmemeval_retrieval_executor import asks_assistant_history
@@ -78,7 +78,10 @@ def spans():
             assert DEFAULT_CONTEXT_POLICY == "always"
             # about_assistant is the calling model's judgement in real use; the benchmark's own
             # stand-in for that judgement (an English regex) plays the model here.
+            # until as brain_context passes it: in real use nothing is stored after "now", but a
+            # haystack holds sessions dated after the question (63 packets showed them)
             recalled = gather(store, row["question"], as_of=iso(row["question_date"]),
+                              until=local_time(iso(row["question_date"])),
                               limit=LIMIT, embedder=embedder,
                               about_assistant=asks_assistant_history(row["question"]),
                               around=around(row) if AROUND else None)

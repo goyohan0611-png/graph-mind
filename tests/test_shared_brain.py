@@ -390,7 +390,8 @@ class SealTests(unittest.TestCase):
         self.assertEqual(sharing._unseal(joined, sealed), line)
         stranger = "postgresql://graphmind:another@192.0.2.1:54329/graphmind"
         self.assertIsNone(sharing._unseal(stranger, sealed), "another key opens nothing")
-        self.assertEqual(sharing._unseal(stranger, line), line, "old plain lines still read")
+        # a hub with a key refuses plain lines (sharing seals the old ones): forged otherwise
+        self.assertIsNone(sharing._unseal(stranger, line), "a plain line on a keyed hub")
 
 
 class OutboxTests(unittest.TestCase):

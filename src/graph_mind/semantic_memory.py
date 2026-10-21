@@ -8,6 +8,7 @@ import re
 import sqlite3
 
 from graph_mind.local_brain import LocalBrainStore
+from graph_mind.packing import row_text
 from graph_mind.paths import use_wal
 
 GATE_VERSION = "semantic-memory-gate-v0.3.1"
@@ -103,9 +104,10 @@ class SemanticMemoryIngestion:
         rows = self._unprocessed(limit)
         promoted, evidence_only = [], []
         for row in rows:
-            category, reason = classify_durable_turn(row["role"], row["content_redacted"])
+            text = row_text(row)
+            category, reason = classify_durable_turn(row["role"], text)
             fingerprint = _digest("\0".join((row["turn_id"], row["role"],
-                                             row["content_redacted"])))
+                                             text)))
             memory_id = None
             disposition = "EVIDENCE_ONLY"
             if category:
@@ -123,14 +125,14 @@ class SemanticMemoryIngestion:
                     "attributes": {"gate_version": GATE_VERSION,
                                    "promotion_reason": reason},
                     "related_memory_ids": ["conversation-turn:" + row["turn_id"]],
-                    "title": f"{category}: {row['content_redacted'][:80]}",
-                    "content": row["content_redacted"],
+                    "title": f"{category}: {text[:80]}",
+                    "content": text,
                     "effective_at": row["happened_at"], "known_at": self.now(),
                     "actor": "user", "tags": [category, "automatic-semantic-memory"],
                     "entities": [], "provenance": {
                         "source_type": "captured-conversation-turn",
                         "source_ref": ("conversation-turn:" + row["turn_id"]
-                                       + f"#chars=0-{len(row['content_redacted'])}")},
+                                       + f"#chars=0-{len(text)}")},
                     "supersedes_memory_id": None}
                 with LocalBrainStore(self.path) as brain:
                     saved = brain.db.execute(

@@ -19,6 +19,7 @@ from graph_mind.coding_memory import CodingMemoryStore
 from graph_mind.context_packet import build_context_pack, decide_recall
 from graph_mind.conversation_memory import ConversationMemoryStore
 from graph_mind.local_brain import LocalBrainStore
+from graph_mind.packing import unpack
 from graph_mind.paths import default_development_db
 
 if hasattr(sys.stderr, "reconfigure"):
@@ -270,16 +271,16 @@ class PieceIndex:
         with ConversationMemoryStore(database) as store:
             count = store.db.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()[0]
             new = store.db.execute(
-                "SELECT revision,turn_id,role,scope,happened_at,content_redacted "
+                "SELECT revision,turn_id,role,scope,happened_at,content_redacted,content_z "
                 "FROM conversation_turns WHERE revision>? ORDER BY revision",
                 (self.last,)).fetchall()
             if count != self.turns + len(new):          # something was forgotten
                 self.reset()
                 new = store.db.execute(
-                    "SELECT revision,turn_id,role,scope,happened_at,content_redacted "
+                    "SELECT revision,turn_id,role,scope,happened_at,content_redacted,content_z "
                     "FROM conversation_turns ORDER BY revision").fetchall()
-        for revision, turn_id, role, scope, happened_at, content in new:
-            for start, piece in turn_pieces(content):
+        for revision, turn_id, role, scope, happened_at, plain, packed in new:
+            for start, piece in turn_pieces(unpack(plain, packed)):
                 self.pending.append(_Piece(revision, turn_id, start, role == "user", scope,
                                            happened_at, embedder._key(piece.strip()[:2000]),
                                            piece))

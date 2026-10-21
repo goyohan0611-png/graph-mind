@@ -10,6 +10,7 @@ import re
 import sqlite3
 import unicodedata
 
+from graph_mind.packing import row_text
 from graph_mind.paths import use_wal
 
 INDEX_VERSION = "engram-associative-layer-v0.6"
@@ -286,7 +287,7 @@ class AssociativeMemoryIndex:
                 result = self.add_engram(engram_id="conversation:" + row["turn_id"],
                     source_kind="CONVERSATION", source_id=row["turn_id"],
                     scope=row["scope"], happened_at=row["happened_at"],
-                    text=row["content_redacted"],
+                    text=row_text(row),
                     cues=[row["client"], row["role"], row["client_session_id"]],
                     strength=0.4)
                 if result["disposition"] == "INDEXED":

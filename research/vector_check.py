@@ -16,6 +16,7 @@ from longmemeval_m_fetch import stream_instances  # noqa: E402
 import numpy as np  # noqa: E402
 
 from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
+from graph_mind.packing import unpack  # noqa: E402
 from graph_mind.local_embedder import LocalEmbedder  # noqa: E402
 from graph_mind.warmup import turn_pieces  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -28,9 +29,10 @@ for row in stream_instances(DATA):
     store = Path(tempfile.mkdtemp()) / "s.sqlite"
     fill(store, row)
     with ConversationMemoryStore(store) as s:
-        texts = [p for (c,) in s.db.execute(
-                     "SELECT content_redacted FROM conversation_turns WHERE role='user'")
-                 for _, p in turn_pieces(c)]
+        texts = [p for (plain, packed) in s.db.execute(
+                     "SELECT content_redacted, content_z FROM conversation_turns "
+                     "WHERE role='user'")
+                 for _, p in turn_pieces(unpack(plain, packed))]
     known = [t for t in texts if cached._key(t.strip()[:2000]) in cached.cache]
     a = np.asarray(cached.embed(known))
     b = np.asarray(fresh.embed(known))

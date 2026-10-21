@@ -14,6 +14,7 @@ import time
 
 from graph_mind.clock import timestamp
 from graph_mind.forget import erase
+from graph_mind.packing import COMPRESS_FROM, pack, unpack
 from graph_mind.paths import use_wal
 
 CAPTURE_VERSION = "codex-conversation-capture-v0.1"
@@ -212,7 +213,8 @@ class ConversationMemoryStore:
           redaction_count INTEGER NOT NULL,
           source_path TEXT NOT NULL,
           source_ordinal INTEGER NOT NULL,
-          fingerprint TEXT NOT NULL);
+          fingerprint TEXT NOT NULL,
+          content_z BLOB);
         CREATE INDEX IF NOT EXISTS conversation_scope_time
           ON conversation_turns(scope,happened_at DESC);
         CREATE INDEX IF NOT EXISTS conversation_session_time
@@ -222,12 +224,70 @@ class ConversationMemoryStore:
         CREATE VIRTUAL TABLE IF NOT EXISTS conversation_turns_fts USING fts5(
           content_redacted, content='conversation_turns', content_rowid='revision',
           tokenize='unicode61');
-        CREATE TRIGGER IF NOT EXISTS conversation_turns_ai AFTER INSERT ON conversation_turns BEGIN
-          INSERT INTO conversation_turns_fts(rowid,content_redacted)
-          VALUES(new.revision,new.content_redacted);
-        END;
+        CREATE TABLE IF NOT EXISTS store_flags(name TEXT PRIMARY KEY, value TEXT NOT NULL);
         """)
+        self._compressible()
         self.closed = False
+
+    def _compressible(self):
+        """Stores from before 0.9.27: add content_z, and let the word index trigger skip a
+        compressed row (record() indexes its plain words itself). The trigger refers to columns
+        only, so a process still running older code keeps inserting plain rows unharmed."""
+        names = {row[1] for row in self.db.execute("PRAGMA table_info(conversation_turns)")}
+        if "content_z" not in names:
+            try:
+                self.db.execute("ALTER TABLE conversation_turns ADD COLUMN content_z BLOB")
+            except sqlite3.OperationalError as error:     # another process added it first
+                if "duplicate column" not in str(error):
+                    raise
+        trigger = ("SELECT sql FROM sqlite_master WHERE type='trigger' "
+                   "AND name='conversation_turns_ai'")
+        found = self.db.execute(trigger).fetchone()
+        if found is None or "content_z" not in found[0]:
+            # one transaction: between a committed DROP and the CREATE another process could
+            # store a turn whose words never reach the index
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                found = self.db.execute(trigger).fetchone()
+                if found is None or "content_z" not in found[0]:
+                    self.db.execute("DROP TRIGGER IF EXISTS conversation_turns_ai")
+                    self.db.execute("""CREATE TRIGGER conversation_turns_ai
+                      AFTER INSERT ON conversation_turns WHEN new.content_z IS NULL BEGIN
+                      INSERT INTO conversation_turns_fts(rowid,content_redacted)
+                      VALUES(new.revision,new.content_redacted);
+                    END""")
+                self.db.commit()
+            except BaseException:
+                self.db.rollback()
+                raise
+
+    def packing(self) -> bool:
+        """Whether long turns are stored compressed yet: off until no process on older code is
+        left (the capture service turns it on, see packing.older_processes)."""
+        row = self.db.execute("SELECT value FROM store_flags WHERE name='packing'").fetchone()
+        return row is not None and row[0] == "on"
+
+    def start_packing(self):
+        with self.db:
+            self.db.execute("INSERT OR REPLACE INTO store_flags VALUES('packing','on')")
+
+    def compress_some(self, limit=2000, after=0) -> tuple[int, int]:
+        """Compress up to `limit` plain turns with a revision above `after`; returns (packed,
+        last revision looked at), so the caller resumes there instead of rereading the front.
+        The word index already holds their words and is not touched; forgetting one later
+        unpacks it to drop them."""
+        if not self.packing():
+            return 0, after
+        rows = self.db.execute(
+            "SELECT revision, content_redacted, content_z IS NULL FROM conversation_turns "
+            "WHERE revision>? ORDER BY revision LIMIT ?", (after, limit)).fetchall()
+        packed = [(pack(text)[1], revision) for revision, text, plain in rows
+                  if plain and len(text.encode("utf-8")) >= COMPRESS_FROM]
+        if packed:
+            with self.db:
+                self.db.executemany("UPDATE conversation_turns SET content_redacted='', "
+                                    "content_z=? WHERE revision=? AND content_z IS NULL", packed)
+        return len(packed), (rows[-1][0] if rows else after)
 
     def __enter__(self):
         return self
@@ -278,17 +338,23 @@ class ConversationMemoryStore:
                 raise ValueError("CONVERSATION_TURN_ID_COLLISION")
             return {"turn_id": normalized["turn_id"], "revision": existing["revision"],
                     "disposition": "ALREADY_RECORDED"}
+        plain, packed = (pack(normalized["content_redacted"]) if self.packing()
+                         else (normalized["content_redacted"], None))
         with self.db:
             cursor = self.db.execute("""INSERT INTO conversation_turns(
               turn_id,client,client_session_id,scope,cwd,happened_at,known_at,role,
-              content_redacted,raw_sha256,redaction_count,source_path,source_ordinal,fingerprint)
-              VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+              content_redacted,raw_sha256,redaction_count,source_path,source_ordinal,fingerprint,
+              content_z)
+              VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
                 normalized["turn_id"], normalized["client"],
                 normalized["client_session_id"], normalized["scope"], normalized["cwd"],
                 normalized["happened_at"], normalized["known_at"], normalized["role"],
-                normalized["content_redacted"], normalized["raw_sha256"],
+                plain, normalized["raw_sha256"],
                 normalized["redaction_count"], normalized["source_path"],
-                normalized["source_ordinal"], fingerprint))
+                normalized["source_ordinal"], fingerprint, packed))
+            if packed is not None:      # the trigger skips a packed row: index its words here
+                self.db.execute("INSERT INTO conversation_turns_fts(rowid,content_redacted) "
+                                "VALUES(?,?)", (cursor.lastrowid, normalized["content_redacted"]))
         return {"turn_id": normalized["turn_id"], "revision": cursor.lastrowid,
                 "disposition": "RECORDED"}
 
@@ -360,7 +426,8 @@ class ConversationMemoryStore:
         return {"turn_id": row["turn_id"], "client": row["client"],
                 "client_session_id": row["client_session_id"], "scope": row["scope"],
                 "cwd": row["cwd"], "happened_at": row["happened_at"],
-                "role": row["role"], "content": row["content_redacted"],
+                "role": row["role"],
+                "content": unpack(row["content_redacted"], row["content_z"]),
                 "redaction_count": row["redaction_count"],
                 "source_path": row["source_path"], "source_ordinal": row["source_ordinal"]}
 

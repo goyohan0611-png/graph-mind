@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.27 — 2026-10-21
+- **Conversations take about half the disk space.** A turn of 200 bytes or more is stored
+  zlib-compressed; reading the 30 turns of one question unpacks in under a millisecond, and
+  word search, forgetting, sharing and export work as before. Existing turns are compressed by
+  the capture service, a little at a time. It starts only once no Graph-MIND process from an
+  older version is running (restart your AI apps after upgrading), because older code would
+  read a compressed turn as empty. The database file keeps its size; the space freed is reused
+  for new conversations, so it grows about half as fast.
+
 ## 0.9.26 — 2026-10-21
 - **Your AI can open the conversation behind a memory.** A context packet shows one excerpt
   of each conversation turn, so an answer in the rest of that turn, or in the reply right after

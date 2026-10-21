@@ -38,6 +38,8 @@ import re
 import sqlite3
 import subprocess
 
+from graph_mind.packing import row_text
+
 KINDS = ("memory", "turn", "forget")   # forget: ids another PC erased (forget.py)
 
 
@@ -801,10 +803,10 @@ def _history(db: sqlite3.Connection, done: set) -> list:
         for row in db.execute("SELECT * FROM conversation_turns ORDER BY revision"):
             if ("turn", row["turn_id"]) in done:
                 continue
-            items.append(("turn", {key: row[key] for key in (
+            items.append(("turn", {**{key: row[key] for key in (
                 "turn_id", "client", "client_session_id", "scope", "cwd", "happened_at",
-                "known_at", "role", "content_redacted", "raw_sha256", "redaction_count",
-                "source_path", "source_ordinal")}))
+                "known_at", "role", "raw_sha256", "redaction_count",
+                "source_path", "source_ordinal")}, "content_redacted": row_text(row)}))
     return items
 
 

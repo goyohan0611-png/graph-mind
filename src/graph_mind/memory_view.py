@@ -17,6 +17,8 @@ import math
 import sqlite3
 import webbrowser
 
+from graph_mind.packing import text_columns, unpack
+
 LINKS_PER_NODE = 3          # strongest shared-cue links kept per node: all 134k drown the picture
 REGIONS = 12                # coloured clusters named in the legend
 PALETTE = ["#ff6b6b", "#ffd93d", "#6bcB77", "#4d96ff", "#c77dff", "#ff9f1c", "#2ec4b6",
@@ -38,10 +40,12 @@ def _graph(db, limit, with_text):
     # a store only has the tables of what it has held so far
     source = lambda table, columns: (table if table in tables  # noqa: E731
                                      else f"(SELECT {columns} WHERE 0)")
+    packed = ("t.content_z" if "conversation_turns" in tables
+              and "content_z" in text_columns(db) else "NULL")
     nodes = db.execute(
         f"""SELECT e.engram_id, e.source_kind, e.scope, e.happened_at,
                   COALESCE(t.content_redacted, m.title || ': ' || m.content, d.event_type, ''),
-                  COALESCE(t.role, '')
+                  COALESCE(t.role, ''), {packed}
            FROM associative_engrams e
            LEFT JOIN {source("conversation_turns", "'' turn_id, '' content_redacted, '' role")} t
              ON e.source_kind='CONVERSATION' AND t.turn_id=e.source_id
@@ -72,7 +76,9 @@ def _graph(db, limit, with_text):
             links.append({"source": source, "target": target, "kind": relation,
                           "weight": round(weight, 3)})
     out = []
-    for engram, kind, scope, when, text, role in nodes:
+    for engram, kind, scope, when, text, role, compressed in nodes:
+        if compressed is not None:
+            text = unpack(text, compressed)
         node = {"id": engram, "kind": kind, "scope": scope, "when": (when or "")[:16],
                 "role": role}
         if with_text:

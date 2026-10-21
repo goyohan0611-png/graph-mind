@@ -21,15 +21,18 @@ import json
 import sqlite3
 import sys
 
+from graph_mind.packing import text_columns, unpack
+
 
 def find(index: Path, phrase: str) -> dict:
     """Ids of the turns and memories whose text contains the phrase (exact, case-sensitive)."""
     db = sqlite3.connect(index, timeout=30)
     try:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
-        turns = [row[0] for row in db.execute(
-            "SELECT turn_id FROM conversation_turns WHERE instr(content_redacted, ?) > 0",
-            (phrase,))] if "conversation_turns" in tables else []
+        # a long turn is stored compressed: unpack each to look (100k turns take about 1.5 s)
+        turns = [turn_id for turn_id, plain, packed in db.execute(
+            f"SELECT turn_id, {text_columns(db)} FROM conversation_turns")
+            if phrase in unpack(plain, packed)] if "conversation_turns" in tables else []
         memories = [row[0] for row in db.execute(
             "SELECT memory_id FROM local_brain_memories "
             "WHERE instr(content, ?) > 0 OR instr(title, ?) > 0",
@@ -60,8 +63,10 @@ def erase(index: Path, ids: dict) -> dict:
                            [(i,) for i in turns + memories])
             if turns and "conversation_turns" in tables:
                 marks = ",".join("?" * len(turns))
-                rows = db.execute(f"SELECT revision, content_redacted FROM conversation_turns "
-                                  f"WHERE turn_id IN ({marks})", turns).fetchall()
+                # the index must be handed the exact words it holds: unpacked
+                rows = [(revision, unpack(plain, packed)) for revision, plain, packed in
+                        db.execute(f"SELECT revision, {text_columns(db)} FROM conversation_turns "
+                                   f"WHERE turn_id IN ({marks})", turns)]
                 # an external-content FTS table keeps its words until told to drop them
                 db.executemany("INSERT INTO conversation_turns_fts(conversation_turns_fts, rowid, "
                                "content_redacted) VALUES('delete', ?, ?)", rows)
@@ -211,8 +216,8 @@ def forget_ids(ids: dict, index: Path, shared=None) -> dict:
         db = sqlite3.connect(index, timeout=30)
         try:
             marks = ",".join("?" * len(ids["turn_ids"]))
-            contents = [row[0] for row in db.execute(
-                f"SELECT content_redacted FROM conversation_turns WHERE turn_id IN ({marks})",
+            contents = [unpack(plain, packed) for plain, packed in db.execute(
+                f"SELECT {text_columns(db)} FROM conversation_turns WHERE turn_id IN ({marks})",
                 ids["turn_ids"])]
         except sqlite3.OperationalError:          # no conversations stored yet
             pass

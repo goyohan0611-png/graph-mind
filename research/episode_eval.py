@@ -40,6 +40,7 @@ from longmemeval_m_fetch import stream_instances  # noqa: E402
 
 from graph_mind.context_packet import build_context_pack  # noqa: E402
 from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
+from graph_mind.packing import unpack  # noqa: E402
 from graph_mind.local_embedder import LocalEmbedder  # noqa: E402
 from graph_mind.mcp_server import (_PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, excerpt, gather,  # noqa: E402
                                    semantic_turns)
@@ -104,8 +105,9 @@ def measure(row, directory, embedder):
         arms[f"episode{w}"] = lifted(ranked, w)
     position = {t["turn_id"]: i for i, (_, t) in enumerate(ranked)}
     with ConversationMemoryStore(store) as conversations:
-        roles = dict(conversations.db.execute(
-            "SELECT turn_id, role || ':' || length(content_redacted) FROM conversation_turns"))
+        roles = {turn_id: f"{role}:{len(unpack(plain, packed))}" for turn_id, role, plain, packed
+                 in conversations.db.execute("SELECT turn_id, role, content_redacted, content_z "
+                                             "FROM conversation_turns")}
     out = {"question_id": row["question_id"], "type": row["question_type"], "wanted": len(wanted),
            # where each answer turn sits in the deeper fused ranking (None: in neither list)
            "ranks": {t: [position.get(t), roles.get(t)] for t in sorted(wanted)}}

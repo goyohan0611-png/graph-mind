@@ -32,6 +32,7 @@ import numpy as np  # noqa: E402
 
 from graph_mind.context_packet import build_context_pack  # noqa: E402
 from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
+from graph_mind.packing import unpack  # noqa: E402
 from graph_mind.local_embedder import LocalEmbedder  # noqa: E402
 from graph_mind.mcp_server import (_PIECES, CONTEXT_CHARS, CONTEXT_LIMIT, PIECE, excerpt,  # noqa: E402
                                    gather, semantic_turns)
@@ -87,8 +88,8 @@ def measure(row, directory, embedder):
     arms["mix"] = [t for _, t in scored(meaning, sent[:30], words)[:CONTEXT_LIMIT]]
     out = {"question_id": row["question_id"], "type": row["question_type"], "wanted": len(wanted)}
     with ConversationMemoryStore(store) as conversations:      # the cost: vectors per memory
-        contents = [(r[0], r[1] or "") for r in conversations.db.execute(
-            "SELECT role, content_redacted FROM conversation_turns")]
+        contents = [(r[0], unpack(r[1], r[2]) or "") for r in conversations.db.execute(
+            "SELECT role, content_redacted, content_z FROM conversation_turns")]
     out["vectors"] = {"pieces": sum(len(turn_pieces(c)) for _, c in contents),
                       "sentences": sum(len(sentences(c)) for role, c in contents
                                        if role == "user")}

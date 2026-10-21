@@ -372,6 +372,25 @@ class AutomaticCaptureService:
         except Exception:                       # capture must go on if embedding cannot
             return 0
 
+    def compress_stored(self, limit=2000):
+        """True while there is more to look at; resumes after the last turn looked at. Turns
+        added meanwhile are packed as they are stored (one written by a process still on older
+        code waits for the next start)."""
+        try:
+            with ConversationMemoryStore(self.db_path) as store:
+                if not store.packing():
+                    from graph_mind.packing import older_processes
+                    if older_processes():
+                        return False             # asked again at the next recheck
+                    store.start_packing()
+                _, last = store.compress_some(limit, after=self._packed_upto)
+        except Exception:                       # capture must go on if packing cannot
+            return False
+        more = last != self._packed_upto
+        self._packed_upto = last
+        self._packed_all = not more
+        return more
+
     def lend_model(self):
         """Load the model now and let the memory servers use it (local_embedder.serve), so an
         app's search by meaning works from its first question without loading its own."""
@@ -400,7 +419,8 @@ class AutomaticCaptureService:
             self.lend_model()
         iteration = 0
         last_code_scan = None
-        pending, last_embed = True, time.monotonic()
+        pending, packing, last_embed = True, max_iterations is None, time.monotonic()
+        self._packed_upto, self._packed_all = 0, False
         try:
             while max_iterations is None or iteration < max_iterations:
                 monotonic_now = time.monotonic()
@@ -416,6 +436,11 @@ class AutomaticCaptureService:
                 if pending or recorded or monotonic_now - last_embed >= EMBED_RECHECK_SECONDS:
                     pending = self.embed_new_turns() >= EMBED_BATCH
                     last_embed = time.monotonic()
+                    packing = packing or (max_iterations is None and not self._packed_all)
+                if packing:
+                    # turns stored before 0.9.27, or by an app still on older code: one round
+                    # over the store after each start, 2,000 turns a pass (~20 ms)
+                    packing = self.compress_stored()
                 if code_due:
                     last_code_scan = time.monotonic()
                 iteration += 1

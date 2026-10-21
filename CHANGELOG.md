@@ -3,6 +3,11 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.35 — 2026-10-21
+- **Sharing your existing memories works after moving to a new folder or hub.** What had
+  been sent before was remembered without where it went, so choosing a new, empty folder and
+  sharing existing memories sent nothing. The new destination's own contents now decide.
+
 ## 0.9.34 — 2026-10-21
 - **Moving to another hub no longer skips its first memories.** The read position was kept
   for "the hub", not for each hub: after reading hub A up to its 100th line, joining hub B

@@ -283,6 +283,30 @@ class HubCursorTests(unittest.TestCase):
         self.assertEqual(got, ["t1", "t2", "t3", "t4", "t5"])
 
 
+class MoveFolderTests(unittest.TestCase):
+    def test_sharing_existing_memories_again_fills_a_new_folder(self):
+        """Exported ids were kept without where they went: after moving to an empty folder,
+        sharing what this PC had sent nothing."""
+        from graph_mind import sharing
+        from graph_mind.conversation_memory import ConversationMemoryStore
+        with tempfile.TemporaryDirectory() as directory, \
+                unittest.mock.patch.dict(os.environ, {"GRAPH_MIND_DEVICE": "desk"}):
+            root = Path(directory)
+            index = root / "index.sqlite"
+            with ConversationMemoryStore(index) as store:
+                for i in (1, 2):
+                    store.record({"turn_id": f"t{i}", "client": "codex",
+                                  "client_session_id": "s", "scope": "global", "role": "user",
+                                  "content_redacted": f"note {i}", "raw_sha256": f"t{i}",
+                                  "source_path": "p", "source_ordinal": i,
+                                  "happened_at": "2026-10-01T09:00:00",
+                                  "known_at": "2026-10-01T09:00:00"})
+            first = sharing.export_history(root / "A", index)
+            again = sharing.export_history(root / "A", index)
+            moved = sharing.export_history(root / "B", index)
+        self.assertEqual((first["turns"], again["turns"], moved["turns"]), (2, 0, 2))
+
+
 class DamagedLogTests(unittest.TestCase):
     def test_a_torn_line_or_a_malformed_record_loses_nothing_else(self):
         """Codex round 10: a crash mid-write glued the next record to half a line; one record

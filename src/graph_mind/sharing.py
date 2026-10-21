@@ -762,11 +762,11 @@ def export_history(shared: Path, index: Path) -> dict:
     try:
         db.execute("CREATE TABLE IF NOT EXISTS brain_log_exported("
                    "kind TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY(kind, id))")
-        done = {(row[0], row[1]) for row in db.execute("SELECT kind, id FROM brain_log_exported")}
-        # what the shared log already holds, whoever wrote it: a turn published as it was
-        # captured is never marked exported, so without this a re-share sent everything again,
-        # and a PC whose turns missed a downed hub had no way to send just those
-        done |= _shared_ids(shared)
+        # what this destination's log already holds, whoever wrote it, decides; not what was
+        # exported somewhere before (brain_log_exported names no destination: after moving to
+        # an empty folder, sharing what this PC had sent nothing). A turn published as it was
+        # captured is in the log too, and a PC whose turns missed a downed hub sends just those.
+        done = _shared_ids(shared)
         items = _history(db, done)
         written = append_many(shared, items)
         with db:

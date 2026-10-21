@@ -401,6 +401,11 @@ def semantic_turns(database, query, *, scopes=None, since=None, until=None, limi
         if turn is None:                  # forgotten between the scan and this read
             continue
         piece = turn["content"][start:start + PIECE]
+        if start and len(piece) < PIECE:
+            # the turn's short last piece matched: "signed after the show" without the "Tame Impala
+            # vinyl" it is about. Give it the turn's last 500 characters instead.
+            start = len(turn["content"]) - PIECE
+            piece = turn["content"][start:]
         hits.append({**turn, "content": piece, "span": [start, start + len(piece)],
                      "full": turn["content"], "similarity": round(score, 4)})
     return hits

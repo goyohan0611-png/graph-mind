@@ -17,7 +17,7 @@
 
 [English](README.md) · **한국어**
 
-<img src="demo/demo.gif" alt="월요일에 한 에이전트와 정한 내용을 수요일에 다른 에이전트가 기억하는 장면" width="760">
+<img src="demo/demo.gif" alt="실제 녹화: Claude Code가 Graph-MIND에 저장한 결정을 다른 앱인 Codex가 기억하는 장면" width="900">
 
 </div>
 

@@ -19,7 +19,7 @@
 
 **English** · [한국어](README.ko.md)
 
-<img src="demo/demo.gif" alt="A decision made with one agent on Monday, recalled by another on Wednesday" width="760">
+<img src="demo/demo.gif" alt="Recorded live: Claude Code saves a decision to Graph-MIND, and Codex, a different app, recalls it" width="900">
 
 </div>
 

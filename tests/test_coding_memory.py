@@ -77,6 +77,9 @@ class CodingMemoryTests(unittest.TestCase):
             workspace = root / "workspace"
             (workspace / "node_modules" / "lib").mkdir(parents=True)
             (workspace / "node_modules" / "lib" / "big.js").write_text("x = 1\n")
+            (workspace / ".venv-rivals" / "Lib").mkdir(parents=True)        # any name
+            (workspace / ".venv-rivals" / "pyvenv.cfg").write_text("home = x\n")
+            (workspace / ".venv-rivals" / "Lib" / "site.py").write_text("y = 1\n")
             (workspace / "a.py").write_text("a = 1\n")
             (workspace / "b.py").write_text("b = 1\n")
             with CodingMemoryStore(root / "brain.sqlite") as store:

@@ -251,6 +251,9 @@ class AutomaticCaptureService:
     def run_once(self, *, capture_code=True):
         started = self.now()
         coding, errors = [], []
+        # where a pass spends its time, in the status file: an idle service once took 8% of a
+        # core and nothing said which step
+        seconds, clock = {}, time.perf_counter()
         if capture_code:
             with CodingMemoryStore(self.db_path) as store:
                 for entry in self.config["code_workspaces"]:
@@ -269,6 +272,7 @@ class AutomaticCaptureService:
                             "error": type(error).__name__, "detail": str(error)})
         else:
             coding.append({"status": "SKIPPED_NOT_DUE"})
+        seconds["code"], clock = round(time.perf_counter() - clock, 3), time.perf_counter()
         semantic = None
         conversation = {}
         try:
@@ -283,6 +287,7 @@ class AutomaticCaptureService:
         except Exception as error:
             errors.append({"source": "conversation", "error": type(error).__name__,
                            "detail": str(error)})
+        seconds["conversations"], clock = round(time.perf_counter() - clock, 3), time.perf_counter()
         # Idle passes re-read ~11k turns twice for nothing: skip them while the store's files
         # (the database and its write-ahead log) are exactly as the last idle pass left them.
         version = []
@@ -314,13 +319,15 @@ class AutomaticCaptureService:
                     and associative["indexed_total"] == 0):
                 self._maintenance_version = version
                 self._idle_indexes = semantic, associative
+        seconds["indexes"] = round(time.perf_counter() - clock, 3)
+        seconds["indexes_skipped"] = unchanged
         result = {"status": "CAPTURE_ERRORS" if errors else "CAPTURE_OK",
                   "service_version": SERVICE_VERSION, "started_at": started,
                   "completed_at": self.now(), "coding": coding,
                   "conversation": conversation.get("codex"),
                   "conversation_sources": conversation, "semantic": semantic,
                   "associative": associative,
-                  "errors": errors,
+                  "errors": errors, "seconds": seconds,
                   "warnings": self._stall_warnings(conversation)}
         self._write_status(result)
         return result

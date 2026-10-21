@@ -358,8 +358,10 @@ class CodingMemoryCapture:
         previous, files = previous or {}, {}
         for root, dirs, names in os.walk(self.workspace):       # symlinked folders: not entered
             root = Path(root)
+            # a virtual environment by any name (.venv-rivals: 16,000 files walked every 2 min)
             dirs[:] = [d for d in dirs if d not in self.excluded_parts
-                       and root / d != self.state_dir and _plain_directory(root / d)]
+                       and root / d != self.state_dir and _plain_directory(root / d)
+                       and not (root / d / "pyvenv.cfg").exists()]
             for name in names:
                 path = root / name
                 if path.suffix.lower() not in self.suffixes or name in self.excluded_parts:

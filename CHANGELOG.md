@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.31 — 2026-10-21
+- **Code capture skips Python virtual environments by any name.** A folder holding
+  `pyvenv.cfg` is not walked: a `.venv-rivals` with 16,000 files was walked every two minutes
+  (2 s each time).
+- The capture service's status file (`~/.graph-mind/automatic-capture/status.json`) records how
+  long each step of a pass took (`seconds`), so a busy service can be explained.
+
 ## 0.9.30 — 2026-10-21
 Security fixes for team project hubs (Codex review round 9). Upgrade the hub's PC first.
 - **A teammate could become the hub's database superuser.** The hub's privileged functions

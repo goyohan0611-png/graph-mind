@@ -207,10 +207,23 @@ class LocalBrainStore:
             target = self.db.execute(
                 "SELECT scope FROM local_brain_memories WHERE memory_id=?",
                 (normalized["supersedes_memory_id"],)).fetchone()
-            if not target:
+            if not target and not _forgotten(self.db, normalized["supersedes_memory_id"]):
                 raise ValueError("SUPERSEDED_LOCAL_MEMORY_NOT_FOUND")
-            if target["scope"] != normalized["scope"]:
+            if target and target["scope"] != normalized["scope"]:
                 raise ValueError("CROSS_SCOPE_MEMORY_SUPERSESSION_FORBIDDEN")
+        # replacing a forgotten memory: kept, its link left dangling as on the PC that forgot it
+        # (waiting for it, a fresh index never got the replacement)
+        dangling = bool(normalized["supersedes_memory_id"]) and not target
+        if dangling:
+            self.db.execute("PRAGMA foreign_keys=OFF")
+        try:
+            return self._insert(normalized, fingerprint, profile_requested, profile,
+                                profile_fingerprint)
+        finally:
+            if dangling:
+                self.db.execute("PRAGMA foreign_keys=ON")
+
+    def _insert(self, normalized, fingerprint, profile_requested, profile, profile_fingerprint):
         with self.db:
             cursor = self.db.execute("""INSERT INTO local_brain_memories(
               memory_id,scope,memory_type,title,content,effective_at,known_at,actor,

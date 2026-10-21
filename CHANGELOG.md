@@ -3,6 +3,23 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.37 — 2026-10-22
+Fixes for the rest of Codex review round 10 (sharing across your PCs).
+- **A hub with a key refuses lines that are not sealed.** Lines from before sharing are
+  sealed when sharing starts, so only a line added without the key was refused: such a line
+  could plant a memory or a forget notice.
+- **A shared-folder log swapped for another file is read again from the start.** The read
+  position now carries a fingerprint of the 4 KB before it. A copy of equal or greater length
+  (from the sync client, or another folder's log of the same name) used to be read on from the
+  old position or skipped. Imports are idempotent, so reading again is harmless.
+- **A memory that replaced a forgotten one now reaches a new PC.** It waited forever for the
+  memory it replaced, which was gone.
+- **A forget notice received later also clears the hub.** If the PC that forgot could not
+  reach the hub then, the text stayed in the hub's rows; every PC that receives the notice now
+  tries again.
+- **A large backlog is read in steps** (8 MB or 2,000 rows at a time), and forgetting reads
+  the shared log line by line, so a big history no longer has to fit in memory at once.
+
 ## 0.9.36 — 2026-10-22
 - **Wrong "deleted" code records from 0.9.31 are cleaned up.** Files of a newly skipped
   virtual environment were recorded as deleted while still on disk (7,394 on one PC). At

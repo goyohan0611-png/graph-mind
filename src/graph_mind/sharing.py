@@ -31,6 +31,7 @@ from datetime import datetime
 from pathlib import Path
 import base64
 import functools
+import hashlib
 import json
 import os
 import platform
@@ -903,7 +904,26 @@ def _cursor_db(index: Path) -> sqlite3.Connection:
         source TEXT PRIMARY KEY, offset INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS brain_log_pending(
         line TEXT PRIMARY KEY);""")
+    if "mark" not in {row[1] for row in db.execute("PRAGMA table_info(brain_log_cursor)")}:
+        try:
+            db.execute("ALTER TABLE brain_log_cursor ADD COLUMN mark TEXT")
+        except sqlite3.OperationalError as error:    # another process added it just now
+            if "duplicate column" not in str(error):
+                raise
     return db
+
+
+MARK_BYTES = 4096
+BATCH_BYTES = 8 * 1024 * 1024        # read per sync step: a whole unread history ran out of RAM
+BATCH_ROWS = 2000
+
+
+def _mark(handle, end: int) -> str:
+    """What a log holds just before `end`: a cursor whose mark no longer matches points into
+    another file (the sync client put a different copy there, or another folder's log has the
+    same name), and the log is read again from the start (imports are idempotent)."""
+    handle.seek(max(0, end - MARK_BYTES))
+    return hashlib.sha256(handle.read(min(end, MARK_BYTES))).hexdigest()
 
 
 SEALED = "gme1:"
@@ -940,10 +960,12 @@ def _seal(url, lines):
 
 
 def _unseal(url, line):
-    """The plain line, or None when it cannot be opened with this hub's key."""
-    if not line.startswith(SEALED):
-        return line                               # written before sealing began
+    """The plain line, or None when it cannot be opened with this hub's key. On a hub with a key
+    an unsealed line is refused: sharing seals the lines from before (share), and anyone able
+    to write the hub's rows could otherwise add memories or forget notices without the key."""
     key = _line_key(url)
+    if not line.startswith(SEALED):
+        return line if key is None else None      # a hub never shared: nothing was sealed
     if key is None:
         return None
     from cryptography.fernet import InvalidToken
@@ -1053,9 +1075,10 @@ def devices(shared) -> list[str]:
     return sorted(p.stem for p in (Path(shared) / "log").glob("*.jsonl"))
 
 
-def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple]]:
-    """Complete lines added to any device's log since this machine last read it, and the cursors
-    to save once they are imported (saved before, a crash in between skipped them for good)."""
+def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], bool]:
+    """Complete lines added to any device's log since this machine last read it, at most a
+    batch of them; the cursors to save once they are imported (saved before, a crash in
+    between skipped them for good); and whether more is waiting."""
     cursors = []
     if is_database(shared):
         # the cursor names the hub: as plain "postgres", joining hub B after reading hub A up to
@@ -1068,44 +1091,96 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple]]:
                              ).fetchone()
             if row is not None:
                 db.execute("DELETE FROM brain_log_cursor WHERE source='postgres'")
-        rows = _read_rows(shared, "SELECT seq, line FROM sharing WHERE seq > %s ORDER BY seq",
-                          (row[0] if row else 0,))
+        rows = _read_rows(shared, "SELECT seq, line FROM sharing WHERE seq > %s ORDER BY seq "
+                          "LIMIT %s", (row[0] if row else 0, BATCH_ROWS))
         if rows:
-            cursors.append((source, rows[-1][0]))
+            cursors.append((source, rows[-1][0], None))
         opened = [_unseal(shared, line) for _, line in rows]
-        return [line for line in opened if line is not None], cursors
-    lines = []
+        return [line for line in opened if line is not None], cursors, len(rows) == BATCH_ROWS
+    lines, budget, more = [], BATCH_BYTES, False
     for log in sorted((Path(shared) / "log").glob("*.jsonl")):
-        row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
+        if budget <= 0:
+            more = True
+            break
+        row = db.execute("SELECT offset, mark FROM brain_log_cursor WHERE source=?",
                          (log.name,)).fetchone()
-        start = row[0] if row else 0
+        start, mark = row if row else (0, None)
         size = log.stat().st_size
-        if size == start:
-            continue
-        if size < start:   # replaced by the sync client: re-read (imports idempotent)
-            start = 0
         with log.open("rb") as handle:
+            # shorter: replaced by the sync client; a mark that differs: another file in its
+            # place, also when it is as long or longer (both used to be read on from the offset)
+            if size < start or (start and mark and _mark(handle, start) != mark):
+                start = 0
+            if size == start:
+                continue
             handle.seek(start)
-            data = handle.read()
-        complete = data[:data.rfind(b"\n") + 1]     # an unfinished last line waits for its newline
+            data = handle.read(budget)
+            if start + len(data) < size:
+                data += handle.readline()           # the line the batch ends in, whole
+            complete = data[:data.rfind(b"\n") + 1]  # an unfinished last line waits for its newline
+            end = start + len(complete)
+            more = more or start + len(data) < size  # stopped short (then on a whole line)
+            budget -= len(complete)
+            if complete:
+                cursors.append((log.name, end, _mark(handle, end)))
         lines += [line for line in complete.decode("utf-8", "replace").splitlines()
                   if line.strip()]
-        cursors.append((log.name, start + len(complete)))
-    return lines, cursors
+    return lines, cursors, more
 
 
 def sync(shared: Path, index: Path) -> dict:
-    """Bring this machine's index up to date with every device's log."""
+    """Bring this machine's index up to date with every device's log, a batch at a time: the
+    whole unread history read at once ran a fresh PC out of memory before anything landed."""
+    total = {"imported": 0, "conflicts": 0, "waiting": 0}
+    while True:
+        result, more = _sync_batch(shared, index)
+        total = {"imported": total["imported"] + result["imported"],
+                 "conflicts": total["conflicts"] + result["conflicts"],
+                 "waiting": result["waiting"]}
+        if not more:
+            return total
+
+
+def _land(items, brain, turns):
+    """Import these; returns (imported, conflicts, the ones still waiting for their target)."""
+    imported, conflicts = 0, 0
+    # A supersession can arrive before the memory it replaces when two devices' logs are read
+    # in one batch; keep retrying while anything is still landing.
+    while items:
+        progress, retry = False, []
+        for item, line in items:
+            try:
+                if item["kind"] == "memory":
+                    outcome = brain.remember(item["record"])
+                else:
+                    outcome = turns.record(item["record"])
+            except (sqlite3.OperationalError, OSError):
+                raise                       # locked or I/O: retried, the cursor stays
+            except Exception as error:      # a malformed line must not stop sync
+                if str(error) == "SUPERSEDED_LOCAL_MEMORY_NOT_FOUND":
+                    retry.append((item, line))
+                    continue
+                conflicts += 1                       # e.g. an id reused with other content
+                continue
+            progress = True
+            imported += outcome.get("disposition") not in ("ALREADY_RECORDED", "FORGOTTEN")
+        items = retry
+        if not progress:
+            break
+    return imported, conflicts, items
+
+
+def _sync_batch(shared: Path, index: Path) -> tuple[dict, bool]:
     from graph_mind.conversation_memory import ConversationMemoryStore
     from graph_mind.local_brain import LocalBrainStore
 
     db = _cursor_db(index)
     try:
         pending = [row[0] for row in db.execute("SELECT line FROM brain_log_pending")]
-        fresh, cursors = _new_lines(db, shared)
+        fresh, cursors, more = _new_lines(db, shared)
         lines = pending + fresh
         if not lines and not cursors:
-            return {"imported": 0, "conflicts": 0, "waiting": 0}
+            return {"imported": 0, "conflicts": 0, "waiting": 0}, False
         items = []
         for line in lines:
             try:
@@ -1121,43 +1196,30 @@ def sync(shared: Path, index: Path) -> dict:
         items.sort(key=lambda pair: pair[0].get("written_at", ""))
         forgets = [item["record"] for item, _ in items if item.get("kind") == "forget"]
         items = [(item, line) for item, line in items if item.get("kind") != "forget"]
-        imported, conflicts, waiting = 0, 0, []
         with LocalBrainStore(index) as brain, ConversationMemoryStore(index) as turns:
-            # A supersession can arrive before the memory it replaces when two devices' logs are
-            # read in one batch; keep retrying while anything is still landing.
-            while items:
-                progress, retry = False, []
-                for item, line in items:
-                    try:
-                        if item["kind"] == "memory":
-                            outcome = brain.remember(item["record"])
-                        else:
-                            outcome = turns.record(item["record"])
-                    except (sqlite3.OperationalError, OSError):
-                        raise                       # locked or I/O: retried, the cursor stays
-                    except Exception as error:      # a malformed line must not stop sync
-                        if str(error) == "SUPERSEDED_LOCAL_MEMORY_NOT_FOUND":
-                            retry.append((item, line))
-                            continue
-                        conflicts += 1                       # e.g. an id reused with other content
-                        continue
-                    progress = True
-                    imported += outcome.get("disposition") not in ("ALREADY_RECORDED",
-                                                                   "FORGOTTEN")
-                items = retry
-                if not progress:
-                    waiting = [line for _, line in retry]
-                    break
-        if forgets:                         # after the imports: a forgotten turn may be in them
-            from graph_mind.forget import forget_ids
-            for record in forgets:          # here too: this PC's outbox and staged lines
-                forget_ids(record, index)
+            imported, conflicts, waiting = _land(items, brain, turns)
+            if forgets:                     # after the imports: a forgotten turn may be in them
+                from graph_mind.forget import forget_ids, scrub_shared
+                for record in forgets:      # here too: this PC's outbox and staged lines
+                    forget_ids(record, index)
+                try:
+                    # the hub too: when the PC that forgot could not reach it, its scrub never
+                    # ran again and the forgotten text stayed in the hub's rows
+                    scrub_shared(shared, {
+                        "turn_ids": [t for r in forgets for t in r.get("turn_ids") or []],
+                        "memory_ids": [m for r in forgets for m in r.get("memory_ids") or []]})
+                except Exception:
+                    pass                    # unreachable now: the next PC to read it tries
+                if waiting:                 # a replacement of a memory just forgotten lands now
+                    more_imported, more_conflicts, waiting = _land(waiting, brain, turns)
+                    imported, conflicts = imported + more_imported, conflicts + more_conflicts
         with db:                            # imports are idempotent: a crash before this re-reads
-            db.executemany("INSERT OR REPLACE INTO brain_log_cursor VALUES(?,?)", cursors)
+            db.executemany("INSERT OR REPLACE INTO brain_log_cursor(source, offset, mark) "
+                           "VALUES(?,?,?)", cursors)
             db.execute("DELETE FROM brain_log_pending")
             db.executemany("INSERT OR IGNORE INTO brain_log_pending VALUES(?)",
-                           [(line,) for line in waiting])
-        return {"imported": imported, "conflicts": conflicts, "waiting": len(waiting)}
+                           [(line,) for _, line in waiting])
+        return {"imported": imported, "conflicts": conflicts, "waiting": len(waiting)}, more
     finally:
         db.close()
 

@@ -104,15 +104,16 @@ def _blank(path: Path, doomed) -> int:
     """Blank the lines `doomed` picks, in place and at the same length: readers' offsets stay
     valid, and only those bytes are written. Writing the whole snapshot back let two forgets at
     once restore each other's text, and a file deleted meanwhile (expired staging) raised."""
+    spans, offset = [], 0
     try:
-        data = path.read_bytes()
+        with path.open("rb") as stream:               # a line at a time: logs grow large
+            for line in stream:
+                body = line[:-1] if line.endswith(b"\n") else line
+                if doomed(body):
+                    spans.append((offset, len(body)))
+                offset += len(line)
     except OSError:
         return 0
-    spans, offset = [], 0
-    for line in data.split(b"\n"):
-        if doomed(line):
-            spans.append((offset, len(line)))
-        offset += len(line) + 1
     if spans:
         try:
             with path.open("r+b") as stream:
@@ -140,10 +141,13 @@ def scrub_shared(shared, ids: dict) -> int:
         from graph_mind.sharing import _unseal
         with _pg(shared) as connection:          # lines are sealed: open each to find targets
             doomed = []
-            for seq, line in connection.execute("SELECT seq, line FROM sharing").fetchall():
-                text = _unseal(shared, line) or ""
+            rows = connection.cursor(name="graph_mind_scrub")   # streamed, not all in memory
+            rows.execute("SELECT seq, line FROM sharing")
+            for seq, line in rows:
+                text = _unseal(shared, line) or line         # a refused plain line goes too
                 if any(key in text for key in keys) and '"kind": "forget"' not in text:
                     doomed.append(seq)
+            rows.close()
             if doomed:
                 connection.execute("DELETE FROM sharing WHERE seq = ANY(%s)", (doomed,))
             connection.commit()

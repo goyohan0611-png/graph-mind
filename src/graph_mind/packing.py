@@ -65,6 +65,29 @@ def older_processes() -> bool:
     return False
 
 
+def compact(db_path) -> dict:
+    """Give the space freed by packing back to the disk (VACUUM): packing frees pages inside
+    the file, which new turns reuse, but the file keeps its size until this runs. SQLite copies
+    the whole database to do it, so it needs that much free disk and refuses otherwise; it is
+    atomic (an interruption leaves the old file intact) and waits while another program writes."""
+    from pathlib import Path
+    import os
+    import shutil
+    path = Path(db_path)
+    before = path.stat().st_size
+    if shutil.disk_usage(path.parent).free < before * 1.2:
+        raise ValueError("NOT_ENOUGH_FREE_DISK: needs about the database's size free")
+    db = sqlite3.connect(str(path), timeout=120)
+    try:
+        db.execute("VACUUM")
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        db.close()
+    after = os.path.getsize(path)
+    return {"database": str(path), "before_mb": round(before / 1e6, 1),
+            "after_mb": round(after / 1e6, 1)}
+
+
 if __name__ == "__main__":
     for text in ("short", "long enough to be worth packing " * 20, "한국어 문장도 " * 40):
         plain, packed = pack(text)

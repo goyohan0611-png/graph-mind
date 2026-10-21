@@ -126,5 +126,21 @@ class PackingTests(unittest.TestCase):
         self.assertNotIn("t1", exported)
 
 
+    def test_compact_gives_the_freed_space_back_to_the_disk(self):
+        from graph_mind.packing import compact
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(db) as store:
+                for i in range(400):
+                    store.record({**turn(i % 60, f"{LONG} ({i})"), "turn_id": f"x{i}",
+                                  "raw_sha256": f"x{i}", "source_ordinal": i})
+                store.start_packing()
+                self.assertEqual(store.compress_some(limit=1000), (400, 400))
+            result = compact(db)
+            with ConversationMemoryStore(db) as store:
+                self.assertEqual(len(store.search("Lakeside", limit=50)["turns"]), 50)
+        self.assertLess(result["after_mb"], result["before_mb"])
+
+
 if __name__ == "__main__":
     unittest.main()

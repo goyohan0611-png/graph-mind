@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.29 — 2026-10-21
+- **`graph-mind compact` shrinks the memory file.** Compressing conversations frees space
+  inside the database, which new conversations reuse, but the file keeps its size. Run this
+  once the capture service has compressed them (after restarting your AI apps) to give that
+  space back to the disk. It needs about the database's size in free disk and refuses
+  otherwise; an interruption leaves the old file intact.
+
 ## 0.9.28 — 2026-10-21
 - **Export one project's conversations.** `graph-mind export FILE --project FOLDER` writes only
   the conversations held in that folder or below it, with the memories drawn from them, for

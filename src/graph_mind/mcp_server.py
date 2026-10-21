@@ -1355,7 +1355,7 @@ def keep_capture_running(every=60.0):
 
 def terminal_command(argv):
     """graph-mind folder [PATH | local | share | CODE] [--share-existing]
-    graph-mind export FILE [--project FOLDER] | graph-mind import FILE
+    graph-mind export FILE [--project FOLDER] | graph-mind import FILE | graph-mind compact
     graph-mind team invite NAME --role viewer|editor|owner --project P [--project P2]
     graph-mind team host
 
@@ -1370,6 +1370,8 @@ def terminal_command(argv):
     folder.add_argument("path", nargs="?", help="a folder, local, share, or a gm1./gmt1. code")
     folder.add_argument("--share-existing", action="store_true",
                         help="also send what this PC remembers to the shared memory")
+    commands.add_parser("compact", help="shrink the memory file to what it holds (after "
+                                        "turns were compressed)")
     export = commands.add_parser("export", help="write the memory into a file")
     export.add_argument("file")
     export.add_argument("--project", help="only the conversations held in this folder")
@@ -1384,6 +1386,17 @@ def terminal_command(argv):
     team_actions.add_parser("instructions", help="apply the instructions your AI proposed"
                             ).add_argument("project")
     args = parser.parse_args(argv)
+    if args.command == "compact":
+        import sqlite3
+
+        from graph_mind.packing import compact
+        try:
+            result = compact(configured_db_path())
+        except (ValueError, sqlite3.OperationalError) as error:
+            print(f"Not compacted: {error}")
+            return 1
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
     if args.command == "team":
         call = {"action": args.action}
         if args.action == "invite":

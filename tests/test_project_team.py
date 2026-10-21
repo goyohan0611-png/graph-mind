@@ -219,6 +219,24 @@ class TeamHubTests(unittest.TestCase):
                             "projects": ["graph-mind"]})).structured_content
                 self.assertIn("team_code", invited, invited)
                 code = invited["team_code"]
+                proposed = (await call(action="set_instructions", project="graph-mind",
+                                       instructions="커밋 전에 테스트")).structured_content
+                self.assertEqual(proposed["command"], 'graph-mind team instructions "graph-mind"')
+                self.assertEqual(pl.ledger_for("graph-mind").instructions("graph-mind"), "")
+                from graph_mind import mcp_server
+                with mock.patch.object(mcp_server, "configured_db_path",
+                                       return_value=self.root / "a.sqlite"), \
+                        mock.patch("builtins.input", return_value="n"):
+                    self.assertEqual(await asyncio.to_thread(
+                        mcp_server.terminal_command, ["team", "instructions", "graph-mind"]), 1)
+                self.assertEqual(pl.ledger_for("graph-mind").instructions("graph-mind"), "")
+                with mock.patch.object(mcp_server, "configured_db_path",
+                                       return_value=self.root / "a.sqlite"), \
+                        mock.patch("builtins.input", return_value="y"):
+                    await asyncio.to_thread(
+                        mcp_server.terminal_command, ["team", "instructions", "graph-mind"])
+                self.assertEqual(pl.ledger_for("graph-mind").instructions("graph-mind"),
+                                 "커밋 전에 테스트")
                 refused = (await call(action="remove_member", member="minji")).structured_content
                 self.assertEqual(refused["status"], "REFUSED")    # never the whole account
                 self.assertTrue(pl.accounts())

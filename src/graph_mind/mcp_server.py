@@ -602,6 +602,16 @@ def team_commands(action, member, role, projects) -> str:
             + "".join(f' --project "{name}"' for name in projects))
 
 
+def pending_instructions(project) -> Path:
+    """New project instructions a chat proposed, waiting for the user to confirm in a terminal."""
+    import hashlib
+
+    from graph_mind.paths import graph_mind_home
+    folder = graph_mind_home() / "pending-instructions"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / (hashlib.sha256(project.encode("utf-8")).hexdigest()[:16] + ".txt")
+
+
 def build_server(db_path=None, terminal=False):
     """`terminal`: the user typed the request in a terminal (graph-mind folder ...), so
     brain_folder may change where the memory goes. Apps start the server without it."""
@@ -1025,7 +1035,8 @@ def build_server(db_path=None, terminal=False):
         - `timeline`: "누가 어디까지 했어?" — answer from it only: who, what, what is left, and
           when it was last shared. Do not guess at anything newer. Follow its `instructions`.
         - `retract` + `checkpoint_id` (the publisher, or the project's owner);
-          `set_instructions` + `instructions` (owner).
+          `set_instructions` + `instructions` (owner) returns `command`: the user confirms the
+          new text in a terminal; show them the command.
         - Members. Whoever creates a project owns it. `invite` + `member` + `role` (owner /
           editor / viewer) + `projects`, and `host`, are not done from here: they return
           `command` for the user to run in a terminal, which prints the code to give them. Show
@@ -1110,6 +1121,17 @@ def build_server(db_path=None, terminal=False):
             if not project:
                 raise ValueError("PROJECT_REQUIRED: name the project (or bind this folder to "
                                  "one with create_project + path)")
+            if action == "set_instructions" and not terminal:
+                # every teammate's AI follows these: text the AI read must not be able to set them
+                if UNSAFE_ARGUMENT.search(project):
+                    raise ValueError("UNSAFE_CHARACTERS")
+                pending_instructions(project).write_text(str(instructions or ""),
+                                                         encoding="utf-8")
+                return {"status": "RUN_IN_TERMINAL",
+                        "command": f'graph-mind team instructions "{project}"',
+                        "note": "For the team's safety instructions are not changed from a "
+                                "chat: show the user this command to run in a terminal. It "
+                                "shows the new text and applies it once they confirm."}
             if action == "create_project":
                 ledger = pl.home_ledger(hub)
                 if ledger.role in ("", pl.OWNER_ROLE) and not pl.named():
@@ -1320,13 +1342,29 @@ def terminal_command(argv):
     invite.add_argument("member")
     invite.add_argument("--role", choices=["owner", "editor", "viewer"], default="viewer")
     invite.add_argument("--project", action="append", required=True, dest="projects")
+    team_actions.add_parser("instructions", help="apply the instructions your AI proposed"
+                            ).add_argument("project")
     args = parser.parse_args(argv)
     if args.command == "team":
         call = {"action": args.action}
         if args.action == "invite":
             call.update(member=args.member, role=args.role, projects=args.projects)
+        if args.action == "instructions":
+            pending = pending_instructions(args.project)
+            if not pending.exists():
+                print("No new instructions are waiting for this project. Ask your AI first.")
+                return 1
+            text = pending.read_text(encoding="utf-8")
+            print(f"New instructions for {args.project}; every teammate's AI will follow them:"
+                  f"\n\n{text or '(empty: removes the instructions)'}\n")
+            if input("Apply them? [y/N] ").strip().lower() not in ("y", "yes"):
+                print("Not changed.")
+                return 1
+            call.update(action="set_instructions", project=args.project, instructions=text)
         result = asyncio.run(build_server(terminal=True).call_tool("brain_checkpoint", call))
         print(json.dumps(result.structured_content, ensure_ascii=False, indent=2))
+        if args.action == "instructions" and "status" not in result.structured_content:
+            pending.unlink(missing_ok=True)
         return
     call = ({"path": args.path, "share_existing": args.share_existing}
             if args.command == "folder" else

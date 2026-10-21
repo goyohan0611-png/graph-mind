@@ -3,6 +3,11 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.25 — 2026-10-21
+- **Project instructions are confirmed in a terminal.** Every teammate's AI follows them, so a
+  chat no longer sets them: your AI proposes the text, and `graph-mind team instructions
+  "<project>"` shows it and applies it when you answer y.
+
 ## 0.9.24 — 2026-10-21
 - **Giving a teammate access is no longer done from a chat.** Asking your AI to invite someone
   (or to host projects on this PC) now gives you a command to run in a terminal,

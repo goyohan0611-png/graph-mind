@@ -16,7 +16,9 @@ drive or GitHub; the project brain is what lets another person's AI pick the wor
 - **Links, not files**: a git folder is linked as its commit with the stage it really reached
   (committed, pushed, PR open, merged, released), so a commit on one PC is never reported as done;
   a Slack message or a drive document is kept as its link.
-- **Instructions**: standing guidance for every AI that works on the project.
+- **Instructions**: standing guidance for every AI that works on the project. Your AI proposes
+  the text; you see it and apply it in a terminal (`graph-mind team instructions "<project>"`),
+  so a page your AI read cannot rewrite what every teammate's AI follows.
 - **Members, as on GitHub**: whoever creates a project owns it. Owners add people (owner, editor or
   viewer), set the instructions and can retract anyone's checkpoint; editors publish; viewers read.
   *"Invite Mina to the graph-mind project as an editor"* gives you a command to run in a

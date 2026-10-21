@@ -19,6 +19,8 @@
 
 <img src="demo/demo.gif" alt="실제 녹화: Claude Code가 Graph-MIND에 저장한 결정을 다른 앱인 Codex가 기억하는 장면" width="900">
 
+<sub>한 PC에서 실제로 녹화: Claude Code(Opus 5.5, effort high)와 Codex(GPT-6.1-Sol, effort high)가 Graph-MIND 기억 하나를 같이 씁니다. 모델이 생각하는 시간은 빨리 감았습니다.</sub>
+
 </div>
 
 ## 설치

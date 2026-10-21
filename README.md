@@ -21,6 +21,8 @@
 
 <img src="demo/demo.gif" alt="Recorded live: Claude Code saves a decision to Graph-MIND, and Codex, a different app, recalls it" width="900">
 
+<sub>Recorded live on one PC: Claude Code (Opus 5.5, effort high) and Codex (GPT-6.1-Sol, effort high) sharing one Graph-MIND memory. Model thinking time is fast-forwarded.</sub>
+
 </div>
 
 ## Install

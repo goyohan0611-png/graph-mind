@@ -279,7 +279,7 @@ class PieceIndex:
                     "SELECT revision,turn_id,role,scope,happened_at,content_redacted "
                     "FROM conversation_turns ORDER BY revision").fetchall()
         for revision, turn_id, role, scope, happened_at, content in new:
-            for start, piece in turn_pieces(content):
+            for start, piece in turn_pieces(content, user=role == "user"):
                 self.pending.append(_Piece(revision, turn_id, start, role == "user", scope,
                                            happened_at, embedder._key(piece.strip()[:2000]),
                                            piece))

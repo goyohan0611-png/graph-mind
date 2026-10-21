@@ -21,6 +21,7 @@ from longmemeval_m_fetch import stream_instances
 from product_recall_eval import CACHE, DATA, IDS, fill, iso
 from longmemeval_retrieval_executor import asks_assistant_history
 from graph_mind.context_packet import build_context_pack
+from graph_mind.warmup import turn_pieces
 
 OUT = Path("runs/graph-v6.2-product-answers")
 TYPE = None                                     # --type: only one question type (a re-run)
@@ -70,11 +71,10 @@ def spans():
             # exactly the pieces semantic_turns searches: user turns, and assistant turns only when
             # the question is about what the assistant said
             roles = {"user", "assistant"} if asks_assistant_history(row["question"]) else {"user"}
-            embedder.embed([turn["content"][start:start + PIECE]
-                            for session in row["haystack_sessions"] for turn in session
+            embedder.embed([piece for session in row["haystack_sessions"] for turn in session
                             if turn["role"] in roles
-                            for start in range(0, len(turn["content"]), PIECE)
-                            if turn["content"][start:start + PIECE].strip()])
+                            for _, piece in turn_pieces(turn["content"],
+                                                        user=turn["role"] == "user")])
             assert DEFAULT_CONTEXT_POLICY == "always"
             # about_assistant is the calling model's judgement in real use; the benchmark's own
             # stand-in for that judgement (an English regex) plays the model here.

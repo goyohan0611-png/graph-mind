@@ -13,6 +13,7 @@ characters), so a warmed memory is a cache hit rather than a near miss.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sqlite3
 import sys
 
@@ -60,10 +61,25 @@ def warm(db_path, *, limit: int = 500, embedder=None) -> int:
 PIECE = 500           # conversation turns are searched by meaning in 500-character pieces
 
 
-def turn_pieces(text: str) -> list[tuple[int, str]]:
-    """(offset, piece) for one turn, exactly as the recall path cuts and searches it."""
-    return [(start, text[start:start + PIECE]) for start in range(0, len(text), PIECE)
-            if text[start:start + PIECE].strip()]
+SENTENCE = re.compile(r"[^.!?\n]{20,}[.!?]*")
+
+
+def turn_pieces(text: str, user: bool = True) -> list[tuple[int, str]]:
+    """(offset, text to embed) for one turn, exactly as the recall path cuts and searches it.
+
+    Every 500-character piece, and for the user's turns every sentence too: a fact said in
+    passing ("help me with my resume? By the way, I just turned 32") was buried in a piece
+    whose vector is about the main topic. A sentence's offset is where the 500 characters shown
+    around it begin."""
+    pieces = [(start, text[start:start + PIECE]) for start in range(0, len(text), PIECE)
+              if text[start:start + PIECE].strip()]
+    if user and len(text) > 1:
+        for match in SENTENCE.finditer(text):
+            sentence = match.group().strip()
+            if sentence and sentence != text.strip():
+                start = max(0, min(match.start() - 150, len(text) - PIECE))
+                pieces.append((start, sentence))
+    return pieces
 
 
 _VERIFIED = set()
@@ -90,13 +106,13 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
         # the user's turns first (every search uses them), then the assistant's (searched when
         # the question is about what it said: left to the server, a fresh server spent minutes
         # embedding all of them on the first such question, and every query waited meanwhile)
-        rows = db.execute("SELECT rowid,content_redacted FROM conversation_turns "
+        rows = db.execute("SELECT rowid,content_redacted,role='user' FROM conversation_turns "
                           "WHERE rowid>? AND role IN ('user','assistant') "
                           "ORDER BY role='user' DESC, happened_at DESC", (after,))
         texts, seen, cached = [], set(), []
-        for revision, content in rows:
+        for revision, content, user in rows:
             high = max(high, revision)
-            for _, piece in turn_pieces(content or ""):
+            for _, piece in turn_pieces(content or "", user=bool(user)):
                 key = piece.strip()[:2000]
                 if key not in seen and embedder._key(key) not in embedder.cache:
                     seen.add(key)

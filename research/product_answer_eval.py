@@ -100,7 +100,13 @@ def spans():
 def around(row):
     """The calling model resolves "four weeks ago" itself in real use; the benchmark's own
     resolver (English, rule-based) plays it here."""
+    import re
     import temporal_resolver
+    # brain_context tells the model to set `around` only for when WE TALKED ("what did I
+    # mention four weeks ago"), not for when something happened
+    if not re.search(r"\b(mention|mentioned|told|tell|talk|talked|discuss|discussed|said|say|"
+                     r"ask|asked|chat|chatted|conversation)\b", row["question"], re.I):
+        return None
     found = temporal_resolver.resolve(row["question"], row["question_date"])
     return f"{found[0]}..{found[1]}" if found else None
 

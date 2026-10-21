@@ -217,6 +217,8 @@ class ConversationMemoryStore:
           ON conversation_turns(scope,happened_at DESC);
         CREATE INDEX IF NOT EXISTS conversation_session_time
           ON conversation_turns(client_session_id,happened_at);
+        CREATE INDEX IF NOT EXISTS conversation_source
+          ON conversation_turns(source_path,source_ordinal);
         CREATE VIRTUAL TABLE IF NOT EXISTS conversation_turns_fts USING fts5(
           content_redacted, content='conversation_turns', content_rowid='revision',
           tokenize='unicode61');
@@ -339,6 +341,19 @@ class ConversationMemoryStore:
         return {"status": "KNOWN" if rows else "UNKNOWN",
                 "reason": "RECENT_TURNS" if rows else "NO_TURNS_IN_RANGE",
                 "scope_completeness": "UNATTESTED", "turns": [self._turn(row) for row in rows]}
+
+    def around(self, source_path, ordinal, *, before=2, after=3):
+        """The turns next to one cited turn, in order: the excerpt in a packet is one piece of
+        one turn, and the answer is often in the rest of it or in the reply that follows."""
+        earlier = self.db.execute(
+            "SELECT * FROM conversation_turns WHERE source_path=? AND source_ordinal<? "
+            "ORDER BY source_ordinal DESC, revision DESC LIMIT ?",
+            (source_path, ordinal, before)).fetchall()
+        later = self.db.execute(
+            "SELECT * FROM conversation_turns WHERE source_path=? AND source_ordinal>=? "
+            "ORDER BY source_ordinal, revision LIMIT ?",
+            (source_path, ordinal, after + 1)).fetchall()
+        return [self._turn(row) for row in [*reversed(earlier), *later]]
 
     @staticmethod
     def _turn(row):

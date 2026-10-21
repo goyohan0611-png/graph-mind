@@ -156,10 +156,101 @@ def answer():
     print(json.dumps({k: v for k, v in summary.items() if k != "by_type"}, indent=1))
 
 
+OPEN_RULE = """
+Each passage is one excerpt of one conversation turn. Never answer UNKNOWN without first calling
+open_conversation on the passage most likely to hold the answer: it returns that turn in full
+with the turns around it (the assistant's reply, the rest of a list, the line before). Also call
+it when a passage you rely on is cut off. Up to 3 calls."""
+OPEN_TOOL = {"type": "function", "name": "open_conversation",
+             "description": "The turns around one evidence passage, in full and in order: two "
+                            "before it, the passage's own turn, and three after.",
+             "parameters": {"type": "object", "additionalProperties": False,
+                            "required": ["passage"],
+                            "properties": {"passage": {"type": "integer",
+                                                       "description": "passage_number"}}},
+             "strict": True}
+
+
+def answer_open():
+    """The reader may open the conversation around a passage, as a model in real use opens it
+    with brain_recall(source=...). Same packets, prompt and judge as `answer`."""
+    import longmemeval_retrieval_executor as pipe
+    import official_judge_v073 as judge
+    key = os.environ["OPENAI_API_KEY"]
+    packets = {json.loads(l)["question_id"]: json.loads(l)
+               for l in (OUT / "spans.jsonl").open(encoding="utf-8")}
+    rows = {r["question_id"]: r for r in questions() if r["question_id"] in packets}
+    public = [{k: r[k] for k in ("question_id", "question_type", "question", "question_date",
+                                 "answer", "answer_session_ids")} for r in rows.values()]
+    (OUT / "questions.json").write_text(json.dumps(public, ensure_ascii=False, indent=1),
+                                        encoding="utf-8")
+    path = OUT / "answers.jsonl"
+    previous = pipe.load_jsonl(path, "question_id")
+
+    def located(row, passages):
+        """(session turns, index) of each passage: the excerpt is a slice of one turn."""
+        sessions = dict(zip(row["haystack_session_ids"], row["haystack_sessions"]))
+        found = []
+        for p in passages:
+            turns = sessions.get(p["session_id"], [])
+            probe = p["text"].strip()[:200]
+            index = next((i for i, t in enumerate(turns) if probe and probe in t["content"]), None)
+            found.append((turns, index))
+        return found
+
+    def send(question):
+        row, passages = rows[question["question_id"]], packets[question["question_id"]]["passages"]
+        where = located(row, passages)
+        numbered = [{**p, "passage_number": i} for i, p in enumerate(passages)]
+        body = pipe.answer_body(question, {}, [], None, None, numbered)
+        body["input"][0]["content"] += OPEN_RULE
+        body["tools"] = [OPEN_TOOL]
+        body["include"] = ["reasoning.encrypted_content"]   # replayed with store=false
+        usage, opened = {"input_tokens": 0, "output_tokens": 0}, []
+        for round_ in range(4):
+            if round_ == 3:
+                body["tool_choice"] = "none"
+            record = pipe.safe_call(key, body, {"question_id": question["question_id"]},
+                                    lambda raw: raw)
+            if record["status"] != "ok":
+                return {**record, "opened": opened}
+            raw = record["result"]
+            for k in usage:
+                usage[k] += (raw.get("usage") or {}).get(k, 0)
+            calls = [item for item in raw.get("output", []) if item.get("type") == "function_call"]
+            if not calls:
+                try:
+                    result = json.loads(pipe.response_text(raw))
+                except ValueError as error:
+                    return {**record, "status": "parse_failure", "error": str(error),
+                            "result": None, "opened": opened, "usage": usage}
+                return {**record, "result": result, "usage": usage, "opened": opened,
+                        "passages_supplied": len(passages)}
+            body["input"] = body["input"] + raw["output"]
+            for call in calls:
+                try:
+                    n = int(json.loads(call["arguments"])["passage"])
+                    turns, index = where[n]
+                except (ValueError, KeyError, IndexError, TypeError):
+                    turns, index = [], None
+                opened.append(n if index is not None else None)
+                shown = [] if index is None else [
+                    {"role": t["role"], "here": i == index, "content": t["content"][:4000]}
+                    for i, t in enumerate(turns) if index - 2 <= i <= index + 3]
+                body["input"].append({"type": "function_call_output", "call_id": call["call_id"],
+                                      "output": json.dumps({"turns": shown}, ensure_ascii=False)})
+        return {**record, "status": "parse_failure", "error": "NO_FINAL_ANSWER", "result": None}
+
+    done = pipe.finished(previous)
+    pipe.run_parallel([q for q in public if q["question_id"] not in done], path, 4, send)
+    judge.SRC, judge.OUT = OUT, OUT / "official-judge.jsonl"
+    judge.run()
+
+
 def main():
     global OUT, TYPE, IDS_FILE, CACHE_FILE, AROUND, WRITABLE, LIMIT, CHARS
     parser = ArgumentParser()
-    parser.add_argument("stage", choices=["spans", "answer"])
+    parser.add_argument("stage", choices=["spans", "answer", "answer-open"])
     parser.add_argument("--out", default=str(OUT))
     parser.add_argument("--type")
     parser.add_argument("--around", action="store_true")
@@ -172,7 +263,7 @@ def main():
     LIMIT, CHARS = args.limit, args.chars
     OUT, TYPE, IDS_FILE, CACHE_FILE = Path(args.out), args.type, Path(args.ids), Path(args.cache)
     AROUND, WRITABLE = args.around, args.writable
-    {"spans": spans, "answer": answer}[args.stage]()
+    {"spans": spans, "answer": answer, "answer-open": answer_open}[args.stage]()
 
 
 if __name__ == "__main__":

@@ -165,6 +165,7 @@ CONTEXT_CHARS = 15000
 # model as the matching 500-character piece rather than the whole turn: long assistant turns used
 # to fill the 6,000-character packet after four or five items.
 PIECE = 500
+SOURCE_TURN_CHARS = 4000     # brain_recall(source=): each neighbouring turn, in full up to this
 INLINE_EMBED_LIMIT = 64
 MEMORY_WAIT = 10.0         # seconds a memory search with no word match waits for the model
 ASSISTANT_TURN_CAP = 3000
@@ -746,8 +747,15 @@ def build_server(db_path=None, terminal=False):
                      limit: ITEMS = 8, recent: bool = False,
                      since: str | None = None,
                      about_assistant: bool = False,
-                     around: str | None = None) -> dict[str, Any]:
+                     around: str | None = None,
+                     source: str | None = None) -> dict[str, Any]:
         """Raw lookup: the matching memories and turns as structured rows, not a ready context.
+
+        `source`: open the conversation around one turn. Pass the part after "Source: <app> / "
+        of a conversation item in brain_context's packet. A packet shows one excerpt of each turn;
+        when it is cut off, or the answer is likely in the rest of that exchange (your reply
+        right after the user's request, a list you gave, the line before), this returns those
+        turns in full, in order (`limit` caps how many follow; two come before).
 
         To answer the user's question from their past, use brain_context instead; it returns one
         bounded text packet ready to read. Use brain_recall to inspect or list: the ids and fields
@@ -762,6 +770,18 @@ def build_server(db_path=None, terminal=False):
 
         `recent`, `since`, `about_assistant` and `around` mean the same as in brain_context.
         """
+        if source:
+            path, _, ordinal = str(source).strip().rpartition(":")
+            if not path or not ordinal.isdigit():
+                return {"status": "REFUSED", "reason": "SOURCE_FORMAT: <path>:<turn number>, as "
+                                                       "after 'Source: <app> / ' in a packet"}
+            with ConversationMemoryStore(database) as store:
+                turns = store.around(path, int(ordinal), before=2, after=min(max(limit, 1), 10))
+            return {"source": source, "turns": [
+                {"turn_id": t["turn_id"], "role": t["role"], "happened_at": t["happened_at"],
+                 "here": t["source_ordinal"] == int(ordinal),
+                 "content": t["content"][:SOURCE_TURN_CHARS], "cut": len(t["content"]) >
+                 SOURCE_TURN_CHARS} for t in turns]}
         if entity or not query:
             import sqlite3
 
@@ -823,6 +843,12 @@ def build_server(db_path=None, terminal=False):
         Do not set it for when something HAPPENED ("the event I went to two weeks ago"): people
         mention events days or weeks before or after, so that date misleads (measured: on dev2
         it pushed the answering turn out in 2 of 11 questions and helped 2).
+
+        Each conversation item is one excerpt of one turn. Never tell the user you don't know
+        without first opening the item most likely to hold the answer:
+        brain_recall(source=<the text after "Source: <app> / ">) returns that turn in full with
+        the turns around it (your reply to that request, the rest of a list, the line before).
+        Open it too when an item you rely on is cut off.
         """
         route = decide_recall(query, policy)
         if recent and route["mode"] == "SKIP":         # the model said it is about recent events

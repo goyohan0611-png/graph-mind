@@ -810,13 +810,45 @@ def _history(db: sqlite3.Connection, done: set) -> list:
     return items
 
 
-def export_file(index: Path, target) -> dict:
+def _in_project(db, items, project) -> list:
+    """The items of one project folder: turns whose working folder is it or inside it, and the
+    memories the capture service drew from those turns."""
+    root = os.path.normcase(os.path.abspath(os.path.expanduser(str(project))))
+    if not os.path.isdir(root):
+        raise ValueError("PROJECT_FOLDER_NOT_FOUND")
+
+    def inside(cwd):
+        if not cwd:
+            return False
+        folder = os.path.normcase(os.path.abspath(cwd))
+        return folder == root or folder.startswith(root.rstrip(os.sep) + os.sep)
+
+    turns = {record["turn_id"] for kind, record in items
+             if kind == "turn" and inside(record.get("cwd"))}
+    drawn = set()
+    if turns and db.execute("SELECT 1 FROM sqlite_master WHERE name='semantic_ingestion_audit'"
+                            ).fetchone():
+        drawn = {memory_id for turn_id, memory_id in db.execute(
+            "SELECT turn_id, memory_id FROM semantic_ingestion_audit WHERE memory_id IS NOT NULL")
+            if turn_id in turns}
+    return [(kind, record) for kind, record in items
+            if (kind == "turn" and record["turn_id"] in turns)
+            or (kind == "memory" and record["memory_id"] in drawn)]
+
+
+def export_file(index: Path, target, project=None) -> dict:
     """The whole memory as one file another PC or person can import: every memory and turn, in
-    the shared log's format. Secrets were masked when saved; everything else is in it."""
+    the shared log's format. Secrets were masked when saved; everything else is in it.
+
+    `project` (a folder): only the conversations held in that folder or below it, and the
+    memories drawn from them. Facts saved on request ("remember that ...") carry no folder and
+    stay behind."""
     db = _cursor_db(index)
     db.row_factory = sqlite3.Row
     try:
         items = _history(db, set())
+        if project is not None:
+            items = _in_project(db, items, project)
     finally:
         db.close()
     target = Path(target).expanduser().resolve()

@@ -86,6 +86,9 @@ that answer the question.
   the other PC (the AI tells you the command; it never moves your memory by itself, so a web page
   cannot either). Office network or [Tailscale](https://tailscale.com), over TLS, every line
   encrypted before it leaves a PC.
+- **Hand a memory to someone else as a file.** `graph-mind export FILE` writes all of it;
+  `--project FOLDER` writes only the conversations held in that folder. They run
+  `graph-mind import FILE`.
 - **Yours.** No account, no cloud of its own, no telemetry. Secrets are masked before anything is
   stored, and *"delete the password I typed earlier"* deletes it everywhere. [docs/privacy.md](docs/privacy.md)
 - **Teams, if you want them.** Share a project's decisions and progress with teammates' AIs, never

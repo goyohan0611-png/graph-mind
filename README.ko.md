@@ -83,6 +83,8 @@ Claude Code: `claude mcp add graph-mind-memory -- python -m graph_mind.mcp_serve
   `graph-mind folder <코드>`. (AI는 명령어를 알려줄 뿐 기억을 스스로 옮기지 않습니다. 그래서 웹페이지가
   AI를 속여도 못 옮깁니다.) 사무실 네트워크나 [Tailscale](https://tailscale.com), TLS, PC를 떠나기
   전에 한 줄씩 암호화.
+- **기억을 파일로 다른 사람에게.** `graph-mind export 파일`은 전부, `--project 폴더`를 붙이면 그 폴더에서
+  나눈 대화만 담습니다. 받는 사람은 `graph-mind import 파일`.
 - **내 것.** 계정 없음, 자체 클라우드 없음, 사용 기록 수집 없음. 비밀번호·API 키 같은 건 저장 전에
   가려지고, *"아까 친 비밀번호 지워줘"* 하면 모든 곳에서 지워집니다. [docs/privacy.md](docs/privacy.md)
 - **원하면 팀으로.** 프로젝트의 결정과 진행 상황을 팀원의 AI와 공유합니다. 개인 기억은 절대

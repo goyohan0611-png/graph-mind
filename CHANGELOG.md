@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.28 — 2026-10-21
+- **Export one project's conversations.** `graph-mind export FILE --project FOLDER` writes only
+  the conversations held in that folder or below it, with the memories drawn from them, for
+  handing one project's history to someone without the rest of your memory. Facts saved on
+  request ("remember that ...") carry no folder and are not included. Asking your AI ("export
+  just this project's conversations") gives you the command.
+
 ## 0.9.27 — 2026-10-21
 - **Conversations take about half the disk space.** A turn of 200 bytes or more is stored
   zlib-compressed; reading the 30 turns of one question unpacks in under a millisecond, and

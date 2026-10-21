@@ -60,6 +60,43 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(answers[4]["command"], f'graph-mind export "{target}"')
         self.assertFalse(target.exists())
 
+    async def test_one_projects_conversations_move_without_the_rest(self):
+        """"이 프로젝트 대화만 넘겨줘": the folder and its subfolders, nothing else."""
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+            root = Path(directory)
+            alpha, beta = root / "alpha", root / "beta"
+            (alpha / "web").mkdir(parents=True)
+            beta.mkdir()
+            old, new, out = root / "old.sqlite", root / "new.sqlite", root / "alpha.jsonl"
+            with ConversationMemoryStore(old) as turns:
+                for i, (cwd, text) in enumerate([(alpha, "alpha: launch is Nov 14"),
+                                                 (alpha / "web", "alpha web: new login page"),
+                                                 (beta, "beta: my salary talk"),
+                                                 (None, "no folder: dentist on Friday")]):
+                    turns.record({"turn_id": f"t{i}", "client": "claude-code",
+                                  "client_session_id": "s", "scope": "global", "role": "user",
+                                  "cwd": str(cwd) if cwd else None, "content_redacted": text,
+                                  "raw_sha256": f"t{i}", "source_path": "p",
+                                  "happened_at": "2026-03-01T09:00:00",
+                                  "known_at": "2026-03-01T09:00:00", "source_ordinal": i})
+            async with Client(build_server(old)) as client:
+                asked = (await client.call_tool("brain_folder", {
+                    "export_to": str(out), "project": str(alpha)})).structured_content
+            self.assertEqual(asked["command"],
+                             f'graph-mind export "{out}" --project "{alpha}"')
+            async with Client(build_server(old, terminal=True)) as client:
+                done = (await client.call_tool("brain_folder", {
+                    "export_to": str(out), "project": str(alpha)})).structured_content
+                missing = (await client.call_tool("brain_folder", {
+                    "export_to": str(out), "project": str(root / "nope")})).structured_content
+            self.assertEqual(done["exported"]["turns"], 2)
+            self.assertEqual(missing["status"], "REFUSED")
+            async with Client(build_server(new, terminal=True)) as client:
+                await client.call_tool("brain_folder", {"import_from": str(out)})
+            with ConversationMemoryStore(new) as turns:
+                moved = sorted(t["content"] for t in turns.latest(limit=10)["turns"])
+        self.assertEqual(moved, ["alpha web: new login page", "alpha: launch is Nov 14"])
+
 
 class MeaningTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_memory_is_found_by_meaning_not_only_by_its_words(self):

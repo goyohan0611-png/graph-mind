@@ -574,9 +574,9 @@ def type_name(error) -> str:
 UNSAFE_ARGUMENT = re.compile(r"[\"'`$;&|<>%^!\r\n\x00]")
 
 
-def folder_commands(path, share_existing, export_to, import_from) -> str:
+def folder_commands(path, share_existing, export_to, import_from, project=None) -> str:
     """The terminal commands that do what brain_folder will not do for a chat."""
-    for value in (path, export_to, import_from):
+    for value in (path, export_to, import_from, project):
         if value and UNSAFE_ARGUMENT.search(value):
             raise ValueError("UNSAFE_PATH_CHARACTERS")
     commands = []
@@ -584,7 +584,8 @@ def folder_commands(path, share_existing, export_to, import_from) -> str:
         commands.append("graph-mind folder" + (f' "{path.strip()}"' if path else "")
                         + (" --share-existing" if share_existing else ""))
     if export_to:
-        commands.append(f'graph-mind export "{export_to}"')
+        commands.append(f'graph-mind export "{export_to}"'
+                        + (f' --project "{project}"' if project else ""))
     if import_from:
         commands.append(f'graph-mind import "{import_from}"')
     return "\n".join(commands)
@@ -889,7 +890,8 @@ def build_server(db_path=None, terminal=False):
     )
     def brain_folder(path: str | None = None, share_existing: bool = False,
                      reindex: bool = False, export_to: str | None = None,
-                     import_from: str | None = None) -> dict[str, Any]:
+                     import_from: str | None = None,
+                     project: str | None = None) -> dict[str, Any]:
         """Where the user's own personal memory lives, and which of their own PCs share it.
 
         Not for teams: project brains shared with teammates are brain_checkpoint.
@@ -929,12 +931,17 @@ def build_server(db_path=None, terminal=False):
         `import_from=<file path>` adds such a file's contents to this memory, skipping what is
         already here. Only when the user asks. Tell them the file holds their entire memory
         (secrets were masked when saved), so keep it private like a diary.
+        With `project=<folder>`, `export_to` writes only the conversations held in that folder
+        (or below it) and the memories drawn from them ("이 프로젝트 대화만 넘겨줘"): every word
+        of those conversations goes in the file, so say so. Facts saved on request carry no
+        folder and are not included.
         """
         if path and path.strip().startswith("gmt1."):        # a team invite, not a brain folder
             return brain_checkpoint(action="join_team", code=path.strip())
         if not terminal and (path or share_existing or export_to or import_from):
             try:
-                command = folder_commands(path, share_existing, export_to, import_from)
+                command = folder_commands(path, share_existing, export_to, import_from,
+                                          project)
             except ValueError as error:
                 return {"status": "REFUSED", "reason": str(error),
                         "note": "The path holds characters a terminal would treat as commands. "
@@ -948,7 +955,10 @@ def build_server(db_path=None, terminal=False):
             from graph_mind.sharing import export_file, import_file
             result = {}
             if export_to:
-                result["exported"] = export_file(database, export_to)
+                try:
+                    result["exported"] = export_file(database, export_to, project=project)
+                except ValueError as error:
+                    return {"status": "REFUSED", "reason": str(error)}
             if import_from:
                 result["imported"] = import_file(import_from, database)
                 index_in_background(database)
@@ -1345,7 +1355,7 @@ def keep_capture_running(every=60.0):
 
 def terminal_command(argv):
     """graph-mind folder [PATH | local | share | CODE] [--share-existing]
-    graph-mind export FILE | graph-mind import FILE
+    graph-mind export FILE [--project FOLDER] | graph-mind import FILE
     graph-mind team invite NAME --role viewer|editor|owner --project P [--project P2]
     graph-mind team host
 
@@ -1360,7 +1370,9 @@ def terminal_command(argv):
     folder.add_argument("path", nargs="?", help="a folder, local, share, or a gm1./gmt1. code")
     folder.add_argument("--share-existing", action="store_true",
                         help="also send what this PC remembers to the shared memory")
-    commands.add_parser("export", help="write the whole memory into a file").add_argument("file")
+    export = commands.add_parser("export", help="write the memory into a file")
+    export.add_argument("file")
+    export.add_argument("--project", help="only the conversations held in this folder")
     commands.add_parser("import", help="add a memory file to this memory").add_argument("file")
     team = commands.add_parser("team", help="give a teammate access, or host projects here")
     team_actions = team.add_subparsers(dest="action", required=True)
@@ -1396,6 +1408,8 @@ def terminal_command(argv):
     call = ({"path": args.path, "share_existing": args.share_existing}
             if args.command == "folder" else
             {"export_to" if args.command == "export" else "import_from": args.file})
+    if args.command == "export" and args.project:
+        call["project"] = args.project
     result = asyncio.run(build_server(terminal=True).call_tool("brain_folder", call))
     print(json.dumps(result.structured_content, ensure_ascii=False, indent=2))
     if args.command == "import":

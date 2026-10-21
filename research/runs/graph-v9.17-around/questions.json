@@ -1,0 +1,69 @@
+[
+ {
+  "question_id": "gpt4_e061b84g",
+  "question_type": "temporal-reasoning",
+  "question": "I mentioned participating in a sports event two weeks ago. What was the event?",
+  "question_date": "2023/07/01 (Sat) 13:38",
+  "answer": "The company's annual charity soccer tournament.",
+  "answer_session_ids": [
+   "answer_8c64ce26_2",
+   "answer_8c64ce26_1",
+   "answer_8c64ce26_3"
+  ]
+ },
+ {
+  "question_id": "gpt4_59149c78",
+  "question_type": "temporal-reasoning",
+  "question": "I mentioned that I participated in an art-related event two weeks ago. Where was that event held at?",
+  "question_date": "2023/02/01 (Wed) 08:41",
+  "answer": "The Metropolitan Museum of Art.",
+  "answer_session_ids": [
+   "answer_d00ba6d1_1",
+   "answer_d00ba6d1_2"
+  ]
+ },
+ {
+  "question_id": "eac54add",
+  "question_type": "temporal-reasoning",
+  "question": "What was the significant buisiness milestone I mentioned four weeks ago?",
+  "question_date": "2023/03/28 (Tue) 20:35",
+  "answer": "I signed a contract with my first client.",
+  "answer_session_ids": [
+   "answer_0d4d0348_1",
+   "answer_0d4d0348_2"
+  ]
+ },
+ {
+  "question_id": "0bc8ad93",
+  "question_type": "temporal-reasoning",
+  "question": "I mentioned visiting a museum two months ago. Did I visit with a friend or not?",
+  "question_date": "2023/03/11 (Sat) 05:28",
+  "answer": "No, you did not visit with a friend.",
+  "answer_session_ids": [
+   "answer_f4ea84fc_3",
+   "answer_f4ea84fc_2",
+   "answer_f4ea84fc_1"
+  ]
+ },
+ {
+  "question_id": "6e984302",
+  "question_type": "temporal-reasoning",
+  "question": "I mentioned an investment for a competition four weeks ago? What did I buy?",
+  "question_date": "2023/04/01 (Sat) 08:30",
+  "answer": "I got my own set of sculpting tools.",
+  "answer_session_ids": [
+   "answer_88841f27_1",
+   "answer_88841f27_2"
+  ]
+ },
+ {
+  "question_id": "7161e7e2",
+  "question_type": "single-session-assistant",
+  "question": "I'm checking our previous chat about the shift rotation sheet for GM social media agents. Can you remind me what was the rotation for Admon on a Sunday?",
+  "question_date": "2023/05/30 (Tue) 20:16",
+  "answer": "Admon was assigned to the 8 am - 4 pm (Day Shift) on Sundays.",
+  "answer_session_ids": [
+   "answer_sharegpt_5Lzox6N_0"
+  ]
+ }
+]

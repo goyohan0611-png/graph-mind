@@ -1,0 +1,6 @@
+{"question_id": "gpt4_e061b84g", "type": "temporal-reasoning", "label": true, "judge_raw": "Yes"}
+{"question_id": "gpt4_59149c78", "type": "temporal-reasoning", "label": false, "judge_raw": "No"}
+{"question_id": "eac54add", "type": "temporal-reasoning", "label": false, "judge_raw": "No"}
+{"question_id": "0bc8ad93", "type": "temporal-reasoning", "label": true, "judge_raw": "Yes."}
+{"question_id": "6e984302", "type": "temporal-reasoning", "label": false, "judge_raw": "No"}
+{"question_id": "7161e7e2", "type": "single-session-assistant", "label": true, "judge_raw": "Yes."}

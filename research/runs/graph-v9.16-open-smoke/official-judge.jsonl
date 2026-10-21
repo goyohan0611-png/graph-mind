@@ -1,0 +1,12 @@
+{"question_id": "1903aded", "type": "single-session-assistant", "label": true, "judge_raw": "Yes."}
+{"question_id": "352ab8bd", "type": "single-session-assistant", "label": true, "judge_raw": "Yes"}
+{"question_id": "gpt4_a56e767c", "type": "multi-session", "label": false, "judge_raw": "No."}
+{"question_id": "2ce6a0f2", "type": "multi-session", "label": false, "judge_raw": "No."}
+{"question_id": "92a0aa75", "type": "multi-session", "label": false, "judge_raw": "No"}
+{"question_id": "ba358f49", "type": "multi-session", "label": false, "judge_raw": "No"}
+{"question_id": "bc149d6b", "type": "multi-session", "label": false, "judge_raw": "No"}
+{"question_id": "b46e15ed", "type": "temporal-reasoning", "label": false, "judge_raw": "No"}
+{"question_id": "gpt4_d6585ce9", "type": "temporal-reasoning", "label": false, "judge_raw": "No"}
+{"question_id": "6e984302", "type": "temporal-reasoning", "label": true, "judge_raw": "Yes."}
+{"question_id": "gpt4_2f56ae70", "type": "temporal-reasoning", "label": false, "judge_raw": "No"}
+{"question_id": "561fabcd", "type": "single-session-assistant", "label": true, "judge_raw": "Yes."}

@@ -1,0 +1,140 @@
+[
+ {
+  "question_id": "1903aded",
+  "question_type": "single-session-assistant",
+  "question": "I think we discussed work from home jobs for seniors earlier. Can you remind me what was the 7th job in the list you provided?",
+  "question_date": "2023/05/30 (Tue) 20:57",
+  "answer": "Transcriptionist.",
+  "answer_session_ids": [
+   "answer_sharegpt_hA7AkP3_0"
+  ]
+ },
+ {
+  "question_id": "352ab8bd",
+  "question_type": "single-session-assistant",
+  "question": "Can you remind me what was the average improvement in framerate when using the Hardware-Aware Modular Training (HAMT) agent in the 'To Adapt or Not to Adapt? Real-Time Adaptation for Semantic Segmentation' submission?",
+  "question_date": "2023/05/30 (Tue) 23:31",
+  "answer": "The average improvement in framerate was approximately 20% when using the Hardware-Aware Modular Training (HAMT) agent.",
+  "answer_session_ids": [
+   "answer_sharegpt_NoDZzot_7"
+  ]
+ },
+ {
+  "question_id": "gpt4_a56e767c",
+  "question_type": "multi-session",
+  "question": "How many movie festivals that I attended?",
+  "question_date": "2023/05/30 (Tue) 20:53",
+  "answer": "I attended four movie festivals.",
+  "answer_session_ids": [
+   "answer_cf9e3940_2",
+   "answer_cf9e3940_1",
+   "answer_cf9e3940_3"
+  ]
+ },
+ {
+  "question_id": "2ce6a0f2",
+  "question_type": "multi-session",
+  "question": "How many different art-related events did I attend in the past month?",
+  "question_date": "2023/03/08 (Wed) 23:27",
+  "answer": 4,
+  "answer_session_ids": [
+   "answer_901a6763_2",
+   "answer_901a6763_4",
+   "answer_901a6763_1",
+   "answer_901a6763_3"
+  ]
+ },
+ {
+  "question_id": "92a0aa75",
+  "question_type": "multi-session",
+  "question": "How long have I been working in my current role?",
+  "question_date": "2023/05/30 (Tue) 21:25",
+  "answer": "1 year and 5 months",
+  "answer_session_ids": [
+   "answer_6cb8f792_1",
+   "answer_6cb8f792_2"
+  ]
+ },
+ {
+  "question_id": "ba358f49",
+  "question_type": "multi-session",
+  "question": "How many years will I be when my friend Rachel gets married?",
+  "question_date": "2022/09/01 (Thu) 23:52",
+  "answer": "33",
+  "answer_session_ids": [
+   "answer_cbd08e3c_1",
+   "answer_cbd08e3c_2"
+  ]
+ },
+ {
+  "question_id": "bc149d6b",
+  "question_type": "multi-session",
+  "question": "What is the total weight of the new feed I purchased in the past two months?",
+  "question_date": "2023/05/30 (Tue) 22:02",
+  "answer": "70 pounds",
+  "answer_session_ids": [
+   "answer_92147866_1",
+   "answer_92147866_2"
+  ]
+ },
+ {
+  "question_id": "b46e15ed",
+  "question_type": "temporal-reasoning",
+  "question": "How many months have passed since I participated in two charity events in a row, on consecutive days?",
+  "question_date": "2023/04/18 (Tue) 03:31",
+  "answer": 2,
+  "answer_session_ids": [
+   "answer_4bfcc250_4",
+   "answer_4bfcc250_3",
+   "answer_4bfcc250_2",
+   "answer_4bfcc250_1"
+  ]
+ },
+ {
+  "question_id": "gpt4_d6585ce9",
+  "question_type": "temporal-reasoning",
+  "question": "Who did I go with to the music event last Saturday?",
+  "question_date": "2023/04/22 (Sat) 08:01",
+  "answer": "my parents",
+  "answer_session_ids": [
+   "answer_f999b05c_1",
+   "answer_f999b05c_4",
+   "answer_f999b05c_2",
+   "answer_f999b05c_5",
+   "answer_f999b05c_3"
+  ]
+ },
+ {
+  "question_id": "6e984302",
+  "question_type": "temporal-reasoning",
+  "question": "I mentioned an investment for a competition four weeks ago? What did I buy?",
+  "question_date": "2023/04/01 (Sat) 08:30",
+  "answer": "I got my own set of sculpting tools.",
+  "answer_session_ids": [
+   "answer_88841f27_1",
+   "answer_88841f27_2"
+  ]
+ },
+ {
+  "question_id": "gpt4_2f56ae70",
+  "question_type": "temporal-reasoning",
+  "question": "Which streaming service did I start using most recently?",
+  "question_date": "2023/05/26 (Fri) 00:18",
+  "answer": "Disney+",
+  "answer_session_ids": [
+   "answer_7a36e820_2",
+   "answer_7a36e820_3",
+   "answer_7a36e820_1"
+  ]
+ },
+ {
+  "question_id": "561fabcd",
+  "question_type": "single-session-assistant",
+  "question": "I was thinking back to our previous conversation about the Radiation Amplified zombie, and I was wondering if you remembered what we finally decided to name it?",
+  "question_date": "2023/05/30 (Tue) 20:36",
+  "answer": "Fissionator.",
+  "answer_session_ids": [
+   "answer_sharegpt_hChsWOp_97"
+  ]
+ }
+]

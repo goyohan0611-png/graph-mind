@@ -1,0 +1,50 @@
+{
+ "product_path": "100/120",
+ "benchmark_path": "103/120",
+ "only_product_right": 15,
+ "only_benchmark_right": 18,
+ "exact_mcnemar_p": 0.728,
+ "packet_tokens_median": 3379,
+ "by_type": {
+  "ALL": {
+   "correct": 406,
+   "n": 497,
+   "acc": 0.8169
+  },
+  "abstention": {
+   "correct": 27,
+   "n": 30,
+   "acc": 0.9
+  },
+  "knowledge-update": {
+   "correct": 66,
+   "n": 72,
+   "acc": 0.9167
+  },
+  "multi-session": {
+   "correct": 94,
+   "n": 120,
+   "acc": 0.7833
+  },
+  "single-session-assistant": {
+   "correct": 54,
+   "n": 56,
+   "acc": 0.9643
+  },
+  "single-session-preference": {
+   "correct": 23,
+   "n": 30,
+   "acc": 0.7667
+  },
+  "single-session-user": {
+   "correct": 63,
+   "n": 64,
+   "acc": 0.9844
+  },
+  "temporal-reasoning": {
+   "correct": 79,
+   "n": 125,
+   "acc": 0.632
+  }
+ }
+}

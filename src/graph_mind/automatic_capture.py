@@ -262,6 +262,8 @@ class AutomaticCaptureService:
                         if not capture.manifest_path.exists():
                             outcome = capture.initialize_baseline()
                         else:
+                            if not getattr(self, "_deletions_checked", False):
+                                capture.drop_false_deletions()     # once per service start
                             outcome = capture.scan(
                                 reason="Automatically observed workspace change; intent pending",
                                 related_tests=[])
@@ -270,6 +272,7 @@ class AutomaticCaptureService:
                         errors.append({"source": "code",
                             "project_id": entry.get("project_id"),
                             "error": type(error).__name__, "detail": str(error)})
+            self._deletions_checked = True
         else:
             coding.append({"status": "SKIPPED_NOT_DUE"})
         seconds["code"], clock = round(time.perf_counter() - clock, 3), time.perf_counter()

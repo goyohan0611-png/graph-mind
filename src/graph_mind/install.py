@@ -292,15 +292,41 @@ def opencode(home: Path) -> str:
     return "OpenCode"
 
 
+_KEY_PART = re.compile(r"""\s*(?:([A-Za-z0-9_-]+)|"((?:[^"\\]|\\.)*)"|'([^']*)')\s*(\.|\])""")
+
+
+def _table_key(line: str):
+    """A TOML [table] header's key, as a tuple of its parts; None for anything else. Parts may
+    be bare, "basic" (with escapes) or 'literal'; stripping quotes instead read
+    [mcp_servers."graph-mind-memory.env"] as our env table and deleted someone else's."""
+    text = line.strip()
+    if not text.startswith("[") or text.startswith("[["):
+        return None
+    parts, at = [], 1
+    while match := _KEY_PART.match(text, at):
+        bare, basic, literal, end = match.groups()
+        if basic is not None:
+            try:
+                basic = json.loads('"' + re.sub(r"\\U([0-9A-Fa-f]{8})",
+                                                lambda m: chr(int(m[1], 16)), basic) + '"')
+            except ValueError:
+                return None
+        parts.append(bare if bare is not None else basic if basic is not None else literal)
+        at = match.end()
+        if end == "]":
+            return tuple(parts)
+    return None
+
+
 def _without_codex_block(text: str) -> str:
     """The Codex config without Graph-MIND's server table (and its env table); the rest kept.
     The table may be written [mcp_servers."graph-mind-memory"] too (TOML allows quoted keys):
     left in place, the table added after it made the file invalid (duplicate table)."""
-    ours = (f"[mcp_servers.{NAME}]", f"[mcp_servers.{NAME}.env]")
+    ours = (("mcp_servers", NAME), ("mcp_servers", NAME, "env"))
     kept, skipping, dropped = [], False, False
     for line in text.splitlines():
         if line.strip().startswith("["):
-            skipping = re.sub(r"""[\s"']""", "", line.split("#", 1)[0]) in ours
+            skipping = _table_key(line) in ours
         if skipping:
             dropped = True
         else:

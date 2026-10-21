@@ -88,6 +88,15 @@ class InstallTests(unittest.TestCase):
                 install.uninstall(["--purge", "--yes"])
                 self.assertFalse((home / ".graph-mind").exists())
 
+    def test_only_our_codex_tables_are_dropped_however_they_are_written(self):
+        text = ('x = 1\n[mcp_servers."graph\\u002dmind-memory"]\nc = 1\n'
+                "[ mcp_servers . 'graph-mind-memory' . env ] # ours\nA = 1\n"
+                '[mcp_servers."graph-mind-memory.env"]\nB = 1\n'
+                '[mcp_servers."graph- mind-memory"]\nC = 1\n')
+        self.assertEqual(install._without_codex_block(text),
+                         'x = 1\n[mcp_servers."graph-mind-memory.env"]\nB = 1\n'
+                         '[mcp_servers."graph- mind-memory"]\nC = 1\n')
+
     def test_every_installed_mcp_client_is_connected_and_disconnected(self):
         """Cursor, Windsurf, Gemini CLI, LM Studio, VS Code and Cline: each gets the server in
         its own format when its folder exists, keeps its other settings, and loses only our

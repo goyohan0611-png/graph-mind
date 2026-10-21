@@ -131,6 +131,15 @@ CREATE TABLE IF NOT EXISTS hub_template(id INTEGER PRIMARY KEY, ddl TEXT NOT NUL
 # pg_temp is searched last: by default it comes first, and a caller's temporary table named
 # hub_template ran its DDL as superuser (ALTER ROLE ... SUPERUSER).
 HUB_FUNCTIONS = """
+CREATE OR REPLACE FUNCTION hub_join(g text, r text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
+BEGIN
+  -- without SET (Postgres 16+): the member uses the group's rights but cannot SET ROLE to it,
+  -- so taking the group away ends those rights in every session at commit. Ending sessions
+  -- instead raced: a reconnect before the commit could SET ROLE and keep the group.
+  EXECUTE format('GRANT %I TO %I', g, r) || CASE
+    WHEN current_setting('server_version_num')::int >= 160000 THEN ' WITH SET FALSE' ELSE '' END;
+END $f$;
 CREATE OR REPLACE FUNCTION hub_schema(p text) RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
   SELECT schema FROM hub_projects WHERE name = p
@@ -169,7 +178,7 @@ BEGIN
   EXECUTE format('INSERT INTO %I.ledger_projects(name, created_by, created_at) VALUES (%L, %L, %L)',
                  s, p, who, at);
   INSERT INTO hub_projects VALUES (p, s, who, at, k);
-  EXECUTE format('GRANT %I TO %I', s || '_o', r);
+  PERFORM hub_join(s || '_o', r);
   INSERT INTO ledger_access VALUES (r, p, 'owner',
     COALESCE((SELECT member FROM ledger_accounts WHERE member_role = r), who));
   RETURN true;
@@ -192,18 +201,21 @@ BEGIN
   EXECUTE format('REVOKE %I, %I, %I FROM %I', s || '_r', s || '_w', s || '_o', r);
   DELETE FROM ledger_access WHERE member_role = r AND project = p;
   IF level IS NOT NULL THEN
-    EXECUTE format('GRANT %I TO %I', s || CASE level WHEN 'owner' THEN '_o'
-                   WHEN 'editor' THEN '_w' ELSE '_r' END, r);
+    PERFORM hub_join(s || CASE level WHEN 'owner' THEN '_o' WHEN 'editor' THEN '_w' ELSE '_r' END,
+                     r);
     INSERT INTO ledger_access VALUES (r, p, level, m);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM ledger_access WHERE project = p AND role = 'owner') THEN
     RAISE EXCEPTION 'LAST_OWNER';
   END IF;
-  -- a session that did SET ROLE to the group it just lost keeps that group: end it
-  IF was IS NOT NULL AND (level IS NULL OR array_position(ARRAY['viewer','editor','owner'], level)
-                          < array_position(ARRAY['viewer','editor','owner'], was)) THEN
+  -- before Postgres 16 a session could SET ROLE to the group and keep it after losing it: end
+  -- that member's sessions on this hub (16+: hub_join grants without SET, nothing to end).
+  -- Not the host: an owner granting and revoking the host must not cut the host's sessions.
+  IF current_setting('server_version_num')::int < 160000 AND r <> 'graphmind'
+     AND was IS NOT NULL AND (level IS NULL OR array_position(ARRAY['viewer','editor','owner'],
+                              level) < array_position(ARRAY['viewer','editor','owner'], was)) THEN
     PERFORM pg_terminate_backend(pid) FROM pg_stat_activity
-      WHERE usename = r AND pid <> pg_backend_pid();
+      WHERE usename = r AND datname = current_database() AND pid <> pg_backend_pid();
   END IF;
   RETURN m;
 END $f$;
@@ -253,7 +265,7 @@ HUB_FUNCTION_NAMES = ("hub_schema(text)", "hub_in_group(text, text)", "hub_can(t
                       "hub_project_key(text)", "hub_create_project(text, text, text, text)",
                       "hub_grant(text, text, text)", "hub_revoke(text, text)",
                       "hub_role_of(text)", "hub_rename(text)")
-HUB_ONLY = ("hub_create_project_for(text, text, text, text, text)",
+HUB_ONLY = ("hub_join(text, text)", "hub_create_project_for(text, text, text, text, text)",
             "hub_set_member(text, text, text)")
 DIRECTORY_POLICIES = """
 ALTER TABLE hub_projects ENABLE ROW LEVEL SECURITY;
@@ -900,6 +912,10 @@ def _prepare(owner_url) -> None:
                                  "%s::text)", (RETRACT_POLICY, schema, schema + "_r",
                                                schema + "_w", schema + "_o")).fetchone()[0]
             hub.execute(policy)
+        # members added before hub_join could still SET ROLE to their group: grant again
+        hub.execute("SELECT hub_join(p.schema || CASE a.role WHEN 'owner' THEN '_o' WHEN "
+                    "'editor' THEN '_w' ELSE '_r' END, a.member_role) FROM ledger_access a "
+                    "JOIN hub_projects p ON p.name = a.project")
     _migrate_shared_tables()
     # a hub already open to the network (shared before, or teammates in it): the person's other
     # PCs and the teammates reach the hub database, and nobody but the owner the memory one

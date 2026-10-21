@@ -90,6 +90,12 @@ class TeamHubTests(unittest.TestCase):
         with self.assertRaises(psycopg.Error):
             minji.db.execute("CREATE TEMP TABLE hub_template(id int, ddl text)")
         minji.db.close()
+        # no SET ROLE to a project's group: kept past a removal, it kept the group's rights
+        import hashlib
+        minji = pl._team_ledger(minji_code)
+        with self.assertRaises(psycopg.Error):
+            minji.db.execute(f"SET ROLE p_{hashlib.md5(b'alpha').hexdigest()[:12]}_o")
+        minji.db.close()
         minji = pl._team_ledger(minji_code)
         self.assertTrue(minji.create_project("beta", "minji")["created"])
         minji.db.close()

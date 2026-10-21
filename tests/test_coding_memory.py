@@ -116,6 +116,31 @@ class CodingMemoryTests(unittest.TestCase):
                 self.assertEqual(capture.scan(reason="r")["changes"][0]["change_kind"],
                                  "DELETED")
 
+    def test_false_deletions_of_files_still_there_are_dropped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            for name in ("junk.py", "gone.py", "back.py"):
+                (workspace / name).write_text(f"# {name}\n")
+            with CodingMemoryStore(root / "brain.sqlite") as store:
+                capture = CodingMemoryCapture(workspace, store, project_id="project:demo",
+                                              session_id="session:1", state_dir=root / "state",
+                                              now=lambda: T1)
+                capture.initialize_baseline()
+                for name in ("junk.py", "gone.py", "back.py"):
+                    (workspace / name).unlink()
+                capture.scan(reason="r")                              # three DELETED
+                (workspace / "back.py").write_text("# again\n")
+                capture.scan(reason="r")                              # back.py ADDED again
+                (workspace / "junk.py").write_text("# junk.py\n")     # there, never re-seen
+                self.assertEqual(capture.drop_false_deletions(), 1)
+                kinds = sorted((row["file_path"], row["change_kind"]) for row in store.db.execute(
+                    "SELECT file_path,change_kind FROM coding_changes"))
+                self.assertEqual(kinds, [("back.py", "ADDED"), ("back.py", "DELETED"),
+                                         ("gone.py", "DELETED")])
+                self.assertEqual(len(list((root / "state" / "diffs").iterdir())), 3)
+
     def test_secrets_in_changed_files_are_not_stored(self):
         """A config file's password went into the stored copy and its diff as typed."""
         with tempfile.TemporaryDirectory() as directory:

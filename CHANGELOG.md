@@ -3,6 +3,17 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.36 — 2026-10-22
+- **Wrong "deleted" code records from 0.9.31 are cleaned up.** Files of a newly skipped
+  virtual environment were recorded as deleted while still on disk (7,394 on one PC). At
+  start, the service drops each such record whose file is still there, with its diff.
+- **A removed teammate cannot keep a project's rights through SET ROLE** (Codex round 9
+  re-check). Members now get project rights without SET ROLE (Postgres 16), so removing them
+  ends the rights in every session at once. Ending their sessions instead had a gap a
+  reconnect could use, and an owner could cut the host's own memory sessions with it.
+- **The installer recognises Graph-MIND's Codex table however its key is written**
+  (`"graph-mind-memory"`), and leaves other people's tables with similar names alone.
+
 ## 0.9.35 — 2026-10-21
 - **Sharing your existing memories works after moving to a new folder or hub.** What had
   been sent before was remembered without where it went, so choosing a new, empty folder and

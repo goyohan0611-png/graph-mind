@@ -416,6 +416,28 @@ class CodingMemoryCapture:
             raise ValueError("CODING_MANIFEST_SCOPE_OR_VERSION_MISMATCH")
         return value
 
+    def drop_false_deletions(self):
+        """0.9.31 recorded every file of a newly skipped virtual environment as deleted (7,394
+        on one PC). Drops each DELETED record whose file is still there and has had no record
+        since (a file deleted and then made again has an ADDED after it)."""
+        db = self.store.db
+        rows = db.execute("""SELECT c.change_id,c.file_path,c.diff_ref FROM coding_changes c
+          WHERE c.workspace=? AND c.project_id=? AND c.change_kind='DELETED'
+          AND NOT EXISTS(SELECT 1 FROM coding_changes l WHERE l.workspace=c.workspace
+                         AND l.file_path=c.file_path AND l.revision>c.revision)""",
+                          (str(self.workspace), self.project_id)).fetchall()
+        false = [row for row in rows if (self.workspace / row["file_path"]).is_file()]
+        with db:
+            for row in false:
+                db.execute("DELETE FROM coding_change_symbols WHERE change_id=?",
+                           (row["change_id"],))
+                db.execute("DELETE FROM coding_changes WHERE change_id=?", (row["change_id"],))
+        for row in false:
+            diff = Path(row["diff_ref"])
+            if diff.parent == self.diff_dir:              # only our own patch files
+                diff.unlink(missing_ok=True)
+        return len(false)
+
     def scan(self, *, reason, related_tests=None):
         reason = _text(reason, "CODE_CHANGE_REASON_REQUIRED")
         related_tests = _string_list(related_tests, "RELATED_TESTS_LIST_REQUIRED")

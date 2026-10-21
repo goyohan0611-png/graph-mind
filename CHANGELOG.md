@@ -3,6 +3,11 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.34 — 2026-10-21
+- **Moving to another hub no longer skips its first memories.** The read position was kept
+  for "the hub", not for each hub: after reading hub A up to its 100th line, joining hub B
+  skipped B's first 100. Each hub now carries an id and the position is kept per hub.
+
 ## 0.9.33 — 2026-10-21
 Fixes from Codex review round 10 (sharing across your PCs, the shared model).
 - **A crash in the middle of writing a shared log line no longer costs the next record.** The

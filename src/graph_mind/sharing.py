@@ -972,6 +972,12 @@ def _pg(url):
     connection = psycopg.connect(url, autocommit=False, connect_timeout=5)
     connection.execute("""CREATE TABLE IF NOT EXISTS sharing(
         seq BIGSERIAL PRIMARY KEY, device TEXT NOT NULL, line TEXT NOT NULL)""")
+    # which hub this is, for the read cursor (one row; the first PC to look draws it)
+    connection.execute("""CREATE TABLE IF NOT EXISTS sharing_hub(
+        one BOOLEAN PRIMARY KEY DEFAULT true CHECK (one), id TEXT NOT NULL)""")
+    import uuid
+    connection.execute("INSERT INTO sharing_hub(id) VALUES (%s) ON CONFLICT DO NOTHING",
+                       (uuid.uuid4().hex,))
     connection.commit()
     return connection
 
@@ -1052,9 +1058,16 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple]]:
     to save once they are imported (saved before, a crash in between skipped them for good)."""
     cursors = []
     if is_database(shared):
-        source = "postgres"
+        # the cursor names the hub: as plain "postgres", joining hub B after reading hub A up to
+        # row 100 skipped B's first 100 rows. A cursor from before is taken as this hub's.
+        source = "postgres:" + _read_rows(shared, "SELECT id FROM sharing_hub", ())[0][0]
         row = db.execute("SELECT offset FROM brain_log_cursor WHERE source=?",
                          (source,)).fetchone()
+        if row is None:
+            row = db.execute("SELECT offset FROM brain_log_cursor WHERE source='postgres'"
+                             ).fetchone()
+            if row is not None:
+                db.execute("DELETE FROM brain_log_cursor WHERE source='postgres'")
         rows = _read_rows(shared, "SELECT seq, line FROM sharing WHERE seq > %s ORDER BY seq",
                           (row[0] if row else 0,))
         if rows:

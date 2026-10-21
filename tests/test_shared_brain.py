@@ -254,6 +254,35 @@ class SyncCursorTests(unittest.TestCase):
                 db.close()
 
 
+class HubCursorTests(unittest.TestCase):
+    def test_a_new_hub_is_read_from_its_first_row(self):
+        """The cursor was plain "postgres": after reading hub A to row 3, hub B's rows 1-3
+        were skipped."""
+        import psycopg
+        from graph_mind import sharing
+        from graph_mind.conversation_memory import ConversationMemoryStore
+
+        def turn(i):
+            return {"turn_id": f"t{i}", "client": "codex", "client_session_id": "s",
+                    "scope": "global", "role": "user", "content_redacted": f"note {i}",
+                    "raw_sha256": f"t{i}", "source_path": "p", "source_ordinal": i,
+                    "happened_at": "2026-10-01T09:00:00", "known_at": "2026-10-01T09:00:00",
+                    "redaction_count": 0, "cwd": None}
+        with plain_directory() as directory, scratch_postgres(Path(directory), 54397) as url, \
+                unittest.mock.patch.dict(os.environ, {"GRAPH_MIND_DEVICE": "desk"}):
+            index = Path(directory) / "index.sqlite"
+            sharing.append_many(url, [("turn", turn(i)) for i in (1, 2, 3)])   # hub A
+            sharing.sync(url, index)
+            with psycopg.connect(url, autocommit=True) as admin:              # now hub B
+                admin.execute("DROP TABLE sharing, sharing_hub")
+            sharing._READERS.clear()
+            sharing.append_many(url, [("turn", turn(i)) for i in (4, 5)])
+            sharing.sync(url, index)
+            with ConversationMemoryStore(index) as store:
+                got = sorted(t["turn_id"] for t in store.latest(limit=10)["turns"])
+        self.assertEqual(got, ["t1", "t2", "t3", "t4", "t5"])
+
+
 class DamagedLogTests(unittest.TestCase):
     def test_a_torn_line_or_a_malformed_record_loses_nothing_else(self):
         """Codex round 10: a crash mid-write glued the next record to half a line; one record

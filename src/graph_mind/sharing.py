@@ -594,10 +594,15 @@ def _decode(code: str) -> dict:
     body = code.strip()[len(CODE_PREFIX):]
     try:
         value = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
-        return {"h": [str(h) for h in value["h"]], "p": int(value["p"]), "k": str(value["k"]),
-                "c": value.get("c")}
+        decoded = {"h": [str(h) for h in value["h"]], "p": int(value["p"]),
+                   "k": str(value["k"]), "c": value.get("c")}
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError("INVALID_CONNECTION_CODE") from error
+    if (not isinstance(decoded["c"], (str, type(None)))
+            or not all(re.fullmatch(r"[A-Za-z0-9.\-]{1,253}", h) for h in decoded["h"])
+            or not 0 < decoded["p"] < 65536):
+        raise ValueError("INVALID_CONNECTION_CODE")
+    return decoded
 
 
 def _joined(code: str) -> str:
@@ -703,8 +708,17 @@ def append_many(shared: Path, items) -> int:
         return _pg_append_or_queue(shared, lines)
     log = Path(shared).expanduser() / "log" / f"{log_name()}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
+    torn = False
+    try:
+        with log.open("rb") as tail:
+            tail.seek(-1, os.SEEK_END)
+            torn = tail.read(1) != b"\n"
+    except OSError:                                  # new or empty file
+        pass
     with log.open("a", encoding="utf-8") as stream:
-        stream.write("\n".join(lines) + "\n")
+        # a crash mid-write left half a line: without this newline the next record was glued
+        # to it, and the reader skipped both as one corrupt line
+        stream.write(("\n" if torn else "") + "\n".join(lines) + "\n")
         stream.flush()
         os.fsync(stream.fileno())
     return len(lines)
@@ -1004,6 +1018,8 @@ def _pg_append_or_queue(url, lines) -> int:
         except Exception:
             with outbox.open("a", encoding="utf-8") as stream:
                 stream.write("\n".join(lines) + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
             return len(lines)                     # queued, not lost
         if waiting:
             outbox.unlink()
@@ -1083,7 +1099,11 @@ def sync(shared: Path, index: Path) -> dict:
                 item = json.loads(line)
             except ValueError:
                 continue                                  # a corrupt line is skipped, not fatal
-            if isinstance(item, dict):
+            # the shape is checked here: a "written_at": 1 or a forget without its record
+            # raised below on every sync, and no cursor ever moved again
+            if (isinstance(item, dict) and item.get("kind") in KINDS
+                    and isinstance(item.get("record"), dict)
+                    and isinstance(item.get("written_at", ""), str)):
                 items.append((item, line))
         items.sort(key=lambda pair: pair[0].get("written_at", ""))
         forgets = [item["record"] for item, _ in items if item.get("kind") == "forget"]

@@ -236,7 +236,9 @@ class LocalEmbedder:
         # The int8 model's vector for a text moves a little with the rest of its batch (dynamic
         # quantization: cosine 0.99-0.998), so "0.99, at most one below" wiped the whole cache at
         # every service start and re-embedded ~11k pieces for an hour. Corrupt caches sit near 0.
-        if int((cosines < 0.9).sum()) <= len(picked) // 2:
+        # "not >= 0.9", not "< 0.9": NaN compares false both ways, and a cache of NaN
+        # vectors passed as healthy
+        if int((~(cosines >= 0.9)).sum()) <= len(picked) // 2:
             return False
         self.cache.clear()
         return True
@@ -336,9 +338,12 @@ def serve(embedder) -> None:
 
     Local only: 127.0.0.1, and a client must prove it read the key in the user's own
     ~/.graph-mind/embedder.json. Texts come in, vectors go out; nothing is stored here."""
-    from multiprocessing.connection import Listener
+    from multiprocessing.connection import Listener, answer_challenge, deliver_challenge
     key = os.urandom(32)
-    listener = Listener(("127.0.0.1", 0), authkey=key)
+    # no authkey here: the Listener checks it inside accept(), in the one accepting thread, so a
+    # local client that connected and stayed silent kept every memory server out. Each
+    # connection is checked in its own thread instead.
+    listener = Listener(("127.0.0.1", 0))
     path = service_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
@@ -353,6 +358,11 @@ def serve(embedder) -> None:
 
     def answer(conn):
         with conn:
+            try:
+                deliver_challenge(conn, key)
+                answer_challenge(conn, key)
+            except Exception:             # the wrong key, or one that hung up
+                return
             while True:
                 try:
                     texts = conn.recv()
@@ -366,7 +376,7 @@ def serve(embedder) -> None:
         while True:
             try:
                 conn = listener.accept()
-            except Exception:             # a client with the wrong key, or one that hung up
+            except Exception:             # one that hung up at once
                 continue
             threading.Thread(target=answer, args=(conn,), daemon=True).start()
 

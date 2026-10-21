@@ -254,6 +254,49 @@ class SyncCursorTests(unittest.TestCase):
                 db.close()
 
 
+class DamagedLogTests(unittest.TestCase):
+    def test_a_torn_line_or_a_malformed_record_loses_nothing_else(self):
+        """Codex round 10: a crash mid-write glued the next record to half a line; one record
+        with a numeric written_at stopped every later sync."""
+        from graph_mind import sharing
+        from graph_mind.conversation_memory import ConversationMemoryStore
+        with tempfile.TemporaryDirectory() as directory, \
+                unittest.mock.patch.dict(os.environ, {"GRAPH_MIND_DEVICE": "desk"}):
+            shared, index = Path(directory) / "shared", Path(directory) / "index.sqlite"
+            (shared / "log").mkdir(parents=True)
+            log = shared / "log" / "desk.jsonl"
+            log.write_text('{"kind": "turn", "written_at": 1, "record": {}}\n'
+                           '{"kind": "forget"}\n{"kind": "turn", "rec', encoding="utf-8")
+
+            def turn(i):
+                return {"turn_id": f"t{i}", "client": "codex", "client_session_id": "s",
+                        "scope": "global", "role": "user", "content_redacted": f"note {i}",
+                        "raw_sha256": f"t{i}", "source_path": "p", "source_ordinal": i,
+                        "happened_at": "2026-10-01T09:00:00", "known_at": "2026-10-01T09:00:00",
+                        "redaction_count": 0, "cwd": None}
+            sharing.append(shared, "turn", turn(1))
+            sharing.sync(shared, index)
+            sharing.append(shared, "turn", turn(2))
+            sharing.sync(shared, index)
+            with ConversationMemoryStore(index) as store:
+                got = sorted(t["turn_id"] for t in store.latest(limit=10)["turns"])
+        self.assertEqual(got, ["t1", "t2"])
+
+    def test_a_malformed_connection_code_is_refused(self):
+        import base64
+        import json
+        from graph_mind import sharing
+
+        def code(**changes):
+            value = {"h": ["192.168.0.2"], "p": 54329, "k": "pw", "c": None, **changes}
+            return sharing.CODE_PREFIX + base64.urlsafe_b64encode(
+                json.dumps(value).encode()).decode()
+        self.assertEqual(sharing._decode(code())["h"], ["192.168.0.2"])
+        for bad in ({"c": 7}, {"h": ["x host=evil"]}, {"p": 70000}):
+            with self.assertRaisesRegex(ValueError, "INVALID_CONNECTION_CODE"):
+                sharing._decode(code(**bad))
+
+
 class SameNameTests(unittest.TestCase):
     def test_two_pcs_with_one_name_write_separate_logs(self):
         """Both appended to user-pc.jsonl, and the sync client kept only one PC's copy."""

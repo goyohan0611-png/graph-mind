@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.33 — 2026-10-21
+Fixes from Codex review round 10 (sharing across your PCs, the shared model).
+- **A crash in the middle of writing a shared log line no longer costs the next record.** The
+  next record was glued to the half line, and both were skipped.
+- **One malformed record no longer stops all syncing.** A record with the wrong shape raised
+  on every sync, and nothing after it was ever read.
+- **A malformed connection code is refused** before it replaces your folder setting and the
+  queue of lines waiting for the hub.
+- Lines queued while the hub is unreachable are flushed to disk at once.
+- The capture service lends its model to every app again even while some other local program
+  holds a connection open without answering; a cache of broken (NaN) vectors is now noticed.
+
 ## 0.9.32 — 2026-10-21
 - **A newly skipped folder is not recorded as deleted.** With 0.9.31, a workspace whose
   virtual environment had been watched recorded every file in it as a deleted file on the

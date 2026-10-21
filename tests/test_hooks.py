@@ -131,7 +131,12 @@ class HookTests(unittest.TestCase):
         with mock.patch.object(install.sys, "executable", python), \
                 mock.patch.object(install.os, "name", "nt"):
             self.assertEqual(install._hook_command("gemini-cli", "BeforeAgent"),
-                             f'& "{python}" -m graph_mind.hook gemini-cli BeforeAgent')
+                             f"& '{python}' -m graph_mind.hook gemini-cli BeforeAgent")
+        # single quotes: in double quotes PowerShell expanded "$Doe" and ran "$(...)"
+        with mock.patch.object(install.sys, "executable", r"C:\Users\O'Neil $(calc)\python.exe"), \
+                mock.patch.object(install.os, "name", "nt"):
+            self.assertTrue(install._hook_command("gemini-cli", "BeforeAgent").startswith(
+                r"& 'C:\Users\O''Neil $(calc)\python.exe' "))
         entry = install._hook_files(Path("x"))[0][3]["BeforeAgent"]["hooks"][0]
         self.assertEqual(entry["env"]["PYTHONSAFEPATH"], "1")
         self.assertEqual(install.ENV["PYTHONSAFEPATH"], "1")

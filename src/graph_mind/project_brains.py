@@ -128,13 +128,15 @@ CREATE TABLE IF NOT EXISTS hub_template(id INTEGER PRIMARY KEY, ddl TEXT NOT NUL
 
 # The hub's functions. They run as the database superuser (to make a project's schema and
 # groups), check the caller themselves (session_user is the caller), and take names only.
+# pg_temp is searched last: by default it comes first, and a caller's temporary table named
+# hub_template ran its DDL as superuser (ALTER ROLE ... SUPERUSER).
 HUB_FUNCTIONS = """
 CREATE OR REPLACE FUNCTION hub_schema(p text) RETURNS text
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
   SELECT schema FROM hub_projects WHERE name = p
 $f$;
 CREATE OR REPLACE FUNCTION hub_in_group(r text, g text) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
 BEGIN
   IF r IS NULL OR g IS NULL OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r)
      OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = g) THEN
@@ -143,17 +145,18 @@ BEGIN
   RETURN pg_has_role(r, g, 'MEMBER');
 END $f$;
 CREATE OR REPLACE FUNCTION hub_can(p text, level text) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
   SELECT hub_in_group(session_user, hub_schema(p) || level)
 $f$;
 CREATE OR REPLACE FUNCTION hub_project_key(p text) RETURNS text
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
 BEGIN
   IF NOT hub_can(p, '_r') THEN RAISE EXCEPTION 'permission denied for project %', p; END IF;
   RETURN (SELECT key FROM hub_projects WHERE name = p);
 END $f$;
 CREATE OR REPLACE FUNCTION hub_create_project_for(r text, p text, who text, at text, k text)
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp AS $f$
 DECLARE s text := 'p_' || left(md5(p), 12); g text;
 BEGIN
   IF EXISTS (SELECT 1 FROM hub_projects WHERE name = p) THEN RETURN false; END IF;
@@ -172,7 +175,7 @@ BEGIN
   RETURN true;
 END $f$;
 CREATE OR REPLACE FUNCTION hub_create_project(p text, who text, at text, k text) RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM ledger_accounts WHERE member_role = session_user) THEN
     RAISE EXCEPTION 'permission denied: no account on this hub';
@@ -180,11 +183,12 @@ BEGIN
   RETURN hub_create_project_for(session_user, p, who, at, k);
 END $f$;
 CREATE OR REPLACE FUNCTION hub_set_member(p text, r text, level text) RETURNS text
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
-DECLARE s text := hub_schema(p); m text;
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
+DECLARE s text := hub_schema(p); m text; was text;
 BEGIN
   SELECT member INTO m FROM ledger_accounts WHERE member_role = r;
   IF NOT FOUND THEN RAISE EXCEPTION 'NO_ACCOUNT'; END IF;
+  SELECT role INTO was FROM ledger_access WHERE member_role = r AND project = p;
   EXECUTE format('REVOKE %I, %I, %I FROM %I', s || '_r', s || '_w', s || '_o', r);
   DELETE FROM ledger_access WHERE member_role = r AND project = p;
   IF level IS NOT NULL THEN
@@ -195,10 +199,16 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM ledger_access WHERE project = p AND role = 'owner') THEN
     RAISE EXCEPTION 'LAST_OWNER';
   END IF;
+  -- a session that did SET ROLE to the group it just lost keeps that group: end it
+  IF was IS NOT NULL AND (level IS NULL OR array_position(ARRAY['viewer','editor','owner'], level)
+                          < array_position(ARRAY['viewer','editor','owner'], was)) THEN
+    PERFORM pg_terminate_backend(pid) FROM pg_stat_activity
+      WHERE usename = r AND pid <> pg_backend_pid();
+  END IF;
   RETURN m;
 END $f$;
 CREATE OR REPLACE FUNCTION hub_grant(p text, r text, level text) RETURNS text
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
 BEGIN
   IF NOT hub_can(p, '_o') THEN
     RAISE EXCEPTION 'permission denied: only the project''s owner adds members';
@@ -207,7 +217,7 @@ BEGIN
   RETURN hub_set_member(p, r, level);
 END $f$;
 CREATE OR REPLACE FUNCTION hub_revoke(p text, r text) RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
 BEGIN
   IF NOT (hub_can(p, '_o') OR r = session_user) THEN
     RAISE EXCEPTION 'permission denied: only the project''s owner removes members';
@@ -219,11 +229,11 @@ BEGIN
   RETURN true;
 END $f$;
 CREATE OR REPLACE FUNCTION hub_role_of(who text) RETURNS text
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
   SELECT member_role FROM ledger_accounts WHERE member = who LIMIT 1
 $f$;
 CREATE OR REPLACE FUNCTION hub_rename(who text) RETURNS text
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $f$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM ledger_accounts WHERE member_role = session_user) THEN
     RAISE EXCEPTION 'permission denied: no account on this hub';
@@ -434,9 +444,11 @@ class Ledger:
         project = self._require(project)
         self._needs_hub()
         with self._atomic():
+            # logged first: leaving yourself takes your right to write the log, and the failed
+            # insert after it rolled the leaving back
+            self._audit(by, "remove_member", f"{project}/{member}")
             removed = self._sql("SELECT hub_revoke(?,?)",
                                 (project, self._role_of(member))).fetchall()[0][0]
-            self._audit(by, "remove_member", f"{project}/{member}")
         return {"project": project, "member": member, "removed": bool(removed),
                 "note": "Their access to this project ended now."}
 
@@ -557,7 +569,9 @@ class Ledger:
         refs = [str(r) for r in (source_refs or [])]
         if any(len(r) > 200 for r in refs):         # ids, hashes and links only: never text
             raise ValueError("SOURCE_REFS_ARE_IDS: give local ids, hashes or links, not text")
-        found = scan_text(summary + "\n" + details)
+        # the refs and attached links too: a key in a URL's query or a ref went out unchecked
+        found = scan_text("\n".join([summary, details, *refs,
+                                     json.dumps(artifacts or [], ensure_ascii=False)]))
         if found:
             raise ValueError("SECRET_IN_CHECKPOINT: " + ", ".join(found))
         if supersedes:
@@ -648,8 +662,15 @@ class Ledger:
         for name in self.names() if self.postgres else [None]:
             if name:
                 self._require(name)
-            rows += self._sql("SELECT at, actor, action, target, stamp FROM ledger_audit ORDER BY "
-                              "stamp DESC LIMIT ?", (limit,)).fetchall()
+            # on a hub the name shown is the account of the login that wrote the row: `actor`
+            # is whatever the writer typed, and a viewer could log an action as the owner's
+            rows += self._sql(
+                "SELECT a.at, COALESCE(acc.member, a.actor_role), a.action, a.target, a.stamp "
+                "FROM ledger_audit a LEFT JOIN public.ledger_accounts acc "
+                "ON acc.member_role = a.actor_role ORDER BY a.stamp DESC LIMIT ?",
+                (limit,)).fetchall() if self.postgres else self._sql(
+                "SELECT at, actor, action, target, stamp FROM ledger_audit ORDER BY "
+                "stamp DESC LIMIT ?", (limit,)).fetchall()
         rows = [row[:4] for row in sorted(rows, key=lambda row: row[4], reverse=True)[:limit]]
         return [{"at": at, "actor": who, "action": action, "target": target}
                 for at, who, action, target in rows]
@@ -791,11 +812,19 @@ def _decode_team(code: str) -> dict:
     body = code.strip()[len(TEAM_PREFIX):]
     try:
         value = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
-        return {"h": [str(h) for h in value["h"]], "p": int(value["p"]), "u": str(value["u"]),
-                "k": str(value["k"]), "n": str(value["n"]),
-                "c": value.get("c")}
+        decoded = {"h": [str(h) for h in value["h"]], "p": int(value["p"]),
+                   "u": str(value["u"]), "k": str(value["k"]), "n": str(value["n"]),
+                   "c": value.get("c")}
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError("INVALID_TEAM_CODE: a team invite starts with gmt1.") from error
+    # the login and hosts go into a connection string: a crafted invite once carried
+    # "host=127.0.0.1 hostaddr=<attacker> password=" in its login name, and this PC's hub
+    # password went to the attacker. Logins we make are gm_m_<slug>_<hash>; hosts are addresses.
+    if (not re.fullmatch(r"[a-z0-9_]{1,63}", decoded["u"])
+            or not all(re.fullmatch(r"[A-Za-z0-9.\-]{1,253}", h) for h in decoded["h"])
+            or not 0 < decoded["p"] < 65536):
+        raise ValueError("INVALID_TEAM_CODE: the invite's login or address is malformed")
+    return decoded
 
 
 def _admin(database=HUB_DATABASE):
@@ -838,6 +867,9 @@ def _prepare(owner_url) -> None:
         admin.execute(f"GRANT {TEAM_GROUP} TO {OWNER_ROLE}")
         admin.execute(f"REVOKE CONNECT ON DATABASE {HUB_DATABASE} FROM PUBLIC")
         admin.execute(f"GRANT CONNECT ON DATABASE {HUB_DATABASE} TO {TEAM_GROUP}")
+        # a teammate's temporary table named like a hub table was found first by the
+        # superuser functions (temp schema first in search_path): nobody needs temp tables here
+        admin.execute(f"REVOKE TEMPORARY ON DATABASE {HUB_DATABASE} FROM PUBLIC")
         admin.execute("REVOKE CONNECT ON DATABASE graphmind FROM PUBLIC")
         admin.execute(f"REVOKE CONNECT ON DATABASE graphmind FROM {TEAM_GROUP}")
     with _admin() as hub:
@@ -1080,6 +1112,10 @@ def remove_account(member: str, by: str = "hub operator", *, transfer_to: str = 
         found = admin.execute("SELECT member_role FROM ledger_accounts WHERE member=%s",
                               (member,)).fetchall()
         login = found[0][0] if found else _member_role(member)        # names can change
+        if login == OWNER_ROLE:
+            # the hosting person's login owns their personal memory database: DROP OWNED BY
+            # below deleted every memory table in it
+            raise ValueError("HOST_ACCOUNT: the person hosting this hub cannot be removed")
         sole = [p for (p,) in admin.execute(
             "SELECT project FROM ledger_access a WHERE member_role=%s AND role='owner' AND NOT "
             "EXISTS (SELECT 1 FROM ledger_access b WHERE b.project=a.project AND b.role='owner' "
@@ -1094,6 +1130,8 @@ def remove_account(member: str, by: str = "hub operator", *, transfer_to: str = 
                                   (heir,)).fetchall()
             if not found:
                 raise ValueError(f"NO_ACCOUNT: {transfer_to} has no account on this hub")
+            if heir == login:
+                raise ValueError("SAME_ACCOUNT: hand their projects to someone else")
             for project in sole:
                 admin.execute("SELECT hub_set_member(%s,%s,'owner')", (project, heir))
         for (project,) in admin.execute("SELECT project FROM ledger_access WHERE member_role=%s",
@@ -1102,6 +1140,10 @@ def remove_account(member: str, by: str = "hub operator", *, transfer_to: str = 
                           (login, project))
         admin.execute("DELETE FROM ledger_accounts WHERE member_role=%s", (login,))
         if admin.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (login,)).fetchall():
+            # a session that did SET ROLE to a project group kept that group after the login
+            # lost it: end their sessions too
+            admin.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                          "WHERE usename=%s", (login,))
             admin.execute(f"DROP OWNED BY {login}")            # its rights here; then the
             with _admin("graphmind") as other:                 # other database, then the login
                 other.execute(f"DROP OWNED BY {login}")

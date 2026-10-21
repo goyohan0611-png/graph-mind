@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import shlex
 import shutil
 import subprocess
@@ -191,7 +192,8 @@ def _hook_command(agent: str, event: str) -> str:
     if os.name == "nt":                # single quotes: literal in PowerShell, '' escapes one
         rest = " ".join(a if a.replace("-", "").replace(".", "").replace("_", "").isalnum()
                         else "'" + a.replace("'", "''") + "'" for a in arguments)
-        return f'& "{sys.executable}" {rest}'
+        # the path single-quoted too: in double quotes PowerShell expands "$Doe" and runs "$()"
+        return "& '" + sys.executable.replace("'", "''") + "' " + rest
     return f"{shlex.quote(sys.executable)} {shlex.join(arguments)}"
 
 
@@ -291,16 +293,20 @@ def opencode(home: Path) -> str:
 
 
 def _without_codex_block(text: str) -> str:
-    """The Codex config without Graph-MIND's server table (and its env table); the rest kept."""
-    header = f"[mcp_servers.{NAME}]"
-    if header not in text:
-        return text
-    kept, skipping = [], False
+    """The Codex config without Graph-MIND's server table (and its env table); the rest kept.
+    The table may be written [mcp_servers."graph-mind-memory"] too (TOML allows quoted keys):
+    left in place, the table added after it made the file invalid (duplicate table)."""
+    ours = (f"[mcp_servers.{NAME}]", f"[mcp_servers.{NAME}.env]")
+    kept, skipping, dropped = [], False, False
     for line in text.splitlines():
         if line.strip().startswith("["):
-            skipping = line.strip() in (header, f"[mcp_servers.{NAME}.env]")
-        if not skipping:
+            skipping = re.sub(r"""[\s"']""", "", line.split("#", 1)[0]) in ours
+        if skipping:
+            dropped = True
+        else:
             kept.append(line)
+    if not dropped:
+        return text
     return "\n".join(kept).rstrip() + "\n"
 
 

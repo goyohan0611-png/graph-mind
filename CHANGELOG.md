@@ -3,6 +3,25 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.30 — 2026-10-21
+Security fixes for team project hubs (Codex review round 9). Upgrade the hub's PC first.
+- **A teammate could become the hub's database superuser.** The hub's privileged functions
+  looked up their tables with the caller's temporary tables first; a teammate's temporary
+  table with the right name ran its commands with full rights. Temporary tables come last now,
+  and teammates cannot create them on the hub at all.
+- **A crafted team invite could take the hub's password.** The login and address in an invite
+  went into the connection unchecked, so extra connection options could send this PC's hub
+  password to another server. Invites with anything but a plain login and address are refused.
+- **Removed or downgraded teammates are cut off at once.** A session that had switched to a
+  project's group kept its rights after the teammate lost them; their open sessions now end.
+- **The hosting person's account can no longer be removed** (that deleted their personal
+  memory tables), and a leaving owner's projects cannot be handed to themselves.
+- **The audit log shows who really wrote each entry**, not the name the writer typed.
+- **Keys in a checkpoint's references or attached link are caught** like keys in its text.
+- **Leaving a project yourself works** (it was rolled back every time).
+- Installer: re-installing no longer breaks a Codex config that writes Graph-MIND's table with
+  quotes, and the Windows hook command keeps a `$` in the Python path literal.
+
 ## 0.9.29 — 2026-10-21
 - **`graph-mind compact` shrinks the memory file.** Compressing conversations frees space
   inside the database, which new conversations reuse, but the file keeps its size. Run this

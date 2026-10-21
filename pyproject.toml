@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-mind-memory"
-version = "0.9.29"
+version = "0.9.30"
 description = "Shared memory for Claude Code, Codex, Cursor, Gemini CLI, Copilot CLI and OpenCode: verbatim, on your own PC, no LLM calls to save."
 readme = "README.md"
 requires-python = ">=3.10"

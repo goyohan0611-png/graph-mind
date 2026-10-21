@@ -588,6 +588,20 @@ def folder_commands(path, share_existing, export_to, import_from) -> str:
     return "\n".join(commands)
 
 
+def team_commands(action, member, role, projects) -> str:
+    """The terminal command for what brain_checkpoint will not do for a chat: giving someone
+    access (invite) and opening this PC to a team (host)."""
+    if action == "host":
+        return "graph-mind team host"
+    if not member or not projects:
+        raise ValueError("MEMBER_AND_PROJECTS_REQUIRED: who, and which projects")
+    for value in (member, *projects):
+        if UNSAFE_ARGUMENT.search(value):
+            raise ValueError("UNSAFE_CHARACTERS")
+    return (f'graph-mind team invite "{member}" --role {role or "viewer"}'
+            + "".join(f' --project "{name}"' for name in projects))
+
+
 def build_server(db_path=None, terminal=False):
     """`terminal`: the user typed the request in a terminal (graph-mind folder ...), so
     brain_folder may change where the memory goes. Apps start the server without it."""
@@ -1013,7 +1027,9 @@ def build_server(db_path=None, terminal=False):
         - `retract` + `checkpoint_id` (the publisher, or the project's owner);
           `set_instructions` + `instructions` (owner).
         - Members. Whoever creates a project owns it. `invite` + `member` + `role` (owner /
-          editor / viewer) + `projects` returns a code to give them. `members` + `project`;
+          editor / viewer) + `projects`, and `host`, are not done from here: they return
+          `command` for the user to run in a terminal, which prints the code to give them. Show
+          the user the command and say what it does. `members` + `project`;
           `remove_member` + `member` + `project` (owner; or yourself, to leave). `audit`
           (+ `project`). On a teammate's PC: `join_team` + `code` (+ `name`), `leave_team` +
           `project`.
@@ -1047,6 +1063,14 @@ def build_server(db_path=None, terminal=False):
                 return pl.set_display_name(name or member or "")
             if action in ("invite", "host") and not pl.named():
                 return NAME_REQUIRED
+            if action in ("invite", "host") and not terminal:
+                # text the AI read (a page, a file) could otherwise make a stranger an owner
+                return {"status": "RUN_IN_TERMINAL",
+                        "command": team_commands(action, member, role,
+                                                 projects or ([project] if project else [])),
+                        "note": "For the user's safety access is not given from a chat: show "
+                                "them this command to run in a terminal (PowerShell or "
+                                "Terminal). The invite code appears only there."}
             if action == "host":
                 return pl.host_projects()
             if action == "join_team" and (code or "").strip().startswith("gm1."):
@@ -1273,9 +1297,11 @@ def keep_capture_running(every=60.0):
 def terminal_command(argv):
     """graph-mind folder [PATH | local | share | CODE] [--share-existing]
     graph-mind export FILE | graph-mind import FILE
+    graph-mind team invite NAME --role viewer|editor|owner --project P [--project P2]
+    graph-mind team host
 
-    What brain_folder leaves to the user: where the memory lives, sharing it with their other
-    PCs, and moving it to or from a file."""
+    What brain_folder and brain_checkpoint leave to the user: where the memory lives, sharing
+    it with their other PCs, moving it to or from a file, and giving a teammate access."""
     import argparse
     import asyncio
     parser = argparse.ArgumentParser(prog="graph-mind", description=terminal_command.__doc__,
@@ -1287,7 +1313,21 @@ def terminal_command(argv):
                         help="also send what this PC remembers to the shared memory")
     commands.add_parser("export", help="write the whole memory into a file").add_argument("file")
     commands.add_parser("import", help="add a memory file to this memory").add_argument("file")
+    team = commands.add_parser("team", help="give a teammate access, or host projects here")
+    team_actions = team.add_subparsers(dest="action", required=True)
+    team_actions.add_parser("host", help="make this PC the team's project hub")
+    invite = team_actions.add_parser("invite", help="add someone to projects; prints their code")
+    invite.add_argument("member")
+    invite.add_argument("--role", choices=["owner", "editor", "viewer"], default="viewer")
+    invite.add_argument("--project", action="append", required=True, dest="projects")
     args = parser.parse_args(argv)
+    if args.command == "team":
+        call = {"action": args.action}
+        if args.action == "invite":
+            call.update(member=args.member, role=args.role, projects=args.projects)
+        result = asyncio.run(build_server(terminal=True).call_tool("brain_checkpoint", call))
+        print(json.dumps(result.structured_content, ensure_ascii=False, indent=2))
+        return
     call = ({"path": args.path, "share_existing": args.share_existing}
             if args.command == "folder" else
             {"export_to" if args.command == "export" else "import_from": args.file})

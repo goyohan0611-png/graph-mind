@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.24 — 2026-10-21
+- **Giving a teammate access is no longer done from a chat.** Asking your AI to invite someone
+  (or to host projects on this PC) now gives you a command to run in a terminal,
+  `graph-mind team invite NAME --role ROLE --project P` or `graph-mind team host`, and the
+  invite code appears only there. Before, text your AI read on a web page or in a file could
+  have made a stranger an owner of your project.
+
 ## 0.9.23 — 2026-10-21
 - **Every install now writes its own log file** in a synced brain folder (the computer's name
   plus a suffix drawn once). 0.9.22's check missed PCs that chose the folder before the other

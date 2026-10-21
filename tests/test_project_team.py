@@ -205,11 +205,20 @@ class TeamHubTests(unittest.TestCase):
                            details="sharing._retry; initdb·pg_ctl start. 남은 일: 원인 확정")
                 await call(action="attach", project="graph-mind",
                            path="https://lab241.slack.com/archives/C1/p1", summary="제안서 v1 완료")
-                with mock.patch.object(sharing, "_firewall", return_value="open"):
-                    invited = (await call(action="invite", member="minji", role="editor",
-                                          projects=["graph-mind"])).structured_content
-                    self.assertIn("team_code", invited, invited)
-                    code = invited["team_code"]
+                asked = (await call(action="invite", member="minji", role="owner",
+                                    projects=["graph-mind"])).structured_content
+                self.assertEqual(asked["command"], 'graph-mind team invite "minji" --role owner'
+                                                   ' --project "graph-mind"')    # not from chat
+                self.assertNotIn("minji", [a["member"] for a in pl.accounts()])
+                self.assertEqual((await call(action="host")).structured_content["status"],
+                                 "RUN_IN_TERMINAL")
+                async with Client(build_server(self.root / "a.sqlite", terminal=True)) as typed:
+                    with mock.patch.object(sharing, "_firewall", return_value="open"):
+                        invited = (await typed.call_tool("brain_checkpoint", {
+                            "action": "invite", "member": "minji", "role": "editor",
+                            "projects": ["graph-mind"]})).structured_content
+                self.assertIn("team_code", invited, invited)
+                code = invited["team_code"]
                 refused = (await call(action="remove_member", member="minji")).structured_content
                 self.assertEqual(refused["status"], "REFUSED")    # never the whole account
                 self.assertTrue(pl.accounts())

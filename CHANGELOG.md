@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.26 — 2026-10-21
+- **Your AI can open the conversation behind a memory.** A context packet shows one excerpt
+  of each conversation turn, so an answer in the rest of that turn, or in the reply right after
+  it ("which jobs did you list for my dad?"), was out of reach and the AI said it didn't know.
+  Now `brain_recall(source=...)` returns the cited turn in full with the turns around it, and
+  the AI is told to look there before saying it doesn't know. Measured on LongMemEval: on par
+  overall (29 better, 23 worse over two runs), better on date questions (13 / 3) and on what
+  the AI itself said earlier (5 / 2).
+
 ## 0.9.25 — 2026-10-21
 - **Project instructions are confirmed in a terminal.** Every teammate's AI follows them, so a
   chat no longer sets them: your AI proposes the text, and `graph-mind team instructions

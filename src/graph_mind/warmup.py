@@ -13,6 +13,7 @@ characters), so a warmed memory is a cache hit rather than a near miss.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sqlite3
 import sys
 
@@ -68,6 +69,24 @@ def turn_pieces(text: str) -> list[tuple[int, str]]:
             if text[start:start + PIECE].strip()]
 
 
+SENTENCE = re.compile(r"[^.!?\n]{20,}[.!?]*")
+
+
+def turn_sentences(text: str) -> list[tuple[int, str]]:
+    """(offset of the 500 characters shown, sentence) for each sentence of a user's turn. A fact
+    said in passing ("recipes for chicken? By the way, I spent $80 at Trader Joe's") is buried
+    in a piece whose vector is about the main topic; its own sentence is not. Searched apart
+    from the pieces, for extra places only, so these never push a piece's turn out."""
+    found = []
+    for match in SENTENCE.finditer(text):
+        sentence = match.group().strip()
+        if sentence and sentence != text.strip():
+            start = (0 if match.end() <= PIECE
+                     else max(0, min(match.start() - 150, len(text) - PIECE)))
+            found.append((start, sentence))
+    return found
+
+
 _VERIFIED = set()
 
 
@@ -92,13 +111,14 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
         # the user's turns first (every search uses them), then the assistant's (searched when
         # the question is about what it said: left to the server, a fresh server spent minutes
         # embedding all of them on the first such question, and every query waited meanwhile)
-        rows = db.execute(f"SELECT rowid,{text_columns(db)} FROM conversation_turns "
+        rows = db.execute(f"SELECT rowid,{text_columns(db)},role='user' FROM conversation_turns "
                           "WHERE rowid>? AND role IN ('user','assistant') "
                           "ORDER BY role='user' DESC, happened_at DESC", (after,))
         texts, seen, cached = [], set(), []
-        for revision, plain, packed in rows:
+        for revision, plain, packed, user in rows:
             high = max(high, revision)
-            for _, piece in turn_pieces(unpack(plain, packed) or ""):
+            content = unpack(plain, packed) or ""
+            for _, piece in turn_pieces(content) + (turn_sentences(content) if user else []):
                 key = piece.strip()[:2000]
                 if key not in seen and embedder._key(key) not in embedder.cache:
                     seen.add(key)

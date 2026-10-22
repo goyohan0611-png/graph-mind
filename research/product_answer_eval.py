@@ -21,13 +21,14 @@ from longmemeval_m_fetch import stream_instances
 from product_recall_eval import CACHE, DATA, IDS, fill, iso
 from longmemeval_retrieval_executor import asks_assistant_history
 from graph_mind.context_packet import build_context_pack
+from graph_mind.warmup import turn_sentences
 
 OUT = Path("runs/graph-v6.2-product-answers")
 TYPE = None                                     # --type: only one question type (a re-run)
 AROUND = False                                  # --around: resolve "two weeks ago" into a window
 WRITABLE = False                                # --writable: keep new vectors (full-set runs)
 BASELINE = Path("runs/graph-v3.9-dev2-mv/official-judge.jsonl")
-LIMIT, CHARS = 30, 15000                        # brain_context's shipped defaults (v7.0)
+LIMIT, CHARS = 30, 17500                        # brain_context's shipped defaults (v7.0)
 
 
 IDS_FILE, CACHE_FILE = IDS, CACHE                # --ids / --cache: the clean pool and its vectors
@@ -74,7 +75,10 @@ def spans():
                             for session in row["haystack_sessions"] for turn in session
                             if turn["role"] in roles
                             for start in range(0, len(turn["content"]), PIECE)
-                            if turn["content"][start:start + PIECE].strip()])
+                            if turn["content"][start:start + PIECE].strip()]
+                           + [sentence for session in row["haystack_sessions"]
+                              for turn in session if turn["role"] == "user"
+                              for _, sentence in turn_sentences(turn["content"])])
             assert DEFAULT_CONTEXT_POLICY == "always"
             # about_assistant is the calling model's judgement in real use; the benchmark's own
             # stand-in for that judgement (an English regex) plays the model here.

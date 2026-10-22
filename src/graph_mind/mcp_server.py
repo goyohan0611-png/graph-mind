@@ -156,7 +156,7 @@ def shared_sync(database):
 # what a question is about is a language judgement this engine leaves to the model anyway.
 DEFAULT_CONTEXT_POLICY = "always"
 CONTEXT_LIMIT = 30          # brain_context defaults; bench/ measures with these
-CONTEXT_CHARS = 15000
+CONTEXT_CHARS = 17500       # 15,000 + room for the SIDE_PLACES extras (5 x 500)
 
 
 # Retrieval over conversation turns, ported from the benchmark pipeline where it was measured:
@@ -171,6 +171,7 @@ INLINE_EMBED_LIMIT = 64
 MEMORY_WAIT = 10.0         # seconds a memory search with no word match waits for the model
 ASSISTANT_TURN_CAP = 3000
 WINDOW_SLACK = 7           # days either side of a resolved "around" date
+SIDE_PLACES = 5            # extra turns found by one of their sentences (turn_sentences)
 _EMBEDDER = {}
 _backfill = threading.Lock()
 
@@ -230,7 +231,7 @@ def embedder_for(database):
 
 
 class _Piece:
-    __slots__ = ("revision", "turn_id", "start", "user", "scope", "time", "key", "piece")
+    __slots__ = ("revision", "turn_id", "start", "user", "scope", "time", "key", "piece", "side")
 
     def __init__(self, *values):
         for name, value in zip(self.__slots__, values):
@@ -257,13 +258,14 @@ class PieceIndex:
         self.revisions = np.zeros(0, dtype=np.int64)
         self.starts = np.zeros(0, dtype=np.int64)
         self.user = np.zeros(0, dtype=bool)
+        self.side = np.zeros(0, dtype=bool)        # a sentence (turn_sentences), not a piece
         self.scopes = np.zeros(0, dtype=object)
         self.times = np.zeros(0, dtype="U32")
         self.matrix = None
         self.norms = np.zeros(0, dtype=np.float64)
 
     def sync(self, database, embedder):
-        from graph_mind.warmup import turn_pieces
+        from graph_mind.warmup import turn_pieces, turn_sentences
         generation = getattr(embedder.cache, "generation", 0)
         if generation != getattr(self, "generation", generation):
             self.reset()                  # the cache was found wrong and cleared: so are these
@@ -280,10 +282,13 @@ class PieceIndex:
                     "SELECT revision,turn_id,role,scope,happened_at,content_redacted,content_z "
                     "FROM conversation_turns ORDER BY revision").fetchall()
         for revision, turn_id, role, scope, happened_at, plain, packed in new:
-            for start, piece in turn_pieces(unpack(plain, packed)):
-                self.pending.append(_Piece(revision, turn_id, start, role == "user", scope,
-                                           happened_at, embedder._key(piece.strip()[:2000]),
-                                           piece))
+            content = unpack(plain, packed)
+            for side, found in ((False, turn_pieces(content)),
+                                (True, turn_sentences(content) if role == "user" else [])):
+                for start, piece in found:
+                    self.pending.append(_Piece(revision, turn_id, start, role == "user", scope,
+                                               happened_at, embedder._key(piece.strip()[:2000]),
+                                               piece, side))
         if new:
             self.last = new[-1][0]
             self.turns += len(new)
@@ -308,13 +313,15 @@ class PieceIndex:
         self.revisions = np.concatenate([self.revisions, [e.revision for e in ready]])
         self.starts = np.concatenate([self.starts, [e.start for e in ready]])
         self.user = np.concatenate([self.user, [e.user for e in ready]])
+        self.side = np.concatenate([self.side, np.array([e.side for e in ready], dtype=bool)])
         scopes = np.array([e.scope for e in ready], dtype=object)
         self.scopes = np.concatenate([self.scopes, scopes])
         self.times = np.concatenate([self.times, np.array([e.time for e in ready], dtype="U32")])
 
-    def select(self, *, about_assistant, scopes, since, until):
+    def select(self, *, about_assistant, scopes, since, until, side=False):
         import numpy as np
         mask = np.ones(len(self.turn_ids), dtype=bool) if about_assistant else self.user.copy()
+        mask &= self.side == side
         if scopes:
             mask &= np.isin(self.scopes, list(scopes))
         if since:
@@ -324,8 +331,9 @@ class PieceIndex:
         return mask
 
     @staticmethod
-    def wanted(entry, about_assistant, scopes, since, until):
-        return ((about_assistant or entry.user) and (not scopes or entry.scope in scopes)
+    def wanted(entry, about_assistant, scopes, since, until, side=False):
+        return ((about_assistant or entry.user) and entry.side == side
+                and (not scopes or entry.scope in scopes)
                 and (not since or entry.time >= since) and (not until or entry.time < until))
 
 
@@ -337,7 +345,7 @@ def pieces_for(database):
 
 
 def semantic_turns(database, query, *, scopes=None, since=None, until=None, limit=20, embedder,
-                   about_assistant=False):
+                   about_assistant=False, side=False):
     """Turns ranked by meaning; each carries the 500-character piece that matched.
 
     Only the user's turns by default: indexing the assistant's long prose too buried the user's
@@ -350,9 +358,9 @@ def semantic_turns(database, query, *, scopes=None, since=None, until=None, limi
             embedder.cache.refresh()    # vectors the capture service embedded since we loaded
         index.sync(database, embedder)
         mask = index.select(about_assistant=about_assistant, scopes=scopes, since=since,
-                            until=until)
+                            until=until, side=side)
         waiting = [entry for entry in index.pending
-                   if index.wanted(entry, about_assistant, scopes, since, until)]
+                   if index.wanted(entry, about_assistant, scopes, since, until, side)]
         if not mask.any() and not waiting:
             return []
         # Never make a question wait for the store to be embedded: a store that has never been
@@ -374,7 +382,7 @@ def semantic_turns(database, query, *, scopes=None, since=None, until=None, limi
             embedder.embed(missing)
             index.promote(embedder, force=True)
             mask = index.select(about_assistant=about_assistant, scopes=scopes, since=since,
-                                until=until)
+                                until=until, side=side)
         rows = np.flatnonzero(mask)
         if not len(rows):
             return []
@@ -495,6 +503,18 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
             rankings = [inside, [t for t in words if span[0] <= t["happened_at"] < span[1]],
                         *rankings]
         turns = fuse(*rankings, limit=limit)
+        if not about_assistant:
+            # facts said in passing, by their own sentence: in places of their own after the
+            # rest. Competing for the same places they found those facts and pushed as many
+            # answer turns out (all 500: +40 / -34).
+            try:
+                side = semantic_turns(database, query, scopes=scopes, since=since, until=until,
+                                      limit=SIDE_PLACES * 4,
+                                      embedder=embedder or embedder_for(database), side=True)
+            except Exception:
+                side = []
+            have = {t["turn_id"] for t in turns}
+            turns += [t for t in side if t["turn_id"] not in have][:SIDE_PLACES]
         if about_assistant:
             # "How many mummies were in the one-shot you wrote?" needs the whole answer, not a
             # 500-character piece of it: the assistant's answers run 1,000-4,000 characters and

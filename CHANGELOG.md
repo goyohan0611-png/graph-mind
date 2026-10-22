@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.38 — 2026-10-22
+- **Each memory server takes about 230 MB less memory.** numpy's math library reserved a
+  buffer for every CPU core when it loaded (233 MB on an 8-core PC), in every server an app
+  starts, and in the capture service. It now runs on one thread: a search over 60,000 pieces
+  still takes about 20 ms. Codex starts a new server per session and keeps the old ones, so
+  this added up to gigabytes.
+
 ## 0.9.37 — 2026-10-22
 Fixes for the rest of Codex review round 10 (sharing across your PCs).
 - **A hub with a key refuses lines that are not sealed.** Lines from before sharing are

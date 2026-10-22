@@ -3,8 +3,14 @@
 Capture saves every conversation on this PC without calling a model; recall hands the model
 the few thousand tokens of the past that answer its question.
 """
+import os
 from pathlib import Path
 import re
+
+# Before numpy is imported anywhere: OpenBLAS reserves a buffer per core when it loads, 233 MB
+# of memory on an 8-core PC, in every memory server an app starts. One thread is plenty for the
+# one query-against-pieces product per question this package asks of it.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 
 def _version() -> str:

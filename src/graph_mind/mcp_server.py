@@ -220,8 +220,50 @@ def memory_meaning(embedder, query, texts):
         return None
 
 
+IDLE_TRIM = 1800.0          # seconds without a search before a server lets go of its index
+_used = [0.0]
+
+
+def trim_if_idle(now=None) -> bool:
+    """Drop the in-memory index, vectors and any model this server loaded once no search has
+    come for IDLE_TRIM seconds. Codex starts a server per session and keeps the old ones running:
+    each held its whole index all day. The next question reads them back (about a second).
+    A search still running keeps the objects it already holds."""
+    import time
+    now = time.monotonic() if now is None else now
+    if not (_PIECES or _EMBEDDER) or now - _used[0] < IDLE_TRIM:
+        return False
+    _PIECES.clear()
+    _EMBEDDER.clear()
+    from graph_mind.local_embedder import LocalEmbedder
+    with LocalEmbedder._lock:
+        LocalEmbedder._model = LocalEmbedder._tok = None
+        LocalEmbedder._loaded.clear()
+    import gc
+    gc.collect()
+    return True
+
+
+def trim_when_idle(every=60.0):
+    def work():
+        try:
+            trim_if_idle()
+        except Exception:                 # never let this take the memory server down
+            pass
+        timer = threading.Timer(every, work)
+        timer.daemon = True
+        timer.start()
+    work()
+
+
+def _touch():
+    import time
+    _used[0] = time.monotonic()
+
+
 def embedder_for(database):
-    """One on-device embedder per store, kept loaded for the life of the server."""
+    """One on-device embedder per store, kept loaded while the server is in use."""
+    _touch()
     key = str(database)
     if key not in _EMBEDDER:
         from graph_mind.local_embedder import default_embedder
@@ -333,6 +375,7 @@ _PIECES = {}
 
 
 def pieces_for(database):
+    _touch()
     return _PIECES.setdefault(str(database), PieceIndex())
 
 
@@ -1437,6 +1480,7 @@ def main():
     LocalEmbedder.USE_SERVICE = True        # the capture service's model, when it runs
     LocalEmbedder.PACE = True               # a backlog it embeds itself, at half pace
     keep_capture_running()
+    trim_when_idle()
     preload(configured_db_path())
     build_server().run(transport="stdio")
 

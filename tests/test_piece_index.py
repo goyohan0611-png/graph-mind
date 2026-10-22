@@ -52,6 +52,22 @@ class PieceIndexTests(unittest.TestCase):
             self.assertNotIn("t0", ask())
             self.assertIn("t2", ask())
 
+    def test_an_idle_server_lets_go_of_its_index_and_reads_it_back(self):
+        import time
+        with tempfile.TemporaryDirectory() as directory:
+            db, words = Path(directory) / "brain.sqlite", Words()
+            with ConversationMemoryStore(db) as store:
+                store.record(turn(1, "my dog is called Bori"))
+
+            def ask():
+                return [t["turn_id"] for t in server.semantic_turns(db, "dog", embedder=words)]
+
+            self.assertEqual(ask(), ["t1"])
+            self.assertFalse(server.trim_if_idle(), "just used: kept")
+            self.assertTrue(server.trim_if_idle(time.monotonic() + server.IDLE_TRIM + 1))
+            self.assertEqual(server._PIECES, {})
+            self.assertEqual(ask(), ["t1"], "the next question reads the index back")
+
 
 if __name__ == "__main__":
     unittest.main()

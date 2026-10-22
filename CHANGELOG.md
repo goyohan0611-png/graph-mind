@@ -9,6 +9,8 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   starts, and in the capture service. It now runs on one thread: a search over 60,000 pieces
   still takes about 20 ms. Codex starts a new server per session and keeps the old ones, so
   this added up to gigabytes.
+- **A memory server unused for 30 minutes lets go of its search index and vectors** (and the
+  model, if it had to load its own). The next question reads them back, about a second.
 
 ## 0.9.37 — 2026-10-22
 Fixes for the rest of Codex review round 10 (sharing across your PCs).

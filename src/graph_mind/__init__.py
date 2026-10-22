@@ -3,8 +3,8 @@
 Capture saves every conversation on this PC without calling a model; recall hands the model
 the few thousand tokens of the past that answer its question.
 """
-import os
 from pathlib import Path
+import os
 import re
 
 # Before numpy is imported anywhere: OpenBLAS reserves a buffer per core when it loads, 233 MB

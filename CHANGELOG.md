@@ -11,6 +11,8 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   this added up to gigabytes.
 - **A memory server unused for 30 minutes lets go of its search index and vectors** (and the
   model, if it had to load its own). The next question reads them back, about a second.
+- **Publishing to a team project no longer fails on text with a card-like number.** The
+  secret check before sharing crashed on the card-number rule instead of checking it.
 
 ## 0.9.37 — 2026-10-22
 Fixes for the rest of Codex review round 10 (sharing across your PCs).

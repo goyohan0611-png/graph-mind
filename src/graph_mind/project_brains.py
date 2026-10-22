@@ -780,7 +780,12 @@ def scan_text(text: str) -> list[str]:
     from graph_mind.conversation_memory import RANDOM_CANDIDATE, SECRET_PATTERNS, _looks_random
     found = []
     for pattern, replacement in SECRET_PATTERNS:
-        if pattern.search(text):
+        if callable(replacement):        # a check (card numbers: Luhn) decides per match
+            replacement = next((masked for m in pattern.finditer(text)
+                                if (masked := replacement(m)) != m.group(0)), None)
+            if replacement is not None:
+                found.append(re.sub(r"[\\\[\]\d]", "", replacement).strip("_ ") or "secret")
+        elif pattern.search(text):
             found.append(re.sub(r"[\\\[\]\d]", "", replacement).strip("_ ") or "secret")
     if any(_looks_random(m.group(0)) for m in RANDOM_CANDIDATE.finditer(text)):
         found.append("random token")

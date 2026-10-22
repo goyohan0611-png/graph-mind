@@ -87,6 +87,13 @@ class LinkTests(unittest.TestCase):
                          ("git", 40, "committed"))              # not pushed: never "done"
 
 
+class ScanTests(unittest.TestCase):
+    def test_card_numbers_are_found_only_when_they_pass_the_check(self):
+        from graph_mind.project_brains import scan_text
+        self.assertEqual(scan_text("card 4111 1111 1111 1111"), ["REDACTED_CARD"])
+        self.assertEqual(scan_text("build 4111 1111 1111 1112"), [])
+
+
 class SealedTests(unittest.TestCase):
     def test_with_a_key_summaries_are_not_stored_in_clear(self):
         from cryptography.fernet import Fernet

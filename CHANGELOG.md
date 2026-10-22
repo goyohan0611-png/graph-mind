@@ -3,6 +3,24 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.39 — 2026-10-22
+Running all day without trouble: fixes from a stability review (Codex gpt-6.1-sol).
+- **A hub that stops answering no longer stalls capture.** Only connecting had a time limit;
+  a call cut off by Wi-Fi or VPN, or waiting on another writer, could hold every app's capture.
+  Calls now give up (2 minutes per statement, 30 s for a lock, dead connections noticed in
+  about a minute) and the lines wait in the outbox.
+- **While the hub is down, each turn no longer re-reads the whole outbox** and waits out
+  another connection attempt: it is tried again after a minute.
+- **A line cut off in the outbox (crash, full disk) no longer swallows the next one.**
+- **Moving from the old hub read position no longer locks itself** and repeats on every sync.
+- **Saved code is written whole or not at all.** A copy cut off mid-write was trusted forever.
+- **Indexing an imported history reads 1,000 rows at a time**, not every unindexed row at once.
+- **One failed pass, or a status file that cannot be written, no longer stops the capture
+  service.** It tries again a little later.
+- **The status file is written once a minute when nothing changed** (every 5 s before).
+- **Memory servers idle for 30 minutes also close their hub connection**: Codex keeps old
+  sessions' servers running, and each held one.
+
 ## 0.9.38 — 2026-10-22
 - **Each memory server takes about 230 MB less memory.** numpy's math library reserved a
   buffer for every CPU core when it loaded (233 MB on an 8-core PC), in every server an app

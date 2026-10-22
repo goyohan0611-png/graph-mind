@@ -38,6 +38,7 @@ import platform
 import re
 import sqlite3
 import subprocess
+import time
 
 from graph_mind.packing import row_text
 
@@ -989,9 +990,16 @@ def _seal_existing(url) -> int:
     return len(rows)
 
 
+# A hub that stops answering (Wi-Fi or VPN dropped mid-call, a writer holding the lock) must
+# fail the call, so the lines are queued, not hang capture behind it: only connecting had a limit
+PG_LIMITS = {"connect_timeout": 5, "keepalives": 1, "keepalives_idle": 30,
+             "keepalives_interval": 10, "keepalives_count": 3,
+             "options": "-c statement_timeout=120000 -c lock_timeout=30000"}
+
+
 def _pg(url):
     import psycopg
-    connection = psycopg.connect(url, autocommit=False, connect_timeout=5)
+    connection = psycopg.connect(url, autocommit=False, **PG_LIMITS)
     connection.execute("""CREATE TABLE IF NOT EXISTS sharing(
         seq BIGSERIAL PRIMARY KEY, device TEXT NOT NULL, line TEXT NOT NULL)""")
     # which hub this is, for the read cursor (one row; the first PC to look draws it)
@@ -1025,6 +1033,9 @@ def _read_rows(url, query, parameters):
                 raise
 
 
+_HUB_DOWN: dict = {}
+
+
 def _outbox() -> Path:
     from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "outbox.jsonl"
@@ -1038,14 +1049,28 @@ def _pg_append_or_queue(url, lines) -> int:
     outbox = _outbox()
     outbox.parent.mkdir(parents=True, exist_ok=True)
     with fasteners.InterProcessLock(str(outbox.with_suffix(".lock"))):
-        waiting = ([line for line in outbox.read_text(encoding="utf-8").splitlines()
+        # down a minute ago: queue without trying (each turn re-read the whole outbox and waited
+        # out another connection attempt while the hub was off for days)
+        down = time.monotonic() < _HUB_DOWN.get(url, 0.0)
+        waiting = ([line for line in outbox.read_text(encoding="utf-8").split("\n")
                     if line.strip()]
-                   if outbox.exists() else [])
+                   if outbox.exists() and not down else [])
         try:
+            if down:
+                raise ConnectionError("the hub was unreachable a moment ago")
             _pg_append(url, waiting + lines)
+            _HUB_DOWN.pop(url, None)
         except Exception:
+            if not down:
+                _HUB_DOWN[url] = time.monotonic() + 60
+            # a line cut off by a crash or a full disk would swallow the next one: end it first
+            torn = False
+            if outbox.exists() and outbox.stat().st_size:
+                with outbox.open("rb") as handle:
+                    handle.seek(-1, os.SEEK_END)
+                    torn = handle.read(1) != b"\n"
             with outbox.open("a", encoding="utf-8") as stream:
-                stream.write("\n".join(lines) + "\n")
+                stream.write(("\n" if torn else "") + "\n".join(lines) + "\n")
                 stream.flush()
                 os.fsync(stream.fileno())
             return len(lines)                     # queued, not lost
@@ -1089,8 +1114,6 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], 
         if row is None:
             row = db.execute("SELECT offset FROM brain_log_cursor WHERE source='postgres'"
                              ).fetchone()
-            if row is not None:
-                db.execute("DELETE FROM brain_log_cursor WHERE source='postgres'")
         rows = _read_rows(shared, "SELECT seq, line FROM sharing WHERE seq > %s ORDER BY seq "
                           "LIMIT %s", (row[0] if row else 0, BATCH_ROWS))
         if rows:
@@ -1214,6 +1237,9 @@ def _sync_batch(shared: Path, index: Path) -> tuple[dict, bool]:
                     more_imported, more_conflicts, waiting = _land(waiting, brain, turns)
                     imported, conflicts = imported + more_imported, conflicts + more_conflicts
         with db:                            # imports are idempotent: a crash before this re-reads
+            if any(source.startswith("postgres:") for source, _, _ in cursors):
+                # here, not when read: an uncommitted delete held the write lock the imports wait on
+                db.execute("DELETE FROM brain_log_cursor WHERE source='postgres'")
             db.executemany("INSERT OR REPLACE INTO brain_log_cursor(source, offset, mark) "
                            "VALUES(?,?,?)", cursors)
             db.execute("DELETE FROM brain_log_pending")

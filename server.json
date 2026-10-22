@@ -7,12 +7,12 @@
     "url": "https://github.com/goyohan0611-png/graph-mind",
     "source": "github"
   },
-  "version": "0.9.38",
+  "version": "0.9.39",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "graph-mind-memory",
-      "version": "0.9.38",
+      "version": "0.9.39",
       "transport": {
         "type": "stdio"
       }

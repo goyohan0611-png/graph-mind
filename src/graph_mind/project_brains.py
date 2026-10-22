@@ -1287,10 +1287,12 @@ class HubUnavailable(Exception):
 
 def _team_ledger(code: str) -> Ledger:
     import psycopg
+
+    from graph_mind import sharing
     value = _decode_team(code)
     host = value["h"][0] if value["h"] else "?"
     try:
-        connection = psycopg.connect(_team_url(value), autocommit=True, connect_timeout=5)
+        connection = psycopg.connect(_team_url(value), autocommit=True, **sharing.PG_LIMITS)
     except psycopg.OperationalError as error:
         raise HubUnavailable(f"team hub at {host}") from error
     named = connection.execute("SELECT member FROM ledger_accounts WHERE member_role = "
@@ -1324,7 +1326,7 @@ def own_ledger() -> Ledger:
         if "@127.0.0.1:" in url:
             prepare_hub()
         try:
-            connection = psycopg.connect(_hub_url(url), autocommit=True, connect_timeout=5)
+            connection = psycopg.connect(_hub_url(url), autocommit=True, **sharing.PG_LIMITS)
         except psycopg.OperationalError as error:
             raise HubUnavailable("your project hub") from error
         # the account's name, the same on every PC of this person (set_display_name sets it)

@@ -332,7 +332,13 @@ class AutomaticCaptureService:
                   "associative": associative,
                   "errors": errors, "seconds": seconds,
                   "warnings": self._stall_warnings(conversation)}
-        self._write_status(result)
+        # every 5 s pass rewrote it (17k writes a day): when only the times moved, once a minute
+        same = {k: v for k, v in result.items()
+                if k not in ("started_at", "completed_at", "seconds")}
+        if same != getattr(self, "_last_status", None) or (
+                time.monotonic() - getattr(self, "_status_at", -1e9) >= 60):
+            self._write_status(result)
+            self._last_status, self._status_at = same, time.monotonic()
         return result
 
     STALL_ROWS = 2000
@@ -366,8 +372,11 @@ class AutomaticCaptureService:
         return warnings
 
     def _write_status(self, result):
-        _atomic_json(self.status_path, {**result, "pid": os.getpid(),
-                                       "config_db": str(self.db_path)})
+        try:
+            _atomic_json(self.status_path, {**result, "pid": os.getpid(),
+                                           "config_db": str(self.db_path)})
+        except OSError:                 # a full disk or a locked file must not stop capture
+            pass
 
     def embed_new_turns(self, limit=None):
         """Make what was just captured searchable by meaning before anyone asks about it (the
@@ -441,7 +450,13 @@ class AutomaticCaptureService:
                 monotonic_now = time.monotonic()
                 code_due = (last_code_scan is None or monotonic_now - last_code_scan
                             >= self.config.get("code_poll_seconds", 120))
-                result = self.run_once(capture_code=code_due)
+                try:
+                    result = self.run_once(capture_code=code_due)
+                except Exception:       # one bad pass: try again next time, never exit
+                    if max_iterations is not None:
+                        raise
+                    time.sleep(self.config["poll_seconds"] * 6)
+                    continue
                 recorded = any(isinstance(s, dict) and s.get("recorded_turns")
                                for s in result["conversation_sources"].values())
                 # finding unembedded pieces reads every stored turn: on a 400 MB memory that

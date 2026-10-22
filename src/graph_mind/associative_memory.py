@@ -253,13 +253,17 @@ class AssociativeMemoryIndex:
         def allowed():
             return remaining is None or sum(counts.values()) < remaining
 
+        def left():
+            # in SQL, not after fetchall(): an imported history fetched every unindexed row at once
+            return -1 if remaining is None else max(0, remaining - sum(counts.values()))
+
         if self._table_exists("local_brain_memories"):
             rows = self.db.execute("""SELECT m.*,p.importance,p.related_memory_ids_json
               FROM local_brain_memories m LEFT JOIN local_brain_memory_profiles p
               ON p.memory_id=m.memory_id
               WHERE NOT EXISTS(SELECT 1 FROM associative_engrams a
                 WHERE a.engram_id='memory:' || m.memory_id)
-              ORDER BY m.revision""").fetchall()
+              ORDER BY m.revision LIMIT ?""", (left(),)).fetchall()
             for row in rows:
                 if not allowed():
                     break
@@ -280,7 +284,7 @@ class AssociativeMemoryIndex:
             rows = self.db.execute("""SELECT t.* FROM conversation_turns t
               WHERE NOT EXISTS(SELECT 1 FROM associative_engrams a
                 WHERE a.engram_id='conversation:' || t.turn_id)
-              ORDER BY t.revision""").fetchall()
+              ORDER BY t.revision LIMIT ?""", (left(),)).fetchall()
             for row in rows:
                 if not allowed():
                     break
@@ -296,7 +300,7 @@ class AssociativeMemoryIndex:
             rows = self.db.execute("""SELECT d.* FROM development_events d
               WHERE NOT EXISTS(SELECT 1 FROM associative_engrams a
                 WHERE a.engram_id='development:' || d.event_id)
-              ORDER BY d.revision""").fetchall()
+              ORDER BY d.revision LIMIT ?""", (left(),)).fetchall()
             for row in rows:
                 if not allowed():
                     break

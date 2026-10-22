@@ -395,6 +395,22 @@ class SealTests(unittest.TestCase):
 
 
 class OutboxTests(unittest.TestCase):
+    def test_a_line_cut_off_in_the_outbox_does_not_swallow_the_next(self):
+        from graph_mind import sharing
+
+        def down(url, lines):
+            raise OSError("connection refused")
+        url = "postgresql://graphmind@127.0.0.1:1/graphmind"
+        sharing._outbox().parent.mkdir(parents=True, exist_ok=True)
+        sharing._outbox().write_text('{"kind": "turn", "rec', encoding="utf-8")   # torn
+        sharing._HUB_DOWN.clear()
+        with unittest.mock.patch.object(sharing, "_pg_append", down):
+            sharing.append(url, "turn", {"turn_id": "t9"})
+        last = sharing._outbox().read_text(encoding="utf-8").split("\n")[-2]
+        self.assertEqual(json.loads(last)["record"]["turn_id"], "t9")
+        sharing._outbox().unlink()
+        sharing._HUB_DOWN.clear()
+
     def test_lines_wait_while_the_hub_is_down_and_go_with_the_next_append(self):
         from graph_mind import sharing
         sent, hub_up = [], [False]
@@ -411,8 +427,12 @@ class OutboxTests(unittest.TestCase):
             self.assertEqual(sent, [])
             self.assertTrue(sharing._outbox().exists())
             hub_up[0] = True
-            sharing.append(url, "turn", {"turn_id": "t3"})
-        self.assertEqual([json.loads(s)["record"]["turn_id"] for s in sent], ["t1", "t2", "t3"])
+            sharing.append(url, "turn", {"turn_id": "t3"})      # down a moment ago: not tried
+            self.assertEqual(sent, [])
+            sharing._HUB_DOWN.clear()                            # a minute later
+            sharing.append(url, "turn", {"turn_id": "t4"})
+        self.assertEqual([json.loads(s)["record"]["turn_id"] for s in sent],
+                         ["t1", "t2", "t3", "t4"])
         self.assertFalse(sharing._outbox().exists())
 
 

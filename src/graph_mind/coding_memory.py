@@ -347,7 +347,10 @@ class CodingMemoryCapture:
         target = self.blob_dir / digest[:2] / (digest + ".blob")
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
-            target.write_bytes(content)
+            # named by its hash, so a partial file (killed mid-write, disk full) was trusted forever
+            staged = target.with_name(f"{target.name}.{os.getpid()}.tmp")
+            staged.write_bytes(content)
+            os.replace(staged, target)
         return raw_digest, str(target)
 
     def snapshot(self, previous=None):

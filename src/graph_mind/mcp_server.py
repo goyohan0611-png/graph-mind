@@ -239,6 +239,12 @@ def trim_if_idle(now=None) -> bool:
     with LocalEmbedder._lock:
         LocalEmbedder._model = LocalEmbedder._tok = None
         LocalEmbedder._loaded.clear()
+    from graph_mind import sharing
+    for url in list(sharing._READERS):       # a hub connection each, held by every old session
+        try:
+            sharing._READERS.pop(url).close()
+        except Exception:
+            pass
     import gc
     gc.collect()
     return True

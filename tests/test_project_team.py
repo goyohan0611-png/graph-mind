@@ -4,6 +4,7 @@ import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 from unittest import mock
 import os
+import socket
 import tempfile
 import time
 import unittest
@@ -110,7 +111,11 @@ class TeamHubTests(unittest.TestCase):
         self.root.mkdir()
         self.saved = (sharing.PORT, os.environ.get("GRAPH_MIND_HOME"),
                       os.environ.get("GRAPH_MIND_CONFIG"))
-        sharing.PORT = 54393                                   # never the real hub's port
+        # a free port per test, never the real hub's: on Windows the previous test's server was
+        # sometimes still shutting down on a shared port, and dropped the next test's connection
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            sharing.PORT = probe.getsockname()[1]
         sharing._LOCAL_URI.clear()
         os.environ["GRAPH_MIND_HOME"] = str(self.root / "home")
         os.environ["GRAPH_MIND_CONFIG"] = str(self.root / "owner-config.json")

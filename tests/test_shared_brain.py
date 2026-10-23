@@ -435,6 +435,22 @@ class OutboxTests(unittest.TestCase):
                          ["t1", "t2", "t3", "t4"])
         self.assertFalse(sharing._outbox().exists())
 
+    def test_a_shared_folder_that_cannot_be_written_queues_the_turn(self):
+        from graph_mind import sharing
+        with tempfile.TemporaryDirectory() as directory:
+            shared = Path(directory)
+            sharing._HUB_DOWN.clear()
+            with unittest.mock.patch.object(sharing, "_folder_append",
+                                            side_effect=PermissionError("OneDrive has it")):
+                sharing.append(shared, "turn", {"turn_id": "f1"})       # no error
+            self.assertTrue(sharing._outbox().exists())
+            sharing._HUB_DOWN.clear()                                    # a minute later
+            sharing.append(shared, "turn", {"turn_id": "f2"})
+            log = next((shared / "log").glob("*.jsonl")).read_text(encoding="utf-8")
+            self.assertEqual([json.loads(line)["record"]["turn_id"]
+                              for line in log.split("\n") if line], ["f1", "f2"])
+            self.assertFalse(sharing._outbox().exists())
+
 
 class NoPgserverTests(unittest.TestCase):
     def test_hosting_where_postgres_has_no_build_says_why(self):

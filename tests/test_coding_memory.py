@@ -116,6 +116,32 @@ class CodingMemoryTests(unittest.TestCase):
                 self.assertEqual(capture.scan(reason="r")["changes"][0]["change_kind"],
                                  "DELETED")
 
+    def test_a_manifest_that_could_not_be_saved_does_not_record_the_change_twice(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            (workspace / "app.py").write_text("a = 1\n")
+            clock = iter(f"2026-09-15T10:00:0{i}" for i in range(10))
+            with CodingMemoryStore(root / "brain.sqlite") as store:
+                capture = CodingMemoryCapture(workspace, store, project_id="project:demo",
+                                              session_id="session:1", state_dir=root / "state",
+                                              now=lambda: next(clock))
+                capture.initialize_baseline()
+                (workspace / "app.py").write_text("a = 2\n")
+                with mock.patch.object(capture, "_write_manifest",
+                                       side_effect=PermissionError("locked")):
+                    with self.assertRaises(PermissionError):
+                        capture.scan(reason="r")
+                again = capture.scan(reason="r")             # the next poll, a second later
+                self.assertEqual(again["record_results"][0]["disposition"], "ALREADY_RECORDED")
+                (workspace / "app.py").write_text("a = 1\n")
+                capture.scan(reason="r")
+                (workspace / "app.py").write_text("a = 2\n")      # the same edit, made again
+                self.assertEqual(capture.scan(reason="r")["record_results"][0]["disposition"],
+                                 "RECORDED")
+
     def test_false_deletions_of_files_still_there_are_dropped(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -706,8 +706,12 @@ def append_many(shared: Path, items) -> int:
     lines = _lines(items)
     if not lines:
         return 0
-    if is_database(shared):
-        return _pg_append_or_queue(shared, lines)
+    # a log OneDrive holds open fails like a downed hub does: queued, not dropped
+    send = _pg_append if is_database(shared) else _folder_append
+    return _append_or_queue(shared, send, lines)
+
+
+def _folder_append(shared, lines) -> int:
     log = Path(shared).expanduser() / "log" / f"{log_name()}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
     torn = False
@@ -1041,10 +1045,11 @@ def _outbox() -> Path:
     return graph_mind_home() / "outbox.jsonl"
 
 
-def _pg_append_or_queue(url, lines) -> int:
-    """Append to the hub; when it cannot be reached, keep the lines in a local outbox and send
-    them with the next append that gets through. The hub was down for four days once and every
-    turn of those days stayed on the PC that captured it until it was sent by hand."""
+def _append_or_queue(url, send, lines) -> int:
+    """Append to the hub or folder; when it cannot be reached, keep the lines in a local outbox
+    and send them with the next append that gets through. The hub was down for four days once and
+    every turn of those days stayed on the PC that captured it until it was sent by hand."""
+    url = str(url)
     import fasteners
     outbox = _outbox()
     outbox.parent.mkdir(parents=True, exist_ok=True)
@@ -1058,7 +1063,7 @@ def _pg_append_or_queue(url, lines) -> int:
         try:
             if down:
                 raise ConnectionError("the hub was unreachable a moment ago")
-            _pg_append(url, waiting + lines)
+            send(url, waiting + lines)
             _HUB_DOWN.pop(url, None)
         except Exception:
             if not down:

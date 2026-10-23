@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.40 — 2026-10-23
+The two stability findings 0.9.39 left open.
+- **A turn that could not be written to a shared folder is no longer lost to the other PCs.**
+  When OneDrive (or any sync app) held the log, the turn stayed on this PC only, and nothing sent
+  it later. It now waits in the same outbox a downed hub uses and goes out with the next turn.
+- **A code-change manifest that could not be saved no longer records every change again on
+  each poll.** A change's id now comes from the state it starts from, not the scan's clock, so
+  the next scan finds the same id already kept and skips it.
+
 ## 0.9.39 — 2026-10-22
 Running all day without trouble: fixes from a stability review (Codex gpt-6.1-sol).
 - **A hub that stops answering no longer stalls capture.** Only connecting had a time limit;

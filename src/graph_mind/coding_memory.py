@@ -392,7 +392,8 @@ class CodingMemoryCapture:
     def _manifest(self, files):
         return {"capture_version": CAPTURE_VERSION, "project_id": self.project_id,
                 "workspace": str(self.workspace), "suffixes": sorted(self.suffixes),
-                "excluded_parts": sorted(self.excluded_parts), "files": files}
+                "excluded_parts": sorted(self.excluded_parts), "files": files,
+                "written_at": self.now()}
 
     def _write_manifest(self, files):
         temporary = self.manifest_path.with_suffix(".tmp")
@@ -444,9 +445,14 @@ class CodingMemoryCapture:
     def scan(self, *, reason, related_tests=None):
         reason = _text(reason, "CODE_CHANGE_REASON_REQUIRED")
         related_tests = _string_list(related_tests, "RELATED_TESTS_LIST_REQUIRED")
-        previous = self._load_manifest()["files"]
+        manifest = self._load_manifest()
+        previous = manifest["files"]
         current = self.snapshot(previous)
         now = self.now()
+        # the id names the state the change starts from, not this scan's clock: when the
+        # manifest could not be replaced (or a crash came first), the next scan makes the same
+        # ids and the store skips them, instead of a new copy of every change each poll
+        since = manifest.get("written_at") or now
         recorded, changes = [], []
         self.diff_dir.mkdir(parents=True, exist_ok=True)
         for path in sorted(set(previous) | set(current)):
@@ -469,8 +475,14 @@ class CodingMemoryCapture:
             binding = {"project_id": self.project_id, "session_id": self.session_id,
                        "file_path": path, "before": before and before["sha256"],
                        "after": after and after["sha256"], "reason": reason,
-                       "happened_at": now}
+                       "since": since}
             change_id = "code-change-" + _digest(_json(binding).encode("utf-8"))
+            known = self.store.db.execute("SELECT revision FROM coding_changes "
+                                          "WHERE change_id=?", (change_id,)).fetchone()
+            if known:                                     # kept by a scan whose manifest failed
+                recorded.append({"change_id": change_id, "revision": known["revision"],
+                                 "disposition": "ALREADY_RECORDED"})
+                continue
             diff = "".join(difflib.unified_diff(
                 before_text.splitlines(True), after_text.splitlines(True),
                 fromfile="a/" + path, tofile="b/" + path, n=3))

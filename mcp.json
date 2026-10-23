@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "graph-mind-memory": {
+      "command": "uvx",
+      "args": ["--from", "graph-mind-memory", "graph-mind"],
+      "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+    }
+  }
+}

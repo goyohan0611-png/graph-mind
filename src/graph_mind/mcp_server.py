@@ -427,7 +427,8 @@ def semantic_turns(database, query, *, scopes=None, since=None, until=None, limi
         rows = np.flatnonzero(mask)
         if not len(rows):
             return []
-        question = np.asarray(embedder.embed([query])[0], dtype=np.float32)
+        ask = getattr(embedder, "embed_query", None) or (lambda q: embedder.embed([q])[0])
+        question = np.asarray(ask(query), dtype=np.float32)
         # ponytail: a full scan of every piece per query (one matrix product: ~0.1 s at 100,000
         # turns); an approximate-nearest-neighbour index is the upgrade at millions of pieces.
         norms = index.norms[rows] * float(np.linalg.norm(question.astype(np.float64)))

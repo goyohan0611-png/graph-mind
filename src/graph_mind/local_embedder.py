@@ -208,6 +208,16 @@ class LocalEmbedder:
                     time.sleep(time.monotonic() - began)
         return [self.cache.get(self._key(t)) for t in texts]
 
+    def embed_query(self, text):
+        """A question's vector, not kept: every distinct search used to stay in the cache (and
+        on disk) for good, though a question is rarely asked twice."""
+        text = text.strip()[:2000]
+        key = self._key(text)
+        if key in self.cache:                         # stored text asked about verbatim
+            return self.cache.get(key)
+        served = _service.encode(self.model_name, [text], keep=False)
+        return served[0] if served is not None else self._encode_now([text])[0]
+
     def flush(self):
         with LocalEmbedder._lock:
             self.cache.flush()
@@ -274,6 +284,7 @@ class _Service:
             if _replace_old_service(info, model):
                 self.hold_until = time.monotonic() + self.HOLD
             raise LookupError("the service runs another model")
+        self.local.asks = bool(info.get("asks"))
         return Client(("127.0.0.1", info["port"]), authkey=bytes.fromhex(info["key"]))
 
     def connected(self, model) -> bool:
@@ -293,12 +304,14 @@ class _Service:
                 self.local.conn = None
         return self.local.conn is not None
 
-    def encode(self, model, texts):
+    def encode(self, model, texts, keep=True):
         if not self.connected(model):
             return None
         conn = self.local.conn
         try:
-            conn.send(texts)
+            # an older service knows only a bare list (and keeps it): it would hang up otherwise
+            conn.send(texts if keep or not getattr(self.local, "asks", False)
+                      else ("ask", texts))
             if not conn.poll(self.DEADLINE):
                 raise TimeoutError("the service stopped answering")
             return conn.recv()
@@ -353,7 +366,8 @@ def serve(embedder) -> None:
     with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w",
                    encoding="utf-8") as handle:
         handle.write(json.dumps({"port": listener.address[1], "key": key.hex(),
-                                 "model": embedder.model_name, "pid": os.getpid()}))
+                                 "model": embedder.model_name, "pid": os.getpid(),
+                                 "asks": True}))
     os.replace(temporary, path)
 
     def answer(conn):
@@ -368,9 +382,15 @@ def serve(embedder) -> None:
                     texts = conn.recv()
                 except (EOFError, OSError):
                     return
+                ask = isinstance(texts, tuple) and len(texts) == 2 and texts[0] == "ask"
+                if ask:
+                    texts = texts[1]
                 if not (isinstance(texts, list) and all(isinstance(t, str) for t in texts)):
                     return
-                conn.send([list(v) for v in embedder.embed(texts)])   # cached: asked once
+                if ask:                                    # a question: answered, not kept
+                    conn.send([list(embedder.embed_query(t)) for t in texts])
+                else:
+                    conn.send([list(v) for v in embedder.embed(texts)])   # cached: asked once
 
     def accept():
         while True:

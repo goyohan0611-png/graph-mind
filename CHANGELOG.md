@@ -3,6 +3,14 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.41 — 2026-10-23
+The last two findings of the stability review: small, but they only ever grew.
+- **Search questions are no longer kept in the vector cache.** Every distinct question stayed
+  in it for good, in memory and on disk, though a question is rarely asked twice. Stored
+  conversations are cached as before.
+- **The OpenCode plugin keeps only its newest 1,000 message ids** instead of every one since
+  OpenCode started. Run `graph-mind-install` to rewrite the plugin.
+
 ## 0.9.40 — 2026-10-23
 The two stability findings 0.9.39 left open.
 - **A turn that could not be written to a shared folder is no longer lost to the other PCs.**

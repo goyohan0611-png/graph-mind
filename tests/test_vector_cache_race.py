@@ -99,6 +99,36 @@ class RepairTests(unittest.TestCase):
                                            for i in range(12)]))
 
 
+class QueryTests(unittest.TestCase):
+    def test_a_question_is_answered_without_staying_in_the_cache(self):
+        from unittest import mock
+        from graph_mind import local_embedder
+        from graph_mind.local_embedder import LocalEmbedder
+        with tempfile.TemporaryDirectory() as directory:
+            embedder = LocalEmbedder(Path(directory) / "cache.json")
+            vector = [0.6, 0.8]
+            with (mock.patch.object(local_embedder._service, "encode", return_value=None),
+                  mock.patch.object(embedder, "_encode_now", return_value=[vector])):
+                self.assertEqual(embedder.embed_query("어제 뭐 고쳤어?"), vector)
+                self.assertEqual(len(embedder.cache), 0)
+                embedder.embed(["stored turn"])                  # stored text is still kept
+                self.assertEqual(len(embedder.cache), 1)
+
+    def test_the_service_is_asked_a_question_only_in_the_form_it_knows(self):
+        from graph_mind import local_embedder
+        sent = []
+        conn = type("C", (), {"send": lambda self, x: sent.append(x),
+                              "poll": lambda self, t: True, "recv": lambda self: [[1.0]]})()
+        service = local_embedder._Service()
+        service.connected = lambda model: True
+        service.local.conn, service.local.asks = conn, False      # an older service
+        service.encode("m", ["q"], keep=False)
+        service.local.asks = True
+        service.encode("m", ["q"], keep=False)
+        service.encode("m", ["t"])
+        self.assertEqual(sent, [["q"], ("ask", ["q"]), ["t"]])
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         target = sys.argv[1]

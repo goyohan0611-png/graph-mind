@@ -46,6 +46,13 @@ function recall(text) {
   });
 }
 
+// OpenCode can run for weeks: keep the newest KEEP ids, oldest out first (insertion order).
+// An event about a message 1,000 messages back never comes.
+const KEEP = 1000;
+function cap(seen) {
+  while (seen.size > KEEP) seen.delete(seen.keys().next().value);
+}
+
 export const GraphMindPlugin = async ({ directory }) => {
   const pending = new Map();     // sessionID -> memory for the message being answered
   const roles = new Map();       // messageID -> "user" | "assistant"
@@ -84,10 +91,12 @@ export const GraphMindPlugin = async ({ directory }) => {
         if (event.type === "message.updated" && props.info) {
           const info = props.info;
           roles.set(info.id, info.role);
+          cap(roles);
           if (info.role === "assistant" && info.time?.completed && !written.has(info.id)) {
             const text = [...(texts.get(info.id)?.values() || [])].join("\n").trim();
             if (text) {
               written.add(info.id);
+              cap(written);
               write(info.sessionID, { type: "assistant", uuid: info.id, sessionId: info.sessionID,
                 cwd: directory, timestamp: new Date(info.time.completed).toISOString(),
                 message: { content: text } });
@@ -97,7 +106,10 @@ export const GraphMindPlugin = async ({ directory }) => {
         } else if (event.type === "message.part.updated" && props.part?.type === "text") {
           const part = props.part;
           if (part.synthetic || roles.get(part.messageID) === "user") return;
-          if (!texts.has(part.messageID)) texts.set(part.messageID, new Map());
+          if (!texts.has(part.messageID)) {
+            texts.set(part.messageID, new Map());
+            cap(texts);
+          }
           texts.get(part.messageID).set(part.id, part.text || "");
         }
       } catch {}

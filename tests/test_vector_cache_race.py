@@ -56,7 +56,9 @@ def wrong_vectors(path=MODULE, processes=4, rounds=40):
     for worker in workers:
         worker.join()
     cache = load(path).VectorCache(directory)
-    wrong = sum(1 for key in cache.keys if list(cache.get(key)) != vector(key))
+    # held as float16 (rounding < 1e-3 here); another text's vector is off by ~0.3
+    wrong = sum(1 for key in cache.keys
+                if max(abs(a - b) for a, b in zip(cache.get(key), vector(key))) > 1e-3)
     return wrong, len(cache.keys), [w.exitcode for w in workers]
 
 

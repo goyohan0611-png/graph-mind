@@ -429,8 +429,10 @@ def semantic_turns(database, query, *, scopes=None, since=None, until=None, limi
             return []
         ask = getattr(embedder, "embed_query", None) or (lambda q: embedder.embed([q])[0])
         question = np.asarray(ask(query), dtype=np.float32)
-        # ponytail: a full scan of every piece per query (one matrix product: ~0.1 s at 100,000
-        # turns); an approximate-nearest-neighbour index is the upgrade at millions of pieces.
+        # ponytail: a full scan of every piece per query (one matrix product: ~20 ms per 100,000
+        # pieces, 0.25 s at a million). Past that, memory is the limit before time (3 GB here):
+        # an approximate-nearest-neighbour index is the upgrade then. Kept float32: float16 would
+        # halve it, but numpy converts it to multiply ten times slower than the product itself.
         norms = index.norms[rows] * float(np.linalg.norm(question.astype(np.float64)))
         dots = (index.matrix[rows] @ question).astype(np.float64)
         scores = np.divide(dots, norms, out=np.zeros(len(rows)), where=norms > 0)

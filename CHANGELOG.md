@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.42 — 2026-10-23
+- **The vector cache takes half the memory.** Vectors are held as float16 in memory (the file
+  stays float32, so existing caches read unchanged). At a million pieces that is 1.5 GB instead
+  of 3 GB for the capture service and for each app's memory server. Search scores move by less
+  than 0.001, which leaves the ranking as it was. The search matrix stays float32: as float16,
+  search would be about ten times slower.
+
 ## 0.9.41 — 2026-10-23
 The last two findings of the stability review: small, but they only ever grew.
 - **Search questions are no longer kept in the vector cache.** Every distinct question stayed

@@ -1,8 +1,10 @@
-"""Binary vector cache: float32 rows in one file, keys in a small index.
+"""Binary vector cache: float32 rows in one file, keys in a small index; float16 in memory.
 
 The JSON cache this replaces held every dimension as a Python float object — a 1.1GB file became
 3-4GB of RAM and took minutes to parse, which is what got two evaluation runs killed for memory
-pressure. Same vectors as float32 are ~8x smaller and load by reading bytes.
+pressure. Same vectors as float32 are ~8x smaller and load by reading bytes. In memory they are
+float16, half again (a million pieces: 1.5 GB, not 3): cosine moves by ~1e-4, far below the gaps
+between ranks. The file stays float32, so caches written before read unchanged.
 
 Layout:  <dir>/vectors-<id>.f32  rows of `dim` little-endian floats, appended in insertion order
          <dir>/index.json       {"dim", "model", "keys": {sha256: row}, "blob": "vectors-<id>.f32"}
@@ -24,6 +26,28 @@ import os
 import sys
 import threading
 import time
+
+import numpy as np
+
+DISK = 4                                   # bytes per value in the file (float32)
+CHUNK = 1 << 20                            # values converted at a time: no full-size float32 copy
+
+
+def _half(raw: bytes) -> array:
+    """float32 bytes from the file -> float16 values (as raw uint16) for memory."""
+    out = array("H")
+    for start in range(0, len(raw), CHUNK * DISK):
+        part = np.frombuffer(raw, dtype="<f4", count=min(CHUNK, (len(raw) - start) // DISK),
+                             offset=start)
+        out.frombytes(part.astype(np.float16).tobytes())
+    return out
+
+
+def _full(rows: array, start: int = 0):
+    """float16 values in memory -> float32 bytes for the file, a chunk at a time."""
+    for at in range(start, len(rows), CHUNK):
+        part = np.array(rows[at:at + CHUNK], dtype=np.uint16).view(np.float16)
+        yield part.astype("<f4").tobytes()
 
 
 class VectorCache:
@@ -51,11 +75,11 @@ class VectorCache:
             try:
                 stamp = self.index_path.stat().st_mtime_ns
                 meta = json.loads(self.index_path.read_text(encoding="utf-8"))
-                rows = array("f")
+                rows = array("H")
                 if meta.get("dim"):
                     count = (max(meta.get("keys", {}).values(), default=-1) + 1) * meta["dim"]
                     with (self.dir / meta.get("blob", "vectors.f32")).open("rb") as handle:
-                        rows.frombytes(handle.read(count * rows.itemsize))
+                        rows = _half(handle.read(count * DISK))
                 # An index whose blob is gone or short (another process saved and removed it in
                 # between) must never load: its keys would point at rows that this process then
                 # fills with other texts' vectors and saves. Every vector silently wrong.
@@ -64,11 +88,11 @@ class VectorCache:
                 return meta, rows, stamp
             except FileNotFoundError:
                 if not self.index_path.exists():
-                    return {}, array("f"), None
+                    return {}, array("H"), None
                 time.sleep(0.05)
             except (OSError, ValueError):
                 time.sleep(0.05)
-        return {}, array("f"), None        # start empty: re-embedding costs time, never accuracy
+        return {}, array("H"), None        # start empty: re-embedding costs time, never accuracy
 
     def refresh(self) -> int:
         with self._lock:
@@ -115,7 +139,8 @@ class VectorCache:
             if row is None:
                 return None
             start = row * self.dim
-            return self._rows[start:start + self.dim]
+            return np.array(self._rows[start:start + self.dim], dtype=np.uint16).view(
+                np.float16).astype(np.float32)
 
     def put(self, key: str, vector) -> None:
         with self._lock:
@@ -124,7 +149,7 @@ class VectorCache:
     def _put(self, key: str, vector) -> None:
         if key in self.keys:
             return
-        vector = array("f", vector)
+        vector = array("H", np.asarray(vector, dtype=np.float16).view(np.uint16).tobytes())
         if self.dim is None:
             self.dim = len(vector)
         if len(vector) != self.dim:
@@ -154,16 +179,19 @@ class VectorCache:
                           and self.index_path.stat().st_mtime_ns == self._stamp
                           and meta.get("generation", 0) == self.generation
                           and blob.exists()
-                          and blob.stat().st_size >= committed * self._rows.itemsize
+                          and blob.stat().st_size >= committed * DISK
                           and all(self.keys.get(k) == row for k, row in keys.items()))
             if appendable:
                 with blob.open("r+b") as handle:
-                    handle.seek(committed * self._rows.itemsize)
+                    handle.seek(committed * DISK)
                     handle.truncate()       # discard an uncommitted tail after a crash
-                    handle.write(self._rows[committed:].tobytes())
+                    for part in _full(self._rows, committed):
+                        handle.write(part)
             else:
                 blob = self.dir / f"vectors-{os.getpid()}-{time.time_ns()}.f32"
-                blob.write_bytes(self._rows.tobytes())
+                with blob.open("wb") as handle:
+                    for part in _full(self._rows):
+                        handle.write(part)
             staged = self.dir / f"index.{os.getpid()}.tmp"
             staged.write_text(json.dumps({"dim": self.dim, "model": self.model, "keys": self.keys,
                                           "blob": blob.name, "generation": self.generation}),
@@ -195,7 +223,7 @@ class VectorCache:
             with fasteners.InterProcessLock(str(self.dir / "save.lock")):
                 meta, _, _ = self._read()
                 self.generation = max(self.generation, meta.get("generation", 0)) + 1
-                self.keys, self._rows, self._dirty = {}, array("f"), 1
+                self.keys, self._rows, self._dirty = {}, array("H"), 1
                 self._stamp = None
             self._flush()
 

@@ -246,7 +246,8 @@ def forget_ids(ids: dict, index: Path, shared=None) -> dict:
             if shared:
                 db.execute("""CREATE TABLE IF NOT EXISTS forget_jobs(
                     job_id TEXT PRIMARY KEY, destination TEXT NOT NULL, ids_json TEXT NOT NULL,
-                    attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)""")
+                    attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT,
+                    sent INTEGER NOT NULL DEFAULT 0, next_try REAL NOT NULL DEFAULT 0)""")
                 destination = _destination(shared)
                 payload = json.dumps({key: sorted(set(value)) for key, value in ids.items()},
                                      sort_keys=True)
@@ -266,8 +267,16 @@ def _destination(shared):
     return str(shared) if is_database(shared) else str(Path(shared).expanduser().resolve())
 
 
-def retry_deletions(index: Path, *, shared=None) -> dict:
-    """Resume previously accepted requests without needing their deleted text again."""
+RETRY_MAX = 3600.0      # seconds: a job failing for good is tried hourly, not every poll
+
+
+def retry_deletions(index: Path, *, shared=None, wait=False) -> dict:
+    """Resume previously accepted requests without needing their deleted text again. `wait`
+    (the capture service's poll, sync) skips a job until its backoff is over: a log file that
+    stays unreadable (OneDrive holding it, a cloud-only file offline) failed the scrub every
+    5 s, and each retry read every log again."""
+    import time
+
     from graph_mind.sharing import append
     outcome = {"shared_lines_removed": 0, "shared_delete_pending": 0}
     if not Path(index).is_file():
@@ -278,19 +287,26 @@ def retry_deletions(index: Path, *, shared=None) -> dict:
             return outcome
         where = " WHERE destination=?" if shared is not None else ""
         parameters = (_destination(shared),) if shared is not None else ()
-        jobs = db.execute("SELECT job_id,destination,ids_json FROM forget_jobs" + where,
-                          parameters).fetchall()
-        for job_id, destination, payload in jobs:
+        due = (" AND " if where else " WHERE ") + "next_try<=?" if wait else ""
+        jobs = db.execute("SELECT job_id,destination,ids_json,sent,attempts FROM forget_jobs"
+                          + where + due, parameters + ((time.time(),) if wait else ())).fetchall()
+        for job_id, destination, payload, sent, attempts in jobs:
             ids = json.loads(payload)
             try:
                 drop_from_outbox(ids)
-                # This job is already durable; an outbox enqueue is not its delivery ack.
-                append(destination, "forget", ids, require_delivery=True)
+                if not sent:
+                    # This job is already durable; an outbox enqueue is not its delivery ack.
+                    append(destination, "forget", ids, require_delivery=True)
+                    with db:            # sent once: a failing scrub must not resend it each try
+                        db.execute("UPDATE forget_jobs SET sent=1 WHERE job_id=?", (job_id,))
                 outcome["shared_lines_removed"] += scrub_shared(destination, ids)
             except Exception as error:
                 with db:
-                    db.execute("UPDATE forget_jobs SET attempts=attempts+1,last_error=? "
-                               "WHERE job_id=?", (type(error).__name__, job_id))
+                    db.execute("UPDATE forget_jobs SET attempts=attempts+1,last_error=?,next_try=? "
+                               "WHERE job_id=?", (type(error).__name__,
+                                                  time.time() + min(RETRY_MAX,
+                                                                    60.0 * 2 ** min(attempts, 6)),
+                                                  job_id))
             else:
                 with db:
                     db.execute("DELETE FROM forget_jobs WHERE job_id=?", (job_id,))

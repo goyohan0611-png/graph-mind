@@ -96,7 +96,8 @@ module.forget('cobalt', Path(sys.argv[1]), Path(sys.argv[2]))
         self.assert_propagated()
         notices = [json.loads(line) for path in (self.shared / "log").glob("*.jsonl")
                    for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        self.assertGreaterEqual(sum(item["kind"] == "forget" for item in notices), 2)
+        # the notice was marked sent before the scrub: the retry only scrubs, it does not resend
+        self.assertEqual(sum(item["kind"] == "forget" for item in notices), 1)
 
     def test_failed_job_persistence_rolls_back_local_erase_and_tombstone(self):
         self.seed()
@@ -183,6 +184,28 @@ module.forget('cobalt', Path(sys.argv[1]), Path(sys.argv[2]))
         other = self.root / "other"
         sharing.sync(other, self.index)
         self.assertFalse((other / "log").exists())
+        module.retry_deletions(self.index)       # sync waits out the backoff; this does not
+        self.assert_propagated()
+
+    def test_a_scrub_that_keeps_failing_sends_once_and_backs_off(self):
+        self.seed()
+        locked = PermissionError("locked")
+        with mock.patch.object(module, "scrub_shared", side_effect=locked) as scrub:
+            module.forget("cobalt", self.index, self.shared)
+            for _ in range(5):                   # the capture service's polls, 5 s apart
+                self.assertEqual(module.retry_deletions(self.index, wait=True)
+                                 ["shared_delete_pending"], 1)
+            self.assertEqual(scrub.call_count, 1)
+            module.retry_deletions(self.index)   # an explicit retry: scrubs again, sends nothing
+            self.assertEqual(scrub.call_count, 2)
+        notices = [line for path in (self.shared / "log").glob("*.jsonl")
+                   for line in path.read_text(encoding="utf-8").splitlines()
+                   if '"kind": "forget"' in line]
+        self.assertEqual(len(notices), 1)
+        (sent, next_try), = self.rows("SELECT sent, next_try FROM forget_jobs")
+        self.assertEqual(sent, 1)
+        self.assertGreater(next_try, 0)
+        module.retry_deletions(self.index)
         self.assert_propagated()
 
     def test_cli_retries_previous_request_even_with_no_local_phrase_match(self):

@@ -253,7 +253,7 @@ class AutomaticCaptureService:
         coding, errors = [], []
         from graph_mind.forget import retry_deletions
         try:
-            retry_deletions(self.db_path)
+            retry_deletions(self.db_path, wait=True)
         except Exception as error:
             errors.append({"source": "forget_retry", "error": type(error).__name__})
         # where a pass spends its time, in the status file: an idle service once took 8% of a

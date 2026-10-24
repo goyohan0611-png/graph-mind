@@ -1173,7 +1173,7 @@ def sync(shared: Path, index: Path) -> dict:
     """Bring this machine's index up to date with every device's log, a batch at a time: the
     whole unread history read at once ran a fresh PC out of memory before anything landed."""
     from graph_mind.forget import retry_deletions
-    retry_deletions(index)
+    retry_deletions(index, wait=True)
     total = {"imported": 0, "conflicts": 0, "waiting": 0}
     while True:
         result, more = _sync_batch(shared, index)

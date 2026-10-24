@@ -685,8 +685,21 @@ def set_folder(path) -> Path:
     return chosen
 
 
-def append(shared: Path, kind: str, record: dict) -> None:
+def append(shared: Path, kind: str, record: dict, *, require_delivery=False) -> None:
     """Add one record to this device's log. Only ever appends, and flushes it to disk."""
+    if require_delivery:
+        # For callers with their own durable job: return only after the transport commits.
+        target = str(shared)
+        if time.monotonic() < _HUB_DOWN.get(target, 0.0):
+            raise ConnectionError("the shared log was unreachable a moment ago")
+        send = _pg_append if is_database(shared) else _folder_append
+        try:
+            send(shared, _lines([(kind, record)]))
+        except Exception:
+            _HUB_DOWN[target] = time.monotonic() + 60
+            raise
+        _HUB_DOWN.pop(target, None)
+        return
     append_many(shared, [(kind, record)])
 
 
@@ -1159,6 +1172,8 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], 
 def sync(shared: Path, index: Path) -> dict:
     """Bring this machine's index up to date with every device's log, a batch at a time: the
     whole unread history read at once ran a fresh PC out of memory before anything landed."""
+    from graph_mind.forget import retry_deletions
+    retry_deletions(index)
     total = {"imported": 0, "conflicts": 0, "waiting": 0}
     while True:
         result, more = _sync_batch(shared, index)

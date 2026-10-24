@@ -17,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 import argparse
 import getpass
+import hashlib
 import json
 import sqlite3
 import sys
@@ -44,63 +45,69 @@ def find(index: Path, phrase: str) -> dict:
 
 def erase(index: Path, ids: dict) -> dict:
     """Delete these turns and memories, with every index entry derived from them."""
-    turns, memories = list(ids.get("turn_ids", [])), list(ids.get("memory_ids", []))
     db = sqlite3.connect(index, timeout=30)
     try:
-        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
-        if turns and "semantic_ingestion_audit" in tables:
-            # a turn the capture service promoted to a memory lives on in that memory, word for
-            # word: forgetting the turn by id left the copy behind
-            marks = ",".join("?" * len(turns))
-            memories += [row[0] for row in db.execute(
-                f"SELECT memory_id FROM semantic_ingestion_audit WHERE turn_id IN ({marks}) "
-                "AND memory_id IS NOT NULL", turns) if row[0] not in memories]
         with db:
-            # what was forgotten stays forgotten: a later import of the same turn (another PC's
-            # log, an outbox sent late, a transcript read again) is refused by the stores
-            db.execute("CREATE TABLE IF NOT EXISTS forgotten_ids(id TEXT PRIMARY KEY)")
-            db.executemany("INSERT OR IGNORE INTO forgotten_ids VALUES(?)",
-                           [(i,) for i in turns + memories])
-            if turns and "conversation_turns" in tables:
-                marks = ",".join("?" * len(turns))
-                # the index must be handed the exact words it holds: unpacked
-                rows = [(revision, unpack(plain, packed)) for revision, plain, packed in
-                        db.execute(f"SELECT revision, {text_columns(db)} FROM conversation_turns "
-                                   f"WHERE turn_id IN ({marks})", turns)]
-                # an external-content FTS table keeps its words until told to drop them
-                db.executemany("INSERT INTO conversation_turns_fts(conversation_turns_fts, rowid, "
-                               "content_redacted) VALUES('delete', ?, ?)", rows)
-                db.execute(f"DELETE FROM conversation_turns WHERE turn_id IN ({marks})", turns)
-            if memories and "local_brain_memories" in tables:
-                marks = ",".join("?" * len(memories))
-                db.execute(f"DELETE FROM local_brain_memories WHERE memory_id IN ({marks})",
-                           memories)
-                if "local_brain_memory_profiles" in tables:
-                    db.execute(f"DELETE FROM local_brain_memory_profiles "
-                               f"WHERE memory_id IN ({marks})", memories)
-            sources = turns + memories
-            if sources and "associative_engrams" in tables:
-                marks = ",".join("?" * len(sources))
-                engrams = [row[0] for row in db.execute(
-                    f"SELECT engram_id FROM associative_engrams WHERE source_id IN ({marks})",
-                    sources)]
-                if engrams:
-                    em = ",".join("?" * len(engrams))
-                    for table, column in (("associative_engrams_fts", "engram_id"),
-                                          ("associative_terms", "engram_id"),
-                                          ("associative_edges", "source_engram_id"),
-                                          ("associative_edges", "target_engram_id"),
-                                          ("associative_pending_edges", "source_engram_id"),
-                                          ("associative_pending_edges", "target_engram_id"),
-                                          ("associative_engrams", "engram_id")):
-                        if table in tables:
-                            db.execute(f"DELETE FROM {table} WHERE {column} IN ({em})", engrams)
+            db.execute("BEGIN IMMEDIATE")
+            return _erase(db, ids)
     finally:
         db.close()
+
+
+def _erase(db, ids):
+    """Caller owns the transaction, including any durable propagation job."""
+    turns, memories = list(ids.get("turn_ids", [])), list(ids.get("memory_ids", []))
+    tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
+    if turns and "semantic_ingestion_audit" in tables:
+        # a turn the capture service promoted to a memory lives on in that memory, word for
+        # word: forgetting the turn by id left the copy behind
+        marks = ",".join("?" * len(turns))
+        memories += [row[0] for row in db.execute(
+            f"SELECT memory_id FROM semantic_ingestion_audit WHERE turn_id IN ({marks}) "
+            "AND memory_id IS NOT NULL", turns) if row[0] not in memories]
+    # what was forgotten stays forgotten: a later import of the same turn (another PC's
+    # log, an outbox sent late, a transcript read again) is refused by the stores
+    db.execute("CREATE TABLE IF NOT EXISTS forgotten_ids(id TEXT PRIMARY KEY)")
+    db.executemany("INSERT OR IGNORE INTO forgotten_ids VALUES(?)",
+                   [(i,) for i in turns + memories])
+    if turns and "conversation_turns" in tables:
+        marks = ",".join("?" * len(turns))
+        # the index must be handed the exact words it holds: unpacked
+        rows = [(revision, unpack(plain, packed)) for revision, plain, packed in
+                db.execute(f"SELECT revision, {text_columns(db)} FROM conversation_turns "
+                           f"WHERE turn_id IN ({marks})", turns)]
+        # an external-content FTS table keeps its words until told to drop them
+        db.executemany("INSERT INTO conversation_turns_fts(conversation_turns_fts, rowid, "
+                       "content_redacted) VALUES('delete', ?, ?)", rows)
+        db.execute(f"DELETE FROM conversation_turns WHERE turn_id IN ({marks})", turns)
+    if memories and "local_brain_memories" in tables:
+        marks = ",".join("?" * len(memories))
+        db.execute(f"DELETE FROM local_brain_memories WHERE memory_id IN ({marks})",
+                   memories)
+        if "local_brain_memory_profiles" in tables:
+            db.execute(f"DELETE FROM local_brain_memory_profiles "
+                       f"WHERE memory_id IN ({marks})", memories)
+    sources = turns + memories
+    if sources and "associative_engrams" in tables:
+        marks = ",".join("?" * len(sources))
+        engrams = [row[0] for row in db.execute(
+            f"SELECT engram_id FROM associative_engrams WHERE source_id IN ({marks})",
+            sources)]
+        if engrams:
+            em = ",".join("?" * len(engrams))
+            for table, column in (("associative_engrams_fts", "engram_id"),
+                                  ("associative_terms", "engram_id"),
+                                  ("associative_edges", "source_engram_id"),
+                                  ("associative_edges", "target_engram_id"),
+                                  ("associative_pending_edges", "source_engram_id"),
+                                  ("associative_pending_edges", "target_engram_id"),
+                                  ("associative_engrams", "engram_id")):
+                if table in tables:
+                    db.execute(f"DELETE FROM {table} WHERE {column} IN ({em})", engrams)
     return {"turns": len(turns), "memories": len(memories), "memory_ids": memories}
 
 
-def _blank(path: Path, doomed) -> int:
+def _blank(path: Path, doomed, *, strict=False) -> int:
     """Blank the lines `doomed` picks, in place and at the same length: readers' offsets stay
     valid, and only those bytes are written. Writing the whole snapshot back let two forgets at
     once restore each other's text, and a file deleted meanwhile (expired staging) raised."""
@@ -112,7 +119,11 @@ def _blank(path: Path, doomed) -> int:
                 if doomed(body):
                     spans.append((offset, len(body)))
                 offset += len(line)
+    except FileNotFoundError:
+        return 0
     except OSError:
+        if strict:
+            raise
         return 0
     if spans:
         try:
@@ -120,7 +131,11 @@ def _blank(path: Path, doomed) -> int:
                 for start, size in spans:
                     stream.seek(start)
                     stream.write(b" " * size)
+        except FileNotFoundError:
+            return 0
         except OSError:
+            if strict:
+                raise
             return 0
     return len(spans)
 
@@ -155,7 +170,8 @@ def scrub_shared(shared, ids: dict) -> int:
     def doomed(line):
         text = line.decode("utf-8", "replace")
         return any(key in text for key in keys) and '"kind": "forget"' not in text
-    return sum(_blank(log, doomed) for log in (Path(shared) / "log").glob("*.jsonl"))
+    return sum(_blank(log, doomed, strict=True)
+               for log in (Path(shared) / "log").glob("*.jsonl"))
 
 
 def _strings(value):
@@ -210,37 +226,79 @@ def drop_from_outbox(ids: dict) -> int:
 
 def forget_ids(ids: dict, index: Path, shared=None) -> dict:
     """Erase these turns and memories here, scrub the shared log, and tell the other PCs."""
-    from graph_mind.sharing import append
     if not (ids.get("turn_ids") or ids.get("memory_ids")):
-        return {"turns": 0, "memories": 0, "shared_lines_removed": 0}
+        return {"turns": 0, "memories": 0, **retry_deletions(index, shared=shared)}
     ids = {"turn_ids": list(ids.get("turn_ids", [])),
            "memory_ids": list(ids.get("memory_ids", []))}
     contents = []
-    if ids["turn_ids"]:
-        db = sqlite3.connect(index, timeout=30)
-        try:
-            marks = ",".join("?" * len(ids["turn_ids"]))
-            contents = [unpack(plain, packed) for plain, packed in db.execute(
-                f"SELECT {text_columns(db)} FROM conversation_turns WHERE turn_id IN ({marks})",
-                ids["turn_ids"])]
-        except sqlite3.OperationalError:          # no conversations stored yet
-            pass
-        finally:
-            db.close()
-    result = erase(index, ids)
-    # memories promoted from these turns go too, and everywhere else the turns go
-    ids["memory_ids"] = result.pop("memory_ids")
+    db = sqlite3.connect(index, timeout=30)
+    try:
+        with db:
+            db.execute("BEGIN IMMEDIATE")
+            if ids["turn_ids"] and db.execute("SELECT 1 FROM sqlite_master "
+                                             "WHERE name='conversation_turns'").fetchone():
+                marks = ",".join("?" * len(ids["turn_ids"]))
+                contents = [unpack(plain, packed) for plain, packed in db.execute(
+                    f"SELECT {text_columns(db)} FROM conversation_turns WHERE turn_id IN ({marks})",
+                    ids["turn_ids"])]
+            result = _erase(db, ids)
+            ids["memory_ids"] = result.pop("memory_ids")  # include promoted copies
+            if shared:
+                db.execute("""CREATE TABLE IF NOT EXISTS forget_jobs(
+                    job_id TEXT PRIMARY KEY, destination TEXT NOT NULL, ids_json TEXT NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)""")
+                destination = _destination(shared)
+                payload = json.dumps({key: sorted(set(value)) for key, value in ids.items()},
+                                     sort_keys=True)
+                job_id = hashlib.sha256((destination + "\0" + payload).encode()).hexdigest()
+                db.execute("INSERT OR IGNORE INTO forget_jobs(job_id,destination,ids_json) "
+                           "VALUES(?,?,?)", (job_id, destination, payload))
+    finally:
+        db.close()
     drop_from_outbox(ids)          # also when a notice arrives: this PC's queue held them too
-    if shared:
-        # the notice first: append queues it in the outbox when the hub is down, where a scrub
-        # that failed first used to lose it, and the other PCs kept their copies
-        append(shared, "forget", ids)                  # ids only: the text never leaves here
-        try:
-            result["shared_lines_removed"] = scrub_shared(shared, ids)
-        except Exception:
-            result["shared_lines_removed"] = 0         # offline: the notice reaches them later
     result["staging_lines_removed"] = scrub_staging(contents)
+    result.update(retry_deletions(index, shared=shared))
     return result
+
+
+def _destination(shared):
+    from graph_mind.sharing import is_database
+    return str(shared) if is_database(shared) else str(Path(shared).expanduser().resolve())
+
+
+def retry_deletions(index: Path, *, shared=None) -> dict:
+    """Resume previously accepted requests without needing their deleted text again."""
+    from graph_mind.sharing import append
+    outcome = {"shared_lines_removed": 0, "shared_delete_pending": 0}
+    if not Path(index).is_file():
+        return outcome
+    db = sqlite3.connect(index, timeout=30)
+    try:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='forget_jobs'").fetchone():
+            return outcome
+        where = " WHERE destination=?" if shared is not None else ""
+        parameters = (_destination(shared),) if shared is not None else ()
+        jobs = db.execute("SELECT job_id,destination,ids_json FROM forget_jobs" + where,
+                          parameters).fetchall()
+        for job_id, destination, payload in jobs:
+            ids = json.loads(payload)
+            try:
+                drop_from_outbox(ids)
+                # This job is already durable; an outbox enqueue is not its delivery ack.
+                append(destination, "forget", ids, require_delivery=True)
+                outcome["shared_lines_removed"] += scrub_shared(destination, ids)
+            except Exception as error:
+                with db:
+                    db.execute("UPDATE forget_jobs SET attempts=attempts+1,last_error=? "
+                               "WHERE job_id=?", (type(error).__name__, job_id))
+            else:
+                with db:
+                    db.execute("DELETE FROM forget_jobs WHERE job_id=?", (job_id,))
+        outcome["shared_delete_pending"] = db.execute(
+            "SELECT count(*) FROM forget_jobs" + where, parameters).fetchone()[0]
+        return outcome
+    finally:
+        db.close()
 
 
 def forget(phrase: str, index: Path, shared=None) -> dict:
@@ -291,9 +349,13 @@ def main(argv=None):
     if len(phrase.strip()) < 4:
         sys.exit("Use at least 4 characters, so a short word does not wipe half the memory.")
     index = default_development_db()
+    retried = retry_deletions(index)
     ids = find(index, phrase)
     count = len(ids["turn_ids"]) + len(ids["memory_ids"])
     if not count:
+        if retried["shared_delete_pending"]:
+            print("A previous shared deletion is still pending; it will be retried automatically.")
+            return
         print("Nothing in this PC's memory contains that phrase.")
         return
     print(f"{len(ids['turn_ids'])} conversation turns and {len(ids['memory_ids'])} memories "
@@ -304,7 +366,8 @@ def main(argv=None):
     shared = folder()
     result = forget(phrase, index, shared)
     print(f"Forgotten: {result['turns']} turns, {result['memories']} memories"
-          + (f"; {result['shared_lines_removed']} lines removed from the shared memory, "
+          + ("; shared deletion pending, automatic retry enabled" if result["shared_delete_pending"]
+             else f"; {result['shared_lines_removed']} lines removed from the shared memory, "
              "other PCs follow on their next sync" if shared else "") + ".")
     print("Your AI app may still have it in its own history (Claude Code: ~/.claude/projects).")
 

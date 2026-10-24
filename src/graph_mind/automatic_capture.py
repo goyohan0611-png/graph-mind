@@ -251,6 +251,11 @@ class AutomaticCaptureService:
     def run_once(self, *, capture_code=True):
         started = self.now()
         coding, errors = [], []
+        from graph_mind.forget import retry_deletions
+        try:
+            retry_deletions(self.db_path)
+        except Exception as error:
+            errors.append({"source": "forget_retry", "error": type(error).__name__})
         # where a pass spends its time, in the status file: an idle service once took 8% of a
         # core and nothing said which step
         seconds, clock = {}, time.perf_counter()

@@ -14,6 +14,7 @@
 [![][ci-shield]][ci-link]
 [![][pypi-shield]][pypi-link]
 [![goyohan0611-png/graph-mind MCP server](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind/badges/score.svg)](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind)
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/goyohan0611-png/graph-mind)
 
 *Decide something with one agent on Monday. Ask another on Wednesday. It knows.*
 

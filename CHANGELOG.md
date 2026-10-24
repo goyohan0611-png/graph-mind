@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.43 — 2026-10-24
+- **A deletion reaches your other PCs even if Graph-MIND stops halfway.** Forgetting something
+  now records, in the same step, that the other PCs still have to be told (ids only, never the
+  deleted text). If the app or PC stops before the notice goes out, it is sent on the next start.
+- **A shared-folder deletion that cannot finish no longer repeats every 5 seconds.** The notice
+  is sent once; if a log file stays locked (OneDrive) or offline, cleaning it up is retried after
+  1 minute, then less often, at most hourly.
+- The package description no longer lists app names.
+
 ## 0.9.42 — 2026-10-23
 - **The vector cache takes half the memory.** Vectors are held as float16 in memory (the file
   stays float32, so existing caches read unchanged). At a million pieces that is 1.5 GB instead

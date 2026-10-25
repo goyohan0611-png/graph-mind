@@ -15,6 +15,7 @@
 [![][pypi-shield]][pypi-link]
 [![goyohan0611-png/graph-mind MCP server](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind/badges/score.svg)](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/goyohan0611-png/graph-mind)
+[![Mentioned in Awesome MCP Servers](https://awesome.re/mentioned-badge.svg)](https://github.com/punkpeye/awesome-mcp-servers#knowledge--memory)
 
 *Decide something with one agent on Monday. Ask another on Wednesday. It knows.*
 

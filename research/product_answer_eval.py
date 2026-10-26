@@ -100,7 +100,15 @@ def spans():
 def around(row):
     """The calling model resolves "four weeks ago" itself in real use; the benchmark's own
     resolver (English, rule-based) plays it here."""
+    import re
     import temporal_resolver
+    # exp/exact-day: only an event pinned to one day ("last Saturday", "yesterday"), never a
+    # when-we-talked question or a fuzzy "two weeks ago" (dev2: that date misled 2 of 11)
+    if not re.search(r"\b(?:last|this past)\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|"
+                     r"\byesterday\b", row["question"], re.I) or re.search(
+            r"\b(mention|mentioned|told|tell|talk|talked|discuss|discussed|said|say|ask|asked|"
+            r"chat|chatted|conversation)\b", row["question"], re.I):
+        return None
     found = temporal_resolver.resolve(row["question"], row["question_date"])
     return f"{found[0]}..{found[1]}" if found else None
 

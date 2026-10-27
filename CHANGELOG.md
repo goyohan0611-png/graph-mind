@@ -1,7 +1,15 @@
 # Changelog
 
-Upgrade: `python -m pip install --upgrade graph-mind-memory`, then `graph-mind-install`.
+Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
+
+## 0.9.44 — 2026-10-27
+- **Graph-MIND is now Turnbook.** The package is `turnbook` and the commands are `turnbook`,
+  `turnbook-install` and so on; the repository moved to github.com/goyohan0611-png/turnbook (old
+  links redirect). To move over: `pip uninstall graph-mind-memory`, `pip install turnbook`, then
+  `turnbook-install`. Your memory stays where it is (`~/.graph-mind`), and the old `graph-mind*`
+  commands keep working, so apps, hooks and startup entries set up before need no change.
+- A new logo.
 
 ## 0.9.43 — 2026-10-24
 - **A deletion reaches your other PCs even if Graph-MIND stops halfway.** Forgetting something

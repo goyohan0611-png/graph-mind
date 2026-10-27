@@ -1,0 +1,10 @@
+model_quint8_avx2.onnx: 1536 questions, 2068 ms per question (~87 pairs, 2 threads)
+  fusion          hit@5 57.5%  hit@10 67.3%  hit@30 82.2%
+  shipped         hit@5 61.1%  hit@10 70.2%  hit@30 83.3%
+  cross           hit@5 71.9%  hit@10 78.2%  hit@30 85.5%
+  shipped+cross   hit@5 70.1%  hit@10 77.1%  hit@30 86.0%
+model.onnx: 1536 questions, 2577 ms per question (~87 pairs, 2 threads)
+  fusion          hit@5 57.5%  hit@10 67.3%  hit@30 82.2%
+  shipped         hit@5 61.1%  hit@10 70.2%  hit@30 83.3%
+  cross           hit@5 72.3%  hit@10 78.3%  hit@30 85.3%
+  shipped+cross   hit@5 70.5%  hit@10 77.5%  hit@30 86.3%

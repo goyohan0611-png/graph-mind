@@ -68,17 +68,26 @@ def evidence_ids(qa: dict) -> list[str]:
     return ids
 
 
-def conversation(sample: dict, directory: Path, embedder) -> tuple[dict, list[dict]]:
+def conversation(sample: dict, directory: Path, embedder,
+                 others: list[dict] = ()) -> tuple[dict, list[dict]]:
+    """`others`: more conversations in the same store, as a memory that has grown (their turn
+    ids get their conversation's prefix; only the ones that reach a pool are kept in `texts`)."""
     store = directory / f"{sample['sample_id']}.sqlite"
-    texts = {}
+    texts, extra = {}, {}
     with ConversationMemoryStore(store) as conversations:
-        for ordinal, (tid, text, at) in enumerate(turns_of(sample)):
-            texts[tid] = {"text": text, "at": at}
-            conversations.record({"turn_id": tid, "client": "locomo",
-                                  "client_session_id": tid.split(":")[0], "scope": "global",
-                                  "role": "user", "content_redacted": text, "raw_sha256": tid,
-                                  "source_path": sample["sample_id"], "happened_at": at,
-                                  "known_at": at, "source_ordinal": ordinal})
+        ordinal = 0
+        for source in [sample, *others]:
+            prefix = "" if source is sample else source["sample_id"] + "/"
+            for tid, text, at in turns_of(source):
+                tid = prefix + tid
+                (extra if prefix else texts)[tid] = {"text": text, "at": at}
+                conversations.record({"turn_id": tid, "client": "locomo",
+                                      "client_session_id": tid.split(":")[0], "scope": "global",
+                                      "role": "user", "content_redacted": text,
+                                      "raw_sha256": tid, "source_path": source["sample_id"],
+                                      "happened_at": at, "known_at": at,
+                                      "source_ordinal": ordinal})
+                ordinal += 1
     while warm_turns(store, limit=2048, embedder=embedder):
         pass
     questions = []
@@ -97,7 +106,11 @@ def conversation(sample: dict, directory: Path, embedder) -> tuple[dict, list[di
                 "meaning": [[t["turn_id"], t["similarity"]] for t in meaning],
                 "words": [t["turn_id"] for t in words],
                 "shipped": [t["turn_id"] for t in shipped]})
+            for t in meaning + words:
+                if t["turn_id"] in extra:
+                    texts[t["turn_id"]] = extra[t["turn_id"]]
     _PIECES.pop(str(store), None)
+    store.unlink()
     return texts, questions
 
 
@@ -115,22 +128,27 @@ def hits(questions: list[dict]) -> str:
 def main() -> None:
     parser = ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--limit", type=int, help="first N conversations only")
+    parser.add_argument("--mix", type=int, default=0,
+                        help="also store the next N conversations in each one's memory")
     args = parser.parse_args()
     fetch()
-    samples = json.loads(DATA.read_text(encoding="utf-8"))[:args.limit]
+    everything = json.loads(DATA.read_text(encoding="utf-8"))
+    samples = everything[:args.limit]
     CACHE.mkdir(parents=True, exist_ok=True)
     slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")
     embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=LOCAL_MODEL)
     result = {"turns": {}, "questions": []}
     with tempfile.TemporaryDirectory() as directory:
-        for sample in samples:
-            texts, questions = conversation(sample, Path(directory), embedder)
+        for i, sample in enumerate(samples):
+            others = [everything[(i + j) % len(everything)] for j in range(1, args.mix + 1)]
+            texts, questions = conversation(sample, Path(directory), embedder, others)
             result["turns"][sample["sample_id"]] = texts
             result["questions"] += questions
             print(sample["sample_id"], len(texts), "turns", hits(questions), flush=True)
             embedder.cache.flush()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    out = OUT.with_name(f"pools-mix{args.mix}.json") if args.mix else OUT
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     print("all", hits(result["questions"]))
 
 

@@ -488,25 +488,56 @@ def words_of(text):
     return {w for w in re.findall(r"[^\W_]{2,}", text.casefold()) if w not in STOPWORDS}
 
 
-def rerank(query, meaning, words, *, limit):
+def rerank(query, meaning, words, *, limit, weights=None):
     """Order the pool of both searches by the learned score; ties keep the fusion's pool order.
-    ponytail: English stop words and exact word overlap; Korean particles ("콩이를") make the
-    overlap term weaker there, so Korean ranking stays closer to plain fusion."""
+    Every feature comes from the pool alone (research/rerank_v2.py, the same arithmetic):
+      meaning, words   60 / (60 + rank) in each list; similarity, the meaning score
+      both             found by both searches
+      overlap          share of the question's words the turn contains (Korean: as prefixes,
+                       "모임" in "모임에")
+      rare_overlap     the same, each word weighted by how rare it is in the pool
+      prefix_overlap   share of the question's words that start a word of the turn
+      session_hits     log of the pooled turns from the same session
+      session_best     the best meaning score among them
+    A weight left out of `weights` is not used."""
+    import math
+    weights = RERANK if weights is None else weights
+    from graph_mind.conversation_memory import search_terms
     by_meaning = {t["turn_id"]: (rank, t.get("similarity", 0.0)) for rank, t in enumerate(meaning)}
     by_words = {t["turn_id"]: rank for rank, t in enumerate(words)}
     keep = {}
     for turn in meaning + words:
         keep.setdefault(turn["turn_id"], turn)        # the meaning list's version (its excerpt)
-    asked = words_of(query)
+    asked = {w for w in search_terms(query) if w not in STOPWORDS}
+    bags = {i: words_of(t.get("full", t["content"])) for i, t in keep.items()}
+
+    def has(word, bag):
+        return word in bag or (not word.isascii() and any(b.startswith(word) for b in bag))
+    rare = {w: math.log((len(keep) + 1) / (sum(has(w, b) for b in bags.values()) + 0.5))
+            for w in asked}
+    total = sum(rare.values()) or 1.0
+    sessions = {}
+    for turn_id, turn in keep.items():
+        sessions.setdefault(turn.get("client_session_id"), []).append(turn_id)
+    best = {s: max(by_meaning.get(i, (0, 0.0))[1] for i in ids) for s, ids in sessions.items()}
+    share = max(len(asked), 1)
 
     def score(turn_id):
         meaning_hit, word_rank = by_meaning.get(turn_id), by_words.get(turn_id)
-        text = keep[turn_id].get("full", keep[turn_id]["content"])
-        return (RERANK["meaning"] * (60 / (60 + meaning_hit[0]) if meaning_hit else 0.0)
-                + RERANK["words"] * (60 / (60 + word_rank) if word_rank is not None else 0.0)
-                + RERANK["similarity"] * (meaning_hit[1] if meaning_hit else 0.0)
-                + RERANK["both"] * (meaning_hit is not None and word_rank is not None)
-                + RERANK["overlap"] * len(asked & words_of(text)) / max(len(asked), 1))
+        bag = bags[turn_id]
+        found = {w for w in asked if has(w, bag)}
+        session = keep[turn_id].get("client_session_id")
+        feature = {
+            "meaning": 60 / (60 + meaning_hit[0]) if meaning_hit else 0.0,
+            "words": 60 / (60 + word_rank) if word_rank is not None else 0.0,
+            "similarity": meaning_hit[1] if meaning_hit else 0.0,
+            "both": float(meaning_hit is not None and word_rank is not None),
+            "overlap": len(found) / share,
+            "rare_overlap": sum(rare[w] for w in found) / total,
+            "prefix_overlap": sum(any(b.startswith(w) for b in bag) for w in asked) / share,
+            "session_hits": math.log(len(sessions[session])),
+            "session_best": best[session]}
+        return sum(weight * feature[name] for name, weight in weights.items())
     return [keep[turn_id] for turn_id in sorted(keep, key=score, reverse=True)[:limit]]
 
 

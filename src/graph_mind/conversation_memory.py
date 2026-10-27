@@ -360,7 +360,7 @@ class ConversationMemoryStore:
 
     def search(self, query, *, scopes=None, limit=10, until=None):
         query = _text(query, "CONVERSATION_QUERY_REQUIRED")
-        if type(limit) is not int or not 1 <= limit <= 50:
+        if type(limit) is not int or not 1 <= limit <= 500:
             raise ValueError("INVALID_CONVERSATION_QUERY_LIMIT")
         terms = list(dict.fromkeys(re.findall(r"[^\W_]{2,}", query.casefold())))
         if not terms:

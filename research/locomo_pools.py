@@ -68,8 +68,8 @@ def evidence_ids(qa: dict) -> list[str]:
     return ids
 
 
-def conversation(sample: dict, directory: Path, embedder,
-                 others: list[dict] = ()) -> tuple[dict, list[dict]]:
+def conversation(sample: dict, directory: Path, embedder, others: list[dict] = (),
+                 pool: int = POOL) -> tuple[dict, list[dict]]:
     """`others`: more conversations in the same store, as a memory that has grown (their turn
     ids get their conversation's prefix; only the ones that reach a pool are kept in `texts`)."""
     store = directory / f"{sample['sample_id']}.sqlite"
@@ -96,8 +96,8 @@ def conversation(sample: dict, directory: Path, embedder,
             if qa["category"] == 5:
                 continue
             query = qa["question"]
-            words = [excerpt(t) for t in conversations.search(query, limit=POOL)["turns"]]
-            meaning = semantic_turns(store, query, limit=POOL, embedder=embedder)
+            words = [excerpt(t) for t in conversations.search(query, limit=pool)["turns"]]
+            meaning = semantic_turns(store, query, limit=pool, embedder=embedder)
             shipped = fuse(meaning, words, limit=CONTEXT_LIMIT)
             questions.append({
                 "conv": sample["sample_id"], "n": number, "question": query,
@@ -130,6 +130,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, help="first N conversations only")
     parser.add_argument("--mix", type=int, default=0,
                         help="also store the next N conversations in each one's memory")
+    parser.add_argument("--pool", type=int, default=POOL, help="turns kept from each search")
     args = parser.parse_args()
     fetch()
     everything = json.loads(DATA.read_text(encoding="utf-8"))
@@ -141,12 +142,15 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as directory:
         for i, sample in enumerate(samples):
             others = [everything[(i + j) % len(everything)] for j in range(1, args.mix + 1)]
-            texts, questions = conversation(sample, Path(directory), embedder, others)
+            texts, questions = conversation(sample, Path(directory), embedder, others,
+                                            args.pool)
             result["turns"][sample["sample_id"]] = texts
             result["questions"] += questions
             print(sample["sample_id"], len(texts), "turns", hits(questions), flush=True)
             embedder.cache.flush()
     out = OUT.with_name(f"pools-mix{args.mix}.json") if args.mix else OUT
+    if args.pool != POOL:
+        out = out.with_name(f"{out.stem}-pool{args.pool}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     print("all", hits(result["questions"]))

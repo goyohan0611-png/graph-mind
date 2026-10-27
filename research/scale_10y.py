@@ -39,10 +39,13 @@ RUN = ROOT / "research/runs/graph-v9.20-learning"
 
 
 def arms():
-    out = {"fusion (0.9.45)": None, "re-ranker 0.9.46": dict(mcp_server.RERANK)}
+    """name -> (weights or None for plain fusion, candidates per search)"""
+    out = {"fusion (0.9.45)": (None, 50), "re-ranker 0.9.46": (dict(mcp_server.RERANK), 50)}
     path = RUN / "rerank2_weights.json"
     if path.exists():
-        out["re-ranker v2"] = json.loads(path.read_text(encoding="utf-8"))
+        v2 = json.loads(path.read_text(encoding="utf-8"))
+        for pool in (50, 100, 200):
+            out[f"v2, {pool} per search"] = (v2, pool)
     return out
 
 
@@ -101,7 +104,8 @@ def main() -> None:
                 pass
             embedder.cache.flush()
             total = 5882 + added
-            for arm, weights in arms().items():
+            for arm, (weights, pool) in arms().items():
+                mcp_server.RERANK_POOL = pool
                 if weights is None:
                     mcp_server.rerank = lambda q, m, w, *, limit, weights=None: mcp_server.fuse(
                         m, w, limit=limit)
@@ -111,7 +115,7 @@ def main() -> None:
                 hits = {5: 0, 10: 0, 30: 0}
                 seconds, asked = [], 0
                 for sample in samples:
-                    for qa in sample["qa"]:
+                    for qa in sample["qa"][::2]:            # every other question: time
                         gold = {f"{sample['sample_id']}/{e}" for e in evidence_ids(qa)}
                         if qa["category"] == 5 or not gold:
                             continue
@@ -133,7 +137,7 @@ def main() -> None:
                 print(f"{total:>8} turns  {arm:<18} " + "  ".join(
                     f"{k} {v:.1%}" if k.startswith("hit") else f"{k} {v}"
                     for k, v in row.items()), flush=True)
-            mcp_server.rerank = original
+            mcp_server.rerank, mcp_server.RERANK_POOL = original, 50
             mcp_server._PIECES.pop(str(store), None)
     (RUN / "scale_10y.json").write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
 

@@ -22,10 +22,10 @@ class GraphMindMcpServerTests(unittest.IsolatedAsyncioTestCase):
             db = Path(directory) / "memory.sqlite"
             with LocalBrainStore(db) as brain:
                 brain.remember({"memory_id": "mind-overview", "scope": "global",
-                    "memory_type": "PROJECT", "title": "Graph-MIND 프로젝트",
+                    "memory_type": "PROJECT", "title": "Turnbook 프로젝트",
                     "content": "모델과 세션을 바꿔도 이어지는 사용자 소유 로컬 뇌",
                     "effective_at": T1, "known_at": T1, "actor": "user",
-                    "tags": ["마인드", "MIND"], "entities": ["Graph-MIND"],
+                    "tags": ["마인드", "MIND"], "entities": ["Turnbook"],
                     "provenance": {"source_type": "fixture", "source_ref": "test"},
                     "supersedes_memory_id": None})
             with CodingMemoryStore(db) as coding:

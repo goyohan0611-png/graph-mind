@@ -60,7 +60,7 @@ class InstallTests(unittest.TestCase):
                 "win32": home / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu"
                          / "Programs" / "Startup" / "Graph-MIND Automatic Capture.lnk",
                 "darwin": home / "Library" / "LaunchAgents" / "com.graph-mind.capture.plist",
-            }.get(sys.platform, home / ".config" / "autostart" / "graph-mind-capture.desktop")
+            }.get(sys.platform, home / ".config" / "autostart" / "turnbook-capture.desktop")
             self.assertTrue(login_item.exists(), login_item)
             capture = json.loads((home / ".graph-mind" / "automatic-capture.json")
                                  .read_text(encoding="utf-8"))

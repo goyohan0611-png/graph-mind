@@ -1,6 +1,6 @@
 # Project brains (optional, for teams)
 
-Graph-MIND is a personal memory first. Teams that want it can add project brains: everyone keeps a
+Turnbook is a personal memory first. Teams that want it can add project brains: everyone keeps a
 private brain, and every project they choose to share has a shared one. Nothing personal moves into
 a project by itself, only what someone publishes. Files and the talk about them stay in Slack, a
 drive or GitHub; the project brain is what lets another person's AI pick the work up.
@@ -17,12 +17,12 @@ drive or GitHub; the project brain is what lets another person's AI pick the wor
   (committed, pushed, PR open, merged, released), so a commit on one PC is never reported as done;
   a Slack message or a drive document is kept as its link.
 - **Instructions**: standing guidance for every AI that works on the project. Your AI proposes
-  the text; you see it and apply it in a terminal (`graph-mind team instructions "<project>"`),
+  the text; you see it and apply it in a terminal (`turnbook team instructions "<project>"`),
   so a page your AI read cannot rewrite what every teammate's AI follows.
 - **Members, as on GitHub**: whoever creates a project owns it. Owners add people (owner, editor or
   viewer), set the instructions and can retract anyone's checkpoint; editors publish; viewers read.
   *"Invite Mina to the graph-mind project as an editor"* gives you a command to run in a
-  terminal (`graph-mind team invite "Mina" --role editor --project "graph-mind"`), which prints a
+  terminal (`turnbook team invite "Mina" --role editor --project "graph-mind"`), which prints a
   code for her; her AI joins with it. Giving access and hosting are never done from a chat, so a
   page or file your AI reads cannot add someone. Every action, reads included, is audited.
 - When a project's hub cannot be reached, the assistant says the latest state is unknown instead of
@@ -39,16 +39,16 @@ database itself, so host it on a machine only the operator logs in to. Teammates
 [Tailscale](https://tailscale.com) (install it on the hub and on each PC, same tailnet; invite
 codes carry the hub's Tailscale address and use it when the office network is not there).
 
-A server needs no AI and no API key, only Graph-MIND (any Python from 3.10; Windows, macOS, or
+A server needs no AI and no API key, only Turnbook (any Python from 3.10; Windows, macOS, or
 Linux on x86-64 or 64-bit ARM, such as a Raspberry Pi or an ARM NAS):
 
 ```bash
-graph-mind-hub host                # once: this machine becomes a hub (it stays one)
-graph-mind-hub add-user Mina       # an account and the code to give her (no projects yet)
-graph-mind-hub users               # accounts and their roles; never what is in a project
-graph-mind-hub remove-user Mina --transfer-to Jun   # projects only she owned go to Jun
-graph-mind-hub delete-project NAME --confirm NAME
-graph-mind-hub audit
+turnbook-hub host                # once: this machine becomes a hub (it stays one)
+turnbook-hub add-user Mina       # an account and the code to give her (no projects yet)
+turnbook-hub users               # accounts and their roles; never what is in a project
+turnbook-hub remove-user Mina --transfer-to Jun   # projects only she owned go to Jun
+turnbook-hub delete-project NAME --confirm NAME
+turnbook-hub audit
 ```
 
 **On this PC alone**: without a hub, projects stay in `~/.graph-mind/ledger.sqlite`.

@@ -1,6 +1,6 @@
 # Contributor License Agreement
 
-Graph-MIND is published under the AGPL-3.0 and is also offered under a commercial license
+Turnbook is published under the AGPL-3.0 and is also offered under a commercial license
 (see COMMERCIAL.md). To keep both possible, every contribution is accepted under this agreement.
 
 By opening a pull request or otherwise submitting a contribution to this repository, you agree:

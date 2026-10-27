@@ -1,4 +1,4 @@
-"""graph-mind-view draws the association graph; with --no-text the page holds no conversation."""
+"""turnbook-view draws the association graph; with --no-text the page holds no conversation."""
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import tempfile

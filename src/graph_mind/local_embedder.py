@@ -328,7 +328,7 @@ _service = _Service()
 
 
 def _replace_old_service(info, model) -> bool:
-    """The capture service lends an older version's model: this process is newer (Graph-MIND was
+    """The capture service lends an older version's model: this process is newer (Turnbook was
     updated while it ran). Restart it on this version, or every app's server would load its own
     copy of the new model, ~700 MB each. An older server never restarts a newer service."""
     if info.get("model") not in OLD_MODELS or model != LOCAL_MODEL:

@@ -1,4 +1,4 @@
-"""Persistent background capture for Graph-MIND code and conversation memory."""
+"""Persistent background capture for Turnbook code and conversation memory."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -371,7 +371,7 @@ class AutomaticCaptureService:
                 warnings.append(
                     f"{name}: {entry['rows_without_turns']} new transcript lines and no "
                     f"conversation found in them since {entry['last_turn_at'] or 'capture began'}"
-                    " - the app may have changed its format; update Graph-MIND or report it")
+                    " - the app may have changed its format; update Turnbook or report it")
         if json.dumps(health, sort_keys=True) != before:
             _atomic_json(path, health)
         return warnings

@@ -57,8 +57,8 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
                                         {"path": str(directory)}, {"share_existing": True},
                                         {"export_to": str(target)})]
         self.assertEqual({a["status"] for a in answers}, {"RUN_IN_TERMINAL"})
-        self.assertEqual(answers[1]["command"], 'graph-mind folder "gm1.abc"')
-        self.assertEqual(answers[4]["command"], f'graph-mind export "{target}"')
+        self.assertEqual(answers[1]["command"], 'turnbook folder "gm1.abc"')
+        self.assertEqual(answers[4]["command"], f'turnbook export "{target}"')
         self.assertFalse(target.exists())
 
     async def test_one_projects_conversations_move_without_the_rest(self):
@@ -85,7 +85,7 @@ class TransplantTests(unittest.IsolatedAsyncioTestCase):
                 asked = (await client.call_tool("brain_folder", {
                     "export_to": str(out), "project": str(alpha)})).structured_content
             self.assertEqual(asked["command"],
-                             f'graph-mind export "{out}" --project "{alpha}"')
+                             f'turnbook export "{out}" --project "{alpha}"')
             here = os.getcwd()
             os.chdir(root)      # a path that is not absolute here must not resolve into alpha
             try:
@@ -131,7 +131,7 @@ class TerminalCommandTests(unittest.TestCase):
         """The user pastes this command: a path like  x"; evil; #  must not run evil."""
         from graph_mind.mcp_server import folder_commands
         self.assertEqual(folder_commands(r"C:\Users\me\Brain", False, None, None),
-                         r'graph-mind folder "C:\Users\me\Brain"')
+                         r'turnbook folder "C:\Users\me\Brain"')
         for bad in [r'C:\Memory"; Write-Output X; #', "a$(id)", "x & calc", "a`b", "x\nrm"]:
             with self.assertRaises(ValueError, msg=bad):
                 folder_commands(None, False, bad, None)

@@ -271,7 +271,7 @@ class TeamHubTests(unittest.TestCase):
                            path="https://lab241.slack.com/archives/C1/p1", summary="제안서 v1 완료")
                 asked = (await call(action="invite", member="minji", role="owner",
                                     projects=["graph-mind"])).structured_content
-                self.assertEqual(asked["command"], 'graph-mind team invite "minji" --role owner'
+                self.assertEqual(asked["command"], 'turnbook team invite "minji" --role owner'
                                                    ' --project "graph-mind"')    # not from chat
                 self.assertNotIn("minji", [a["member"] for a in pl.accounts()])
                 self.assertEqual((await call(action="host")).structured_content["status"],
@@ -285,7 +285,7 @@ class TeamHubTests(unittest.TestCase):
                 code = invited["team_code"]
                 proposed = (await call(action="set_instructions", project="graph-mind",
                                        instructions="커밋 전에 테스트")).structured_content
-                self.assertEqual(proposed["command"], 'graph-mind team instructions "graph-mind"')
+                self.assertEqual(proposed["command"], 'turnbook team instructions "graph-mind"')
                 self.assertEqual(pl.ledger_for("graph-mind").instructions("graph-mind"), "")
                 from graph_mind import mcp_server
                 with mock.patch.object(mcp_server, "configured_db_path",

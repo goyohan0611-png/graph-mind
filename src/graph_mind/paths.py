@@ -1,4 +1,4 @@
-"""Stable user-owned paths shared by every Graph-MIND client."""
+"""Stable user-owned paths shared by every Turnbook client."""
 from pathlib import Path
 import hashlib
 import os

@@ -1,4 +1,4 @@
-"""Imported first by every test module: Graph-MIND's per-user home (config, stores, Postgres hub)
+"""Imported first by every test module: Turnbook's per-user home (config, stores, Postgres hub)
 becomes an empty temporary folder, so a test run never reads or writes a developer's own memory.
 
 Once a developer's PC joined a shared hub, the tests' saves went into it and its 4,600 real lines

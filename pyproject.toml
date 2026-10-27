@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "graph-mind-memory"
+name = "turnbook"
 version = "0.9.43"
 description = "Local long-term memory for AI agents: every conversation word for word, on your own PC, shared by all your agents, nothing spent to save."
 readme = "README.md"
@@ -33,11 +33,19 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/goyohan0611-png/graph-mind"
-Issues = "https://github.com/goyohan0611-png/graph-mind/issues"
-Changelog = "https://github.com/goyohan0611-png/graph-mind/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/goyohan0611-png/turnbook"
+Issues = "https://github.com/goyohan0611-png/turnbook/issues"
+Changelog = "https://github.com/goyohan0611-png/turnbook/blob/main/CHANGELOG.md"
 
 [project.scripts]
+turnbook = "graph_mind.mcp_server:main"
+turnbook-install = "graph_mind.install:main"
+turnbook-uninstall = "graph_mind.install:uninstall"
+turnbook-capture = "graph_mind.capture_cli:main"
+turnbook-forget = "graph_mind.forget:main"
+turnbook-view = "graph_mind.memory_view:main"
+turnbook-hub = "graph_mind.project_brains:hub_main"
+# the names before 0.9.44, still in apps' configs, hooks and Startup entries
 graph-mind = "graph_mind.mcp_server:main"
 graph-mind-install = "graph_mind.install:main"
 graph-mind-uninstall = "graph_mind.install:uninstall"
@@ -53,7 +61,7 @@ packages = ["graph_mind"]
 py-modules = ["graph_mind_mcp_server", "automatic_capture_cli"]
 
 [tool.setuptools.package-data]
-graph_mind = ["opencode_plugin.js"]     # installed into OpenCode by graph-mind-install
+graph_mind = ["opencode_plugin.js"]     # installed into OpenCode by turnbook-install
 
 [tool.ruff]
 line-length = 100

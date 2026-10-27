@@ -1,4 +1,4 @@
-"""Model-independent MCP interface for Graph-MIND development memory."""
+"""Model-independent MCP interface for Turnbook development memory."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -633,13 +633,13 @@ def folder_commands(path, share_existing, export_to, import_from, project=None) 
             raise ValueError("UNSAFE_PATH_CHARACTERS")
     commands = []
     if path or share_existing:
-        commands.append("graph-mind folder" + (f' "{path.strip()}"' if path else "")
+        commands.append("turnbook folder" + (f' "{path.strip()}"' if path else "")
                         + (" --share-existing" if share_existing else ""))
     if export_to:
-        commands.append(f'graph-mind export "{export_to}"'
+        commands.append(f'turnbook export "{export_to}"'
                         + (f' --project "{project}"' if project else ""))
     if import_from:
-        commands.append(f'graph-mind import "{import_from}"')
+        commands.append(f'turnbook import "{import_from}"')
     return "\n".join(commands)
 
 
@@ -647,13 +647,13 @@ def team_commands(action, member, role, projects) -> str:
     """The terminal command for what brain_checkpoint will not do for a chat: giving someone
     access (invite) and opening this PC to a team (host)."""
     if action == "host":
-        return "graph-mind team host"
+        return "turnbook team host"
     if not member or not projects:
         raise ValueError("MEMBER_AND_PROJECTS_REQUIRED: who, and which projects")
     for value in (member, *projects):
         if UNSAFE_ARGUMENT.search(value):
             raise ValueError("UNSAFE_CHARACTERS")
-    return (f'graph-mind team invite "{member}" --role {role or "viewer"}'
+    return (f'turnbook team invite "{member}" --role {role or "viewer"}'
             + "".join(f' --project "{name}"' for name in projects))
 
 
@@ -668,7 +668,7 @@ def pending_instructions(project) -> Path:
 
 
 def build_server(db_path=None, terminal=False):
-    """`terminal`: the user typed the request in a terminal (graph-mind folder ...), so
+    """`terminal`: the user typed the request in a terminal (turnbook folder ...), so
     brain_folder may change where the memory goes. Apps start the server without it."""
     # here, not at the top: the SDK takes 6-10 s to import, and graph_mind.inject (run before
     # every OpenCode message) needs only gather()
@@ -677,7 +677,7 @@ def build_server(db_path=None, terminal=False):
     database = Path(db_path).expanduser() if db_path is not None else configured_db_path()
     server = MCPServer(
         "graph-mind-memory",
-        title="Graph-MIND Universal Personal Memory",
+        title="Turnbook Universal Personal Memory",
         description="User-owned local brain shared across models, sessions and applications.",
         instructions=instructions(bool(os.environ.get("GRAPH_MIND_CAPTURED"))),
         version=SERVER_VERSION,
@@ -955,7 +955,7 @@ def build_server(db_path=None, terminal=False):
         they ran it to confirm. Codes and passwords appear only in that terminal.
 
         Call it with `path` when the user names a folder for their memory, e.g. "use my Google
-        Drive's Graph-MIND folder as my brain". A folder that OneDrive, Google Drive or Dropbox
+        Drive's Turnbook folder as my brain". A folder that OneDrive, Google Drive or Dropbox
         syncs makes the same memory available on every PC where the user chooses it too; nothing
         else is needed. Without `path` it reports the current folder and the devices writing to it.
         `path="local"` keeps the brain in this PC's own Postgres instead, shared the instant it is
@@ -965,9 +965,9 @@ def build_server(db_path=None, terminal=False):
         call it with `path="share"`. It opens this PC's Postgres to the local network and Tailscale
         (Windows may ask the user to approve a firewall rule once) and returns a
         `connection_code` in the terminal. On the other PC the user runs
-        `graph-mind folder <that code>`; it contains the password, so say not to post it anywhere
+        `turnbook folder <that code>`; it contains the password, so say not to post it anywhere
         public.
-        Codes: when the user pastes any Graph-MIND code ("gm1." for their own other PC, "gmt1."
+        Codes: when the user pastes any Turnbook code ("gm1." for their own other PC, "gmt1."
         for a team invite), call this with `path=<the code>`; it does the right thing for either
         (a team invite is joined at once), so never ask the user which kind it is.
 
@@ -1201,7 +1201,7 @@ def build_server(db_path=None, terminal=False):
             if action == "remove_member" and not project:
                 # closing a whole account is the operator's, on the hub: never one word away
                 raise ValueError("PROJECT_REQUIRED: remove them from which project. To close "
-                                 "their account on this hub: graph-mind-hub remove-user <name>")
+                                 "their account on this hub: turnbook-hub remove-user <name>")
             if action == "leave_team":
                 return pl.leave_team(project or "")
             if action == "audit":
@@ -1217,7 +1217,7 @@ def build_server(db_path=None, terminal=False):
                 pending_instructions(project).write_text(str(instructions or ""),
                                                          encoding="utf-8")
                 return {"status": "RUN_IN_TERMINAL",
-                        "command": f'graph-mind team instructions "{project}"',
+                        "command": f'turnbook team instructions "{project}"',
                         "note": "For the team's safety instructions are not changed from a "
                                 "chat: show the user this command to run in a terminal. It "
                                 "shows the new text and applies it once they confirm."}
@@ -1406,16 +1406,16 @@ def keep_capture_running(every=60.0):
 
 
 def terminal_command(argv):
-    """graph-mind folder [PATH | local | share | CODE] [--share-existing]
-    graph-mind export FILE [--project FOLDER] | graph-mind import FILE | graph-mind compact
-    graph-mind team invite NAME --role viewer|editor|owner --project P [--project P2]
-    graph-mind team host
+    """turnbook folder [PATH | local | share | CODE] [--share-existing]
+    turnbook export FILE [--project FOLDER] | turnbook import FILE | turnbook compact
+    turnbook team invite NAME --role viewer|editor|owner --project P [--project P2]
+    turnbook team host
 
     What brain_folder and brain_checkpoint leave to the user: where the memory lives, sharing
     it with their other PCs, moving it to or from a file, and giving a teammate access."""
     import argparse
     import asyncio
-    parser = argparse.ArgumentParser(prog="graph-mind", description=terminal_command.__doc__,
+    parser = argparse.ArgumentParser(prog="turnbook", description=terminal_command.__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
     folder = commands.add_parser("folder", help="show or change where the memory lives")

@@ -13,12 +13,12 @@ T1 = "2026-09-15T10:00:00"
 T2 = "2026-09-15T11:00:00"
 
 
-def memory(memory_id, *, scope="global", title="Graph-MIND 프로젝트",
+def memory(memory_id, *, scope="global", title="Turnbook 프로젝트",
            content="사용자 소유 로컬 뇌", tags=None, supersedes=None, when=T1):
     return {"memory_id": memory_id, "scope": scope, "memory_type": "PROJECT",
             "title": title, "content": content, "effective_at": when,
             "known_at": when, "actor": "user", "tags": tags or ["마인드"],
-            "entities": ["Graph-MIND"],
+            "entities": ["Turnbook"],
             "provenance": {"source_type": "fixture", "source_ref": "test"},
             "supersedes_memory_id": supersedes}
 

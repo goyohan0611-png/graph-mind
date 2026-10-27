@@ -1,4 +1,4 @@
-// Graph-MIND for OpenCode, written by graph-mind-install (rewritten on every install).
+// Turnbook for OpenCode, written by turnbook-install (rewritten on every install).
 //
 // 1. Every user message and every finished assistant reply is appended, as said, to a transcript
 //    the capture service reads like Claude Code's: masked, stored, searchable by meaning, shared

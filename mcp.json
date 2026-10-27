@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "graph-mind-memory": {
+    "turnbook": {
       "command": "uvx",
-      "args": ["--from", "graph-mind-memory", "graph-mind"],
+      "args": ["--from", "turnbook", "turnbook"],
       "env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
     }
   }

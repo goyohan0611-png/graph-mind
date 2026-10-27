@@ -1,4 +1,4 @@
-"""Bounded sparse associative recall over Graph-MIND's evidence vault."""
+"""Bounded sparse associative recall over Turnbook's evidence vault."""
 from __future__ import annotations
 
 from datetime import datetime

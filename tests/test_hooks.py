@@ -205,10 +205,10 @@ class HookTests(unittest.TestCase):
                           ("copilot-cli", "s1", "assistant", "Nice to know about Mina.")])
 
     def test_gemini_gets_the_memory_before_it_answers(self):
-        with mock.patch("graph_mind.inject.context", return_value="Graph-MIND memory: Kongi"):
+        with mock.patch("graph_mind.inject.context", return_value="Turnbook memory: Kongi"):
             answer = run("gemini-cli", "BeforeAgent", {"session_id": "g2", "prompt": "my dog?"})
         self.assertEqual(answer["hookSpecificOutput"]["additionalContext"],
-                         "Graph-MIND memory: Kongi")
+                         "Turnbook memory: Kongi")
 
     def test_installer_adds_ours_beside_the_users_and_removes_only_ours(self):
         with tempfile.TemporaryDirectory() as directory:

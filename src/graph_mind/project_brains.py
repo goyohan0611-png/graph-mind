@@ -16,7 +16,7 @@ claimed for a commit that only exists on one PC.
 Project brains are optional: personal memory is the product, and a team shares only what it
 chooses to. A project lives on a Postgres hub (a PC, server or NAS; office network or Tailscale),
 or on this PC alone. On a hub, whoever runs it runs the server: they give a person an account
-(`graph-mind-hub add-user`), a login that cannot reach anyone's personal memory and sees only the
+(`turnbook-hub add-user`), a login that cannot reach anyone's personal memory and sees only the
 projects it is a member of. Each project is its own
 schema with its own groups and key. Whoever creates a project owns it; only owners add members
 (owner, editor or viewer), set the instructions or take others' checkpoints back. Every action,
@@ -364,7 +364,7 @@ class Ledger:
             text = str(error)
             if "NO_ACCOUNT" in text:
                 raise ValueError("NO_ACCOUNT: they have no account on this hub yet. The hub's "
-                                 "operator adds one (graph-mind-hub add-user <name>) and gives "
+                                 "operator adds one (turnbook-hub add-user <name>) and gives "
                                  "them the code; then add them again") from None
             if "NAME_TAKEN" in text:
                 raise ValueError("NAME_TAKEN: someone on this hub already goes by that name; "
@@ -691,7 +691,7 @@ class Ledger:
 def _project_name(name) -> str:
     name = re.sub(r"\s+", "-", str(name or "").strip())
     if not name or len(name) > 80 or "/" in name or "\\" in name or name.startswith("."):
-        raise ValueError("PROJECT_NAME: a short name, e.g. graph-mind or 고객사-A-제안")
+        raise ValueError("PROJECT_NAME: a short name, e.g. turnbook or 고객사-A-제안")
     return name
 
 
@@ -1415,10 +1415,10 @@ def bind_folder(folder_path, project) -> dict:
 
 
 def hub_main(argv=None) -> int:
-    """graph-mind-hub: run a hub on a server or NAS with no AI on it. The operator makes it a
+    """turnbook-hub: run a hub on a server or NAS with no AI on it. The operator makes it a
     hub and manages accounts; owners manage their projects from their own AI."""
     import argparse
-    parser = argparse.ArgumentParser(prog="graph-mind-hub", description=hub_main.__doc__)
+    parser = argparse.ArgumentParser(prog="turnbook-hub", description=hub_main.__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("host", help="make this machine a hub (once; it stays one)")
     add = commands.add_parser("add-user", help="an account for a person, and their code")

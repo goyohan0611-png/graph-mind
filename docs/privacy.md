@@ -1,4 +1,4 @@
-# What Graph-MIND captures, and how it is kept
+# What Turnbook captures, and how it is kept
 
 ## What is captured
 
@@ -9,8 +9,8 @@
 | Claude desktop: Cowork | every turn |
 | Copilot CLI | every turn (its own `~/.copilot/session-state`) |
 | Cursor's CLI agent | every turn (its own `~/.cursor/projects/*/agent-transcripts`) |
-| Gemini CLI | every turn, through hooks Graph-MIND adds (`~/.gemini/settings.json`) |
-| OpenCode | every turn, through a plugin Graph-MIND adds |
+| Gemini CLI | every turn, through hooks Turnbook adds (`~/.gemini/settings.json`) |
+| OpenCode | every turn, through a plugin Turnbook adds |
 | Claude desktop: chat; Windsurf, VS Code, Cline, LM Studio; Cursor's editor where it writes no transcript | what the model saves with `brain_remember` (memory tools connected) |
 
 Only what you actually send is captured: the service reads each app's transcript (or what its
@@ -29,7 +29,7 @@ hashes and UUIDs are kept, since you recall those on purpose. A password that is
 (*"my password is hunter"*) looks like any other word and is **not** masked.
 
 Keep masking on if you use a cloud model: a recalled memory goes to your model's provider with the
-question, so a stored key would leave your PC the first time it is useful. To have Graph-MIND
+question, so a stored key would leave your PC the first time it is useful. To have Turnbook
 remember a key, tell it **where the key is**: *"my OpenAI key is in 1Password, under Dev"*. If your
 model runs on your own machines and you want keys remembered as typed, add
 `"mask_secrets": false` to `~/.graph-mind/config.json`.
@@ -38,7 +38,7 @@ model runs on your own machines and you want keys remembered as typed, add
 
 Ask your AI: *"delete the password I typed earlier"*. It lists masked candidates
 (`wifi password is ****`), deletes only the ones you pick, and the conversation about deleting is
-not saved. Or from a terminal: `graph-mind-forget` (asks for the phrase without showing it).
+not saved. Or from a terminal: `turnbook-forget` (asks for the phrase without showing it).
 
 What you pick is deleted from this PC and its search indexes, from the shared memory, and from
 your other PCs on their next sync; only ids are shared for that, never the text. Your AI app's own
@@ -46,7 +46,7 @@ history (for Claude Code, `~/.claude/projects`) is separate and is not touched.
 
 ## Sharing between your PCs
 
-The memory lives in a Postgres server on one of your PCs, which Graph-MIND sets up itself. Your
+The memory lives in a Postgres server on one of your PCs, which Turnbook sets up itself. Your
 other PCs log in with a generated password, as a role that can reach only the memory database,
 over TLS only: the code carries the hub's own certificate, so a PC accepts that hub and nothing in
 between. The Windows firewall rule admits only the local network and Tailscale. Every line is also
@@ -58,7 +58,7 @@ a [project brain](teams.md) instead.
 
 ## Seeing your memory
 
-`graph-mind-view` opens your memory as a 3D graph in the browser (a local file,
+`turnbook-view` opens your memory as a 3D graph in the browser (a local file,
 `~/.graph-mind/brain.html`; only the 3D library is fetched from a CDN). Use `--no-text` before you
 screenshot or share it.
 

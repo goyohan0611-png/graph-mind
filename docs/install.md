@@ -1,22 +1,22 @@
-# Installing Graph-MIND
+# Installing Turnbook
 
 ## One step, no Python needed
 
-Windows: download [Graph-MIND-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/Graph-MIND-Setup.cmd)
+Windows: download [Turnbook-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/Turnbook-Setup.cmd)
 and double-click it (Windows may ask once whether to run a downloaded file), or in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/install.ps1 | iex
 ```
 
 macOS or Linux:
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/install.sh | sh
 ```
 
 It installs [uv](https://docs.astral.sh/uv/) for your user (no administrator rights), which brings
-its own Python; installs Graph-MIND with it; and connects every AI app it finds. Restart your AI
+its own Python; installs Turnbook with it; and connects every AI app it finds. Restart your AI
 apps afterwards.
 
 ## With Python already set up
@@ -24,17 +24,17 @@ apps afterwards.
 Python 3.10+ (64-bit); Windows, macOS or Linux, on x86-64 or 64-bit ARM:
 
 ```bash
-pip install graph-mind-memory
-graph-mind-install
+pip install turnbook
+turnbook-install
 ```
 
 Or from source:
 
 ```bash
-git clone https://github.com/goyohan0611-png/graph-mind.git
+git clone https://github.com/goyohan0611-png/turnbook.git
 cd graph-mind
 pip install -e .
-graph-mind-install
+turnbook-install
 ```
 
 ## What the installer does
@@ -53,9 +53,9 @@ graph-mind-install
 Running it again is safe; run it again if you move the folder. Options: `--name "Your Name"` (the name
 teammates see), `--join <code>` (another PC's memory or a team invite). The server is also listed
 in the [MCP Registry](https://registry.modelcontextprotocol.io) as
-`io.github.goyohan0611-png/graph-mind`.
+`io.github.goyohan0611-png/turnbook`.
 
-The first time a machine hosts a memory or a hub, Graph-MIND downloads Postgres 16 for it once (12
+The first time a machine hosts a memory or a hub, Turnbook downloads Postgres 16 for it once (12
 MB, 46 MB on Windows; checked against a pinned hash) and keeps it in the user's cache folder.
 
 ## Models tested through OpenCode
@@ -99,7 +99,7 @@ model saves with `brain_remember` is the memory.
 | `brain_context` | a bounded packet of the past turns and memories that answer a request; `recent=true` for "where did we leave off?" |
 | `brain_recall` | look memories and captured turns up directly; `entity=` for everything about one thing, in order |
 | `brain_remember` | save a sourced memory or decision (secrets masked) |
-| `brain_folder` | where the memory lives and which PCs share it; changes (`graph-mind folder`, `graph-mind export`, `graph-mind import`) are run by you in a terminal |
+| `brain_folder` | where the memory lives and which PCs share it; changes (`turnbook folder`, `turnbook export`, `turnbook import`) are run by you in a terminal |
 | `brain_forget` | "delete the password I typed": lists masked candidates, deletes only what you pick, everywhere |
 | `code_activity` | what changed in a project, file or symbol, and when (when a code folder is watched) |
 | `brain_checkpoint` | [project brains](teams.md), for teams that use them |
@@ -109,7 +109,7 @@ tools get confused with each other.
 
 ## Trouble
 
-- **`graph-mind-install` is "not recognized"**: pip put it in a Scripts folder that is not on your
+- **`turnbook-install` is "not recognized"**: pip put it in a Scripts folder that is not on your
   PATH (common with the Windows Python install manager). `python -m install` runs the same thing.
 - **A DLL load error**: Windows is missing the Microsoft Visual C++ runtime the embedding runtime
   needs. Install [vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe), restart, and
@@ -119,6 +119,6 @@ tools get confused with each other.
 
 ## Removing it
 
-`graph-mind-uninstall` unregisters it from every app, removes the login item and stops the capture
+`turnbook-uninstall` unregisters it from every app, removes the login item and stops the capture
 service. Your memory stays in `~/.graph-mind` unless you add `--purge`. Then
-`pip uninstall graph-mind-memory` (or `uv tool uninstall graph-mind-memory`) removes the program.
+`pip uninstall turnbook` (or `uv tool uninstall turnbook`) removes the program.

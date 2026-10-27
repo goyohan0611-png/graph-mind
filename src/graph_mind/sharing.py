@@ -206,7 +206,7 @@ def local_postgres() -> str:
 # zonky's carries its own (lib/, found through $ORIGIN). They are fetched once,
 # the first time a machine hosts,
 # checked against the hashes pinned here and kept in the user's cache folder, apart from any
-# memory; every Graph-MIND home on the machine shares them. Nothing here is a Python package, so
+# memory; every Turnbook home on the machine shares them. Nothing here is a Python package, so
 # hosting works on any Python. Same major version as before (16): existing data is used as is.
 POSTGRES = "16.14.0"
 _POSTGRES_BUILDS = {
@@ -477,7 +477,7 @@ def allow_from_network(database_and_role: str, why: str) -> None:
     before = hba.read_text(encoding="utf-8").splitlines()
     lines = [rule if line.strip() == plain else line for line in before]
     if rule not in lines:
-        lines += ["", f"# Graph-MIND: {why}", rule]
+        lines += ["", f"# Turnbook: {why}", rule]
     if lines != before:
         hba.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with psycopg.connect(_admin_uri(), autocommit=True) as admin:

@@ -1,9 +1,9 @@
 """Your memory as a 3D graph, in the browser: every conversation turn and memory is a node, joined
-by the associations Graph-MIND already keeps (shared cues, neighbours in time, explicit links).
+by the associations Turnbook already keeps (shared cues, neighbours in time, explicit links).
 
-    graph-mind-view               # writes ~/.graph-mind/brain.html and opens it
-    graph-mind-view --no-text     # no conversation text in the file: safe to screenshot or share
-    graph-mind-view --limit 2000  # only the most recent 2,000 nodes
+    turnbook-view               # writes ~/.graph-mind/brain.html and opens it
+    turnbook-view --no-text     # no conversation text in the file: safe to screenshot or share
+    turnbook-view --limit 2000  # only the most recent 2,000 nodes
 
 The page is a local file. It loads the 3D library from a CDN; your memory itself never leaves the PC.
 """
@@ -139,7 +139,7 @@ def regions(nodes, links, terms):
 
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Graph-MIND brain</title>
+<title>Turnbook brain</title>
 <style>
 :root { --bg:#05060a; --fg:#e8ecf4; --dim:#8a93a6; --panel:rgba(14,17,26,.82); }
 html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
@@ -158,7 +158,7 @@ button { position:fixed; bottom:16px; right:16px; background:var(--panel); color
   border:1px solid #232a3a; border-radius:8px; padding:8px 12px; cursor:pointer; }
 </style></head><body>
 <div id="graph"></div>
-<div class="panel" id="head"><h1>Graph-MIND</h1><p id="stats"></p></div>
+<div class="panel" id="head"><h1>Turnbook</h1><p id="stats"></p></div>
 <div class="panel" id="legend"></div>
 <div class="panel" id="info"></div>
 <button id="spin">Pause rotation</button>
@@ -166,7 +166,7 @@ __LIBRARY__
 <script>
 if (typeof ForceGraph3D === "undefined") {
   document.getElementById("graph").innerHTML = '<p style="padding:120px 24px;text-align:center;color:#8a93a6">' +
-    "The 3D library did not load. Run <code>graph-mind-view</code> again while online: it is then kept inside this page.</p>";
+    "The 3D library did not load. Run <code>turnbook-view</code> again while online: it is then kept inside this page.</p>";
   throw new Error("3d-force-graph not loaded");
 }
 const DATA = __DATA__;

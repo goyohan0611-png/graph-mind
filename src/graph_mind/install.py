@@ -1,7 +1,7 @@
-"""One line on a new PC: plug Graph-MIND into every AI app found there.
+"""One line on a new PC: plug Turnbook into every AI app found there.
 
-    graph-mind-install                     # this PC keeps its own brain
-    graph-mind-install --join gm1.XXXX     # ...and joins the brain another PC shared
+    turnbook-install                     # this PC keeps its own brain
+    turnbook-install --join gm1.XXXX     # ...and joins the brain another PC shared
 
 It registers the memory server with every MCP client it finds (Claude Code, Claude Desktop,
 Codex, OpenCode, Cursor, Windsurf, Gemini CLI, Copilot CLI, VS Code, Cline, LM Studio), adds
@@ -156,7 +156,7 @@ HOOKED = {"Gemini CLI"}                    # saved only while our hooks are in i
 
 
 def _has_our_hooks(home: Path, app: str) -> bool:
-    """Whether app's hooks file holds Graph-MIND's hooks: a failed hook install must not leave
+    """Whether app's hooks file holds Turnbook's hooks: a failed hook install must not leave
     the model told its conversations are saved, when nothing saves them."""
     for name, _, path, _ in _hook_files(home):
         if name == app:
@@ -271,7 +271,7 @@ def opencode(home: Path) -> str:
         return ""
     from graph_mind.mcp_server import instructions
     guide = folder / "graph-mind.md"
-    guide.write_text("# Graph-MIND memory\n\n" + instructions(True) + "\n", encoding="utf-8")
+    guide.write_text("# Turnbook memory\n\n" + instructions(True) + "\n", encoding="utf-8")
     from graph_mind.conversation_memory import opencode_root
     plugin = (HERE / "opencode_plugin.js").read_text(encoding="utf-8")
     plugin = plugin.replace("__PYTHON__", json.dumps(sys.executable)).replace(
@@ -319,7 +319,7 @@ def _table_key(line: str):
 
 
 def _without_codex_block(text: str) -> str:
-    """The Codex config without Graph-MIND's server table (and its env table); the rest kept.
+    """The Codex config without Turnbook's server table (and its env table); the rest kept.
     The table may be written [mcp_servers."graph-mind-memory"] too (TOML allows quoted keys):
     left in place, the table added after it made the file invalid (duplicate table)."""
     ours = (("mcp_servers", NAME), ("mcp_servers", NAME, "env"))
@@ -345,7 +345,7 @@ def _login_item() -> Path:
     if system == "Darwin":
         return Path.home() / "Library" / "LaunchAgents" / "com.graph-mind.capture.plist"
     config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-    return config / "autostart" / "graph-mind-capture.desktop"
+    return config / "autostart" / "turnbook-capture.desktop"
 
 
 def codex(home: Path) -> str:
@@ -402,7 +402,7 @@ def capture_service(start: bool) -> str:
         python = Path(sys.executable)
         entry = _login_item()
         entry.parent.mkdir(parents=True, exist_ok=True)
-        entry.write_text("[Desktop Entry]\nType=Application\nName=Graph-MIND capture\n"
+        entry.write_text("[Desktop Entry]\nType=Application\nName=Turnbook capture\n"
                          f"Exec=\"{python}\" {' '.join(CAPTURE)}\nPath={Path.home()}\n"
                          "X-GNOME-Autostart-enabled=true\n", encoding="utf-8")
     if start:
@@ -426,7 +426,7 @@ def embedding_model():
         model_paths()
     except OSError as error:
         # ~/.cache refused (access denied): move Hugging Face's whole home under ~/.graph-mind,
-        # where every Graph-MIND process looks from now on (local_embedder.use_own_hf_home)
+        # where every Turnbook process looks from now on (local_embedder.use_own_hf_home)
         denied = (isinstance(error, PermissionError) or isinstance(error.__cause__, PermissionError)
                   or "PermissionError" in str(error))
         if not denied:
@@ -463,7 +463,7 @@ def remove_old_models():
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Install Graph-MIND on this PC.")
+    parser = argparse.ArgumentParser(description="Install Turnbook on this PC.")
     parser.add_argument("--join", metavar="CODE",
                         help="a code to join with: your other PC's (gm1.) or a team invite (gmt1.)")
     parser.add_argument("--name", help="the name teammates see on shared projects (e.g. 고요한)")
@@ -472,7 +472,7 @@ def main(argv=None):
     parser.add_argument("--no-start", action="store_true", help="register, but start nothing now")
     args = parser.parse_args(argv)
     if sys.version_info < (3, 10):
-        sys.exit("Graph-MIND needs Python 3.10 or newer.")
+        sys.exit("Turnbook needs Python 3.10 or newer.")
     if args.join:                            # a typo in the code should fail before anything else
         if args.join.strip().startswith("gmt1."):
             from graph_mind.project_brains import _decode_team
@@ -523,7 +523,7 @@ def main(argv=None):
 def uninstall(argv=None):
     """Undo install: unregister from every AI app, remove the login item, stop the capture
     service. The memory itself stays unless --purge, so reinstalling picks up where it was."""
-    parser = argparse.ArgumentParser(description="Remove Graph-MIND from this PC's AI apps.")
+    parser = argparse.ArgumentParser(description="Remove Turnbook from this PC's AI apps.")
     parser.add_argument("--purge", action="store_true",
                         help="also delete this PC's memory (~/.graph-mind); cannot be undone")
     parser.add_argument("--yes", action="store_true", help="do not ask before --purge")
@@ -603,9 +603,9 @@ def uninstall(argv=None):
             shutil.rmtree(data, ignore_errors=True)
             step(f"deleted {data}")
     elif data.exists():
-        step(f"your memory is kept in {data} (graph-mind-uninstall --purge deletes it)")
+        step(f"your memory is kept in {data} (turnbook-uninstall --purge deletes it)")
     print("\nDone. Restart your AI apps. To remove the program too: "
-          "pip uninstall graph-mind-memory")
+          "pip uninstall turnbook")
 
 
 if __name__ == "__main__":

@@ -162,7 +162,7 @@ class CodeTests(unittest.IsolatedAsyncioTestCase):
                     "action": "join_team", "code": "gm1.e30"})).structured_content
                 # where own-PC codes go: the user's terminal, never a chat
                 self.assertEqual(mine["status"], "RUN_IN_TERMINAL")
-                self.assertEqual(mine["command"], 'graph-mind folder "gm1.e30"')
+                self.assertEqual(mine["command"], 'turnbook folder "gm1.e30"')
                 own.assert_not_called()
 
 

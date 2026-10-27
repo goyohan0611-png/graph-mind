@@ -201,7 +201,7 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
         """No environment variable: the user names the folder, and that is enough."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            shared = root / "GoogleDrive" / "Graph-MIND"
+            shared = root / "GoogleDrive" / "Turnbook"
             try:
                 os.environ["GRAPH_MIND_DEVICE"] = "desktop"
                 os.environ["GRAPH_MIND_CONFIG"] = str(root / "desktop-config.json")

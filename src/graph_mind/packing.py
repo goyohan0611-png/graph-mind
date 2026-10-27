@@ -35,11 +35,11 @@ def text_columns(db: sqlite3.Connection) -> str:
     return "content_redacted, content_z" if "content_z" in names else "content_redacted, NULL"
 
 
-MARKS = ("graph_mind", "graph-mind", "automatic_capture_cli")   # how our processes start
+MARKS = ("graph_mind", "graph-mind", "turnbook", "automatic_capture_cli")   # how ours start
 
 
 def older_processes() -> bool:
-    """Is any Graph-MIND process still running code from before compression came in? Such a
+    """Is any Turnbook process still running code from before compression came in? Such a
     process reads a packed turn as '' (forgetting it then left its words in the index, sharing
     sent it empty), so nothing is packed while one runs. "Older" means started before this
     file was installed or before the process asking (the capture service, restarted by every
@@ -56,7 +56,7 @@ def older_processes() -> bool:
     for process in psutil.process_iter(["pid", "name"]):
         info = process.info
         if info["pid"] == me or not (info["name"] or "").lower().startswith(
-                ("python", "graph-mind")):
+                ("python", "graph-mind", "turnbook")):
             continue
         try:
             line, started = " ".join(process.cmdline() or []), process.create_time()

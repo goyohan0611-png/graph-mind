@@ -1,6 +1,6 @@
 """Recency questions, before and after `recent`: the failure that showed up in real use.
 
-Asked "Graph-MIND, what was I just doing, what is left", the live store answered with notes from
+Asked "Turnbook, what was I just doing, what is left", the live store answered with notes from
 two weeks earlier: word overlap ranked them first and the curated notes filled the packet before
 any recent conversation fit. This rebuilds that situation in a small store and checks, for each
 question, whether the item that actually answers it reaches the top three of the packet.
@@ -36,19 +36,19 @@ def turn(tid, role, text, when):
 
 
 MEMORIES = [
-    memory("handoff", "Graph-MIND 작업 인수인계: 지금 하던 작업, 남은 일, 다음 단계는 v0.7.2 "
+    memory("handoff", "Turnbook 작업 인수인계: 지금 하던 작업, 남은 일, 다음 단계는 v0.7.2 "
                       "개념 연결이다. 먼저 인수인계 문서를 읽고 보고하라.",
-           "2026-09-17T09:32:00", ["Graph-MIND"]),
-    memory("plan-v072", "Graph-MIND 다음 작업은 grounded-concept-bridge v0.7.2",
-           "2026-09-16T16:06:00", ["Graph-MIND"]),
+           "2026-09-17T09:32:00", ["Turnbook"]),
+    memory("plan-v072", "Turnbook 다음 작업은 grounded-concept-bridge v0.7.2",
+           "2026-09-16T16:06:00", ["Turnbook"]),
     # the live store holds many older project notes full of the words such questions use
-    *[memory(f"old-note-{i}", f"Graph-MIND 작업 메모 {i}: 지금 하던 작업과 남은 일, 다음 단계 정리",
-             f"2026-09-{10 + i}T10:00:00", ["Graph-MIND"]) for i in range(6)],
+    *[memory(f"old-note-{i}", f"Turnbook 작업 메모 {i}: 지금 하던 작업과 남은 일, 다음 단계 정리",
+             f"2026-09-{10 + i}T10:00:00", ["Turnbook"]) for i in range(6)],
     memory("kongi-adopt", "콩이를 입양했다", "2025-11-02T12:00:00", ["콩이"]),
     memory("kongi-jeju", "콩이를 데리고 제주 협재 해변에 갔다. 바다를 처음 봤다",
            "2026-09-26T15:00:00", ["콩이"]),
-    memory("shared-done", "Graph-MIND 공유 폴더 구조 완료, 두 PC 테스트 통과",
-           "2026-10-01T18:30:00", ["Graph-MIND"]),
+    memory("shared-done", "Turnbook 공유 폴더 구조 완료, 두 PC 테스트 통과",
+           "2026-10-01T18:30:00", ["Turnbook"]),
     memory("lunch", "점심에 냉면을 먹었다", "2026-10-05T12:30:00"),
     memory("seoul", "사는 곳: 서울", "2025-03-01T09:00:00", ["사는 곳"]),
     memory("busan", "사는 곳: 부산", "2026-10-01T09:00:00", ["사는 곳"], supersedes="seoul"),
@@ -63,7 +63,7 @@ TURNS = [
 # question, arguments the calling model would send, what must reach the top three
 CASES = [
     ("지금 뭐 하고 있었지?", {"query": "지금 뭐 하고 있었지?"}, "t-now"),
-    ("Graph-MIND 지금 하던 작업", {"query": "Graph-MIND 지금 하던 작업, 남은 일, 다음 단계"},
+    ("Turnbook 지금 하던 작업", {"query": "Turnbook 지금 하던 작업, 남은 일, 다음 단계"},
      "shared-done"),
     ("콩이 최근에 뭐 했지?", {"query": "콩이 최근에 뭐 했지?"}, "kongi-jeju"),
     ("어제 뭐 했지?", {"query": "어제 뭐 했지?", "since": "2026-10-05"}, "t-report"),

@@ -1,6 +1,6 @@
 # Security
 
-Graph-MIND stores your conversations with AI assistants, so a flaw here can expose things people
+Turnbook stores your conversations with AI assistants, so a flaw here can expose things people
 said in private. Reports are welcome and taken seriously.
 
 ## Reporting a vulnerability
@@ -8,7 +8,7 @@ said in private. Reports are welcome and taken seriously.
 Please do not open a public issue. Report privately, either:
 
 - on GitHub: **Security → Report a vulnerability** in this repository, or
-- by email to goyohan0611@gmail.com, with "Graph-MIND security" in the subject.
+- by email to goyohan0611@gmail.com, with "Turnbook security" in the subject.
 
 Include what you found, how to reproduce it, and what an attacker could do with it. This is a
 one-person project: expect a first reply within a few days. A fix ships as a new PyPI release, and
@@ -22,7 +22,7 @@ Only the latest release is supported.
 - anything that sends memory off the machine other than the AI app's own requests
 - the shared memory: logging in without the connection code, reaching anything beyond the memory
   database, or reading another PC's memory without it
-- `brain_forget` / `graph-mind-forget` leaving deleted text recoverable in Graph-MIND's stores
+- `brain_forget` / `turnbook-forget` leaving deleted text recoverable in Turnbook's stores
 - the installer or capture service running something it should not
 
 ## How the data is handled
@@ -48,4 +48,4 @@ Only the latest release is supported.
 - Project brains: each project has its own key, kept in the hub's database and handed only to its
   members. It keeps a project's records from other members' logins and from copies of the
   tables; it does not keep them from the hub's operator, who administers the database.
-- There is no telemetry and no Graph-MIND server.
+- There is no telemetry and no Turnbook server.

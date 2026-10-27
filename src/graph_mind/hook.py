@@ -1,4 +1,4 @@
-"""Hooks for agents that run a command per message but keep no transcript Graph-MIND can read
+"""Hooks for agents that run a command per message but keep no transcript Turnbook can read
 (Gemini CLI; Cursor's and Copilot CLI's own transcripts are read instead):
 what was said is appended, in Claude Code's record shape, to ~/.graph-mind/hooks/<agent>/, and
 the capture service stores it like every other conversation. Where the hook can add context
@@ -7,7 +7,7 @@ answers, as with the OpenCode plugin.
 
     python -m graph_mind.hook gemini-cli BeforeAgent      # stdin: the agent's hook JSON
 
-graph-mind-install registers these (install.agent_hooks). Any failure is silent: memory must
+turnbook-install registers these (install.agent_hooks). Any failure is silent: memory must
 never stand in the way of a message.
 """
 from __future__ import annotations

@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.goyohan0611-png/graph-mind",
-  "title": "Graph-MIND",
+  "name": "io.github.goyohan0611-png/turnbook",
+  "title": "Turnbook",
   "description": "Local long-term memory shared by all your AI agents, kept word for word on your own PC.",
   "repository": {
-    "url": "https://github.com/goyohan0611-png/graph-mind",
+    "url": "https://github.com/goyohan0611-png/turnbook",
     "source": "github"
   },
   "version": "0.9.43",
   "packages": [
     {
       "registryType": "pypi",
-      "identifier": "graph-mind-memory",
+      "identifier": "turnbook",
       "version": "0.9.43",
       "transport": {
         "type": "stdio"

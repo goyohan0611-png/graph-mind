@@ -1,6 +1,6 @@
 <div align="center">
 
-# Graph-MIND
+# Turnbook
 
 ### AI는 세션이 끝나면 다 잊어버립니다. 이건 기억합니다. 그것도 LLM을 한 번도 부르지 않고요.
 
@@ -17,39 +17,39 @@
 
 [English](README.md) · **한국어**
 
-<img src="demo/demo.gif" alt="실제 녹화: Claude Code가 Graph-MIND에 저장한 결정을 다른 앱인 Codex가 기억하는 장면" width="900">
+<img src="demo/demo.gif" alt="실제 녹화: Claude Code가 Turnbook에 저장한 결정을 다른 앱인 Codex가 기억하는 장면" width="900">
 
-<sub>한 PC에서 실제로 녹화: Claude Code(Opus 5.5, effort high)와 Codex(GPT-6.1-Sol, effort high)가 Graph-MIND 기억 하나를 같이 씁니다. 모델이 생각하는 시간은 빨리 감았습니다.</sub>
+<sub>한 PC에서 실제로 녹화: Claude Code(Opus 5.5, effort high)와 Codex(GPT-6.1-Sol, effort high)가 Turnbook 기억 하나를 같이 씁니다. 모델이 생각하는 시간은 빨리 감았습니다.</sub>
 
 </div>
 
 ## 설치
 
-Windows: [Graph-MIND-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/Graph-MIND-Setup.cmd)를
+Windows: [Turnbook-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/Turnbook-Setup.cmd)를
 받아서 더블클릭하거나, PowerShell에서:
 
 ```powershell
-irm https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/install.ps1 | iex
 ```
 
 macOS / Linux:
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/install.sh | sh
 ```
 
 Python이 없어도 되고, 따로 설정할 것도 없습니다. 설치 후 AI 앱을 한 번 껐다 켜세요. Python이 이미
-있다면 `pip install graph-mind-memory && graph-mind-install`. 자세히: [docs/install.md](docs/install.md)
+있다면 `pip install turnbook && turnbook-install`. 자세히: [docs/install.md](docs/install.md)
 
 <details>
 <summary>MCP 클라이언트에 직접 연결하기</summary>
 
-`pip install graph-mind-memory` 후:
+`pip install turnbook` 후:
 
 ```json
 {
   "mcpServers": {
-    "graph-mind-memory": {
+    "turnbook": {
       "command": "python",
       "args": ["-m", "graph_mind.mcp_server"]
     }
@@ -57,8 +57,8 @@ Python이 없어도 되고, 따로 설정할 것도 없습니다. 설치 후 AI 
 }
 ```
 
-Claude Code: `claude mcp add graph-mind-memory -- python -m graph_mind.mcp_server`. 이렇게 하면 도구만
-연결됩니다. 대화 자동 저장까지 쓰려면 `graph-mind-install`을 실행하세요.
+Claude Code: `claude mcp add turnbook -- python -m graph_mind.mcp_server`. 이렇게 하면 도구만
+연결됩니다. 대화 자동 저장까지 쓰려면 `turnbook-install`을 실행하세요.
 </details>
 
 ## 써보기
@@ -82,12 +82,12 @@ Claude Code: `claude mcp add graph-mind-memory -- python -m graph_mind.mcp_serve
   남습니다.
 - **대화를 토씨 하나 안 바꾸고 기억합니다.** 내 PC에. 저장은 DB에 쓰는 것뿐이라 모델 호출도, 토큰도
   들지 않습니다. 과거가 필요한 질문이 오면 답이 되는 수천 토큰만 돌려줍니다. 한국어와 영어.
-- **여러 PC에서 같은 기억.** `graph-mind folder share`를 실행하고, 다른 PC에서
-  `graph-mind folder <코드>`. (AI는 명령어를 알려줄 뿐 기억을 스스로 옮기지 않습니다. 그래서 웹페이지가
+- **여러 PC에서 같은 기억.** `turnbook folder share`를 실행하고, 다른 PC에서
+  `turnbook folder <코드>`. (AI는 명령어를 알려줄 뿐 기억을 스스로 옮기지 않습니다. 그래서 웹페이지가
   AI를 속여도 못 옮깁니다.) 사무실 네트워크나 [Tailscale](https://tailscale.com), TLS, PC를 떠나기
   전에 한 줄씩 암호화.
-- **기억을 파일로 다른 사람에게.** `graph-mind export 파일`은 전부, `--project 폴더`를 붙이면 그 폴더에서
-  나눈 대화만 담습니다. 받는 사람은 `graph-mind import 파일`.
+- **기억을 파일로 다른 사람에게.** `turnbook export 파일`은 전부, `--project 폴더`를 붙이면 그 폴더에서
+  나눈 대화만 담습니다. 받는 사람은 `turnbook import 파일`.
 - **내 것.** 계정 없음, 자체 클라우드 없음, 사용 기록 수집 없음. 비밀번호·API 키 같은 건 저장 전에
   가려지고, *"아까 친 비밀번호 지워줘"* 하면 모든 곳에서 지워집니다. [docs/privacy.md](docs/privacy.md)
 - **원하면 팀으로.** 프로젝트의 결정과 진행 상황을 팀원의 AI와 공유합니다. 개인 기억은 절대
@@ -125,7 +125,7 @@ flowchart LR
   않으니, 들어가면서 빠지거나 지어낸 게 섞이지 않고 토큰도 쓰지 않습니다.
 - **검색은 내 PC에서.** 단어 검색, 다국어 임베딩 모델(mpnet int8, ONNX, GPU 불필요), 언제 한 말인지를 함께
   봅니다. 에이전트는 기록 전체가 아니라 원문 대화가 담긴 짧은 묶음을 받습니다.
-- **생각은 이미 쓰는 모델이 합니다.** Graph-MIND는 근거를 건네고, 답은 모델이 합니다. 모델이 좋아지면
+- **생각은 이미 쓰는 모델이 합니다.** Turnbook는 근거를 건네고, 답은 모델이 합니다. 모델이 좋아지면
   기억은 그대로여도 답이 좋아집니다.
 
 ## 정말 되나요?
@@ -136,13 +136,13 @@ flowchart LR
 
 | | 정확도 | 기억 **저장**에 쓴 모델 토큰 | 답변 모델이 읽는 분량 |
 |---|---|---|---|
-| **Graph-MIND** | **88.8%** (500문항 전체) | **0** | **3.4천 토큰** |
+| **Turnbook** | **88.8%** (500문항 전체) | **0** | **3.4천 토큰** |
 | agentmemory | 80.4% (같은 499문항) | — | 약 1만 6.5천 토큰 |
 | MemPalace 3.10.0 | 57.5% (40문항) | 0 | — |
 | Mem0 2.2.1 (오픈소스) | 52.5% (40문항) | 질문당 약 64만 | — |
 
-agentmemory와 같은 499문항에서 Graph-MIND는 89.0%, 같은 40문항에서는 85.0%였습니다. 검색만 놓고
-agentmemory 자신의 기준(답이 든 세션이 상위 5개 안에 있는가)으로 재면 Graph-MIND 98.5%,
+agentmemory와 같은 499문항에서 Turnbook는 89.0%, 같은 40문항에서는 85.0%였습니다. 검색만 놓고
+agentmemory 자신의 기준(답이 든 세션이 상위 5개 안에 있는가)으로 재면 Turnbook 98.5%,
 agentmemory 95.2%.
 이 결과는 0.9.9까지 쓰던 임베딩 모델로 잰 것입니다. 질문 100개 표본에서 지금 모델은 답이 든 세션을 같거나
 더 잘 찾았습니다(상위 5개 안: 99.0% 대 97.9%).
@@ -163,12 +163,12 @@ agentmemory 95.2%.
 없습니다. API 키, 비밀번호, 카드 번호 같은 건 저장 전에 가려집니다.
 
 **CLAUDE.md나 앱 자체 메모리 기능과 뭐가 다른가요?** 그쪽은 모델이 쓴 메모를 앱마다 따로 갖고
-있습니다. Graph-MIND는 모든 대화를 원문 그대로 갖고, PC의 모든 앱과 모델이 함께 씁니다.
+있습니다. Turnbook는 모든 대화를 원문 그대로 갖고, PC의 모든 앱과 모델이 함께 씁니다.
 
 **한국어 되나요?** 됩니다. 한국어·영어 대화 모두, 질문도 어느 쪽 언어로든. 영어로만 말한 내용을
 한국어로 물으면 대부분 찾지만, 항상은 아닙니다.
 
-**지우려면?** `graph-mind-uninstall`이 모든 앱 연결을 끊고 서비스를 멈춥니다. 기억은 `~/.graph-mind`에
+**지우려면?** `turnbook-uninstall`이 모든 앱 연결을 끊고 서비스를 멈춥니다. 기억은 `~/.graph-mind`에
 남고, `--purge`를 붙이면 기억까지 지웁니다.
 
 > [!NOTE]
@@ -178,7 +178,7 @@ agentmemory 95.2%.
 ## 더 보기
 
 [MCP 도구](docs/install.md#mcp-tools) · [기억을 3D로 보기](docs/privacy.md#seeing-your-memory)
-(`graph-mind-view`) · [변경 기록](CHANGELOG.md) · [보안](SECURITY.md)
+(`turnbook-view`) · [변경 기록](CHANGELOG.md) · [보안](SECURITY.md)
 
 기여는 [CLA](CLA.md)에 따라 환영합니다. 라이선스: [AGPL-3.0](LICENSE). 변경 내용을 공개할 수 없는
 제품에는 [상용 라이선스](COMMERCIAL.md)를 드립니다.
@@ -192,7 +192,7 @@ agentmemory 95.2%.
 [platform-link]: docs/benchmarks.md#known-limits
 [longmemeval-shield]: https://img.shields.io/badge/LongMemEval-88.8%25-2ea44f?style=flat-square
 [benchmarks-link]: docs/benchmarks.md
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/graph-mind/tests.yml?style=flat-square&label=tests
-[ci-link]: https://github.com/goyohan0611-png/graph-mind/actions/workflows/tests.yml
-[pypi-shield]: https://img.shields.io/pypi/v/graph-mind-memory?style=flat-square&label=pypi
-[pypi-link]: https://pypi.org/project/graph-mind-memory/
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/turnbook/tests.yml?style=flat-square&label=tests
+[ci-link]: https://github.com/goyohan0611-png/turnbook/actions/workflows/tests.yml
+[pypi-shield]: https://img.shields.io/pypi/v/turnbook?style=flat-square&label=pypi
+[pypi-link]: https://pypi.org/project/turnbook/

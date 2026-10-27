@@ -1,8 +1,8 @@
 """Forget everything that contains a phrase: on this PC, in the shared log, and on the other PCs.
 
-    graph-mind-forget                  # asks for the phrase without echoing it (keeps it out of
+    turnbook-forget                  # asks for the phrase without echoing it (keeps it out of
                                        # the shell history), shows what matches, asks to confirm
-    graph-mind-forget "hunter2" --yes
+    turnbook-forget "hunter2" --yes
 
 A captured turn or memory lives in its store, in that store's word index, and as an engram in the
 associative index; all three go. In the shared log its lines go too: Postgres rows are deleted, a

@@ -72,7 +72,7 @@ SECRET_PATTERNS = (
 
 
 def _forgotten(db, record_id) -> bool:
-    """Whether brain_forget / graph-mind-forget deleted this id (forget.erase's tombstones)."""
+    """Whether brain_forget / turnbook-forget deleted this id (forget.erase's tombstones)."""
     try:
         return db.execute("SELECT 1 FROM forgotten_ids WHERE id=?", (record_id,)).fetchone() \
             is not None
@@ -751,7 +751,7 @@ class ClaudeCoworkConversationCapture(ClaudeCodeConversationCapture):
 
 
 class OpenCodeConversationCapture(ClaudeCodeConversationCapture):
-    """OpenCode keeps no transcript file of its own that is meant to be read; Graph-MIND's plugin
+    """OpenCode keeps no transcript file of its own that is meant to be read; Turnbook's plugin
     for it (opencode_plugin.js) appends what was said, in Claude Code's record shape, one file per
     session under ~/.graph-mind/opencode. Read the same way."""
 
@@ -770,7 +770,7 @@ class OpenCodeConversationCapture(ClaudeCodeConversationCapture):
     DONE_AFTER = 3600          # seconds without a new line: the session is over
 
     def scan(self):
-        """Then delete the files Graph-MIND's own plugin and hooks wrote once every line is
+        """Then delete the files Turnbook's own plugin and hooks wrote once every line is
         stored: they hold what was typed before masking, so a password masked in memory, or
         deleted with brain_forget, stayed on disk in them. A session that goes on later starts
         a new file, read from its start."""
@@ -902,7 +902,7 @@ def copilot_root():
 
 
 class HookConversationCapture(OpenCodeConversationCapture):
-    """Gemini CLI, Cursor, Copilot CLI: Graph-MIND's hooks (hook.py) write the same records,
+    """Gemini CLI, Cursor, Copilot CLI: Turnbook's hooks (hook.py) write the same records,
     one folder per agent under ~/.graph-mind/hooks, stored under that agent's name."""
 
     def __init__(self, client, *args, **kwargs):

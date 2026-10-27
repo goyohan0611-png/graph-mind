@@ -1,4 +1,4 @@
-"""Command line control for the Graph-MIND automatic capture service."""
+"""Command line control for the Turnbook automatic capture service."""
 from __future__ import annotations
 
 import argparse
@@ -20,7 +20,7 @@ def _emit(value):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Graph-MIND automatic capture v0.2")
+    parser = argparse.ArgumentParser(description="Turnbook automatic capture v0.2")
     parser.add_argument("--config", default=str(default_config_path()))
     parser.add_argument("--state-dir", default=str(default_service_state_dir()))
     commands = parser.add_subparsers(dest="command", required=True)

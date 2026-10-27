@@ -1,7 +1,7 @@
-<!-- mcp-name: io.github.goyohan0611-png/graph-mind -->
+<!-- mcp-name: io.github.goyohan0611-png/turnbook -->
 <div align="center">
 
-# Graph-MIND
+# Turnbook
 
 ### Your AI forgets everything when the session ends. This one remembers, and it never calls an LLM to do it.
 
@@ -13,47 +13,47 @@
 [![][longmemeval-shield]][benchmarks-link]
 [![][ci-shield]][ci-link]
 [![][pypi-shield]][pypi-link]
-[![goyohan0611-png/graph-mind MCP server](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind/badges/score.svg)](https://glama.ai/mcp/servers/goyohan0611-png/graph-mind)
-[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/goyohan0611-png/graph-mind)
+[![goyohan0611-png/turnbook MCP server](https://glama.ai/mcp/servers/goyohan0611-png/turnbook/badges/score.svg)](https://glama.ai/mcp/servers/goyohan0611-png/turnbook)
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/goyohan0611-png/turnbook)
 [![Mentioned in Awesome MCP Servers](https://awesome.re/mentioned-badge.svg)](https://github.com/punkpeye/awesome-mcp-servers#knowledge--memory)
 
 *Decide something with one agent on Monday. Ask another on Wednesday. It knows.*
 
 **English** · [한국어](README.ko.md)
 
-<img src="demo/demo.gif" alt="Recorded live: Claude Code saves a decision to Graph-MIND, and Codex, a different app, recalls it" width="900">
+<img src="demo/demo.gif" alt="Recorded live: Claude Code saves a decision to Turnbook, and Codex, a different app, recalls it" width="900">
 
-<sub>Recorded live on one PC: Claude Code (Opus 5.5, effort high) and Codex (GPT-6.1-Sol, effort high) sharing one Graph-MIND memory. Model thinking time is fast-forwarded.</sub>
+<sub>Recorded live on one PC: Claude Code (Opus 5.5, effort high) and Codex (GPT-6.1-Sol, effort high) sharing one Turnbook memory. Model thinking time is fast-forwarded.</sub>
 
 </div>
 
 ## Install
 
-Windows: download [Graph-MIND-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/Graph-MIND-Setup.cmd)
+Windows: download [Turnbook-Setup.cmd](https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/Turnbook-Setup.cmd)
 and double-click it, or in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/install.ps1 | iex
 ```
 
 macOS / Linux:
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/graph-mind/main/scripts/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scripts/install.sh | sh
 ```
 
 No Python needed; nothing else to set up. Restart your AI apps afterwards. Already have Python?
-`pip install graph-mind-memory && graph-mind-install`. More: [docs/install.md](docs/install.md).
+`pip install turnbook && turnbook-install`. More: [docs/install.md](docs/install.md).
 
 <details>
 <summary>Connecting an MCP client by hand</summary>
 
-After `pip install graph-mind-memory`:
+After `pip install turnbook`:
 
 ```json
 {
   "mcpServers": {
-    "graph-mind-memory": {
+    "turnbook": {
       "command": "python",
       "args": ["-m", "graph_mind.mcp_server"]
     }
@@ -61,8 +61,8 @@ After `pip install graph-mind-memory`:
 }
 ```
 
-Claude Code: `claude mcp add graph-mind-memory -- python -m graph_mind.mcp_server`. This gives the
-tools only; `graph-mind-install` also saves every conversation automatically.
+Claude Code: `claude mcp add turnbook -- python -m graph_mind.mcp_server`. This gives the
+tools only; `turnbook-install` also saves every conversation automatically.
 </details>
 
 ## Try it
@@ -87,13 +87,13 @@ that answer the question.
 - **Remembers conversations word for word**, on your own PC. Saving is a database write: no model
   call, no tokens. When a question depends on the past, the agent gets back the few thousand
   tokens that answer it. Korean and English.
-- **One memory across your PCs.** Run `graph-mind folder share`, then `graph-mind folder <code>` on
+- **One memory across your PCs.** Run `turnbook folder share`, then `turnbook folder <code>` on
   the other PC (the AI tells you the command; it never moves your memory by itself, so a web page
   cannot either). Office network or [Tailscale](https://tailscale.com), over TLS, every line
   encrypted before it leaves a PC.
-- **Hand a memory to someone else as a file.** `graph-mind export FILE` writes all of it;
+- **Hand a memory to someone else as a file.** `turnbook export FILE` writes all of it;
   `--project FOLDER` writes only the conversations held in that folder. They run
-  `graph-mind import FILE`.
+  `turnbook import FILE`.
 - **Yours.** No account, no cloud of its own, no telemetry. Secrets are masked before anything is
   stored, and *"delete the password I typed earlier"* deletes it everywhere. [docs/privacy.md](docs/privacy.md)
 - **Teams, if you want them.** Share a project's decisions and progress with teammates' AIs, never
@@ -132,7 +132,7 @@ flowchart LR
 - **Search runs on your PC.** Word search, a multilingual embedding model (mpnet, int8; ONNX, no GPU)
   and when things were said are combined; the agent gets a short packet with
   the source turns, not a dump of history.
-- **The model you already use does the thinking.** Graph-MIND hands it evidence; it answers.
+- **The model you already use does the thinking.** Turnbook hands it evidence; it answers.
   When models get better, the answers get better without changing the memory.
 
 ## Does it work?
@@ -143,13 +143,13 @@ answer model (gpt-5-mini), the same prompt and the official gpt-4o judge; only t
 
 | | accuracy | model tokens spent **saving** memory | text the answer model reads |
 |---|---|---|---|
-| **Graph-MIND** | **88.8%** (all 500) | **0** | **3.4k tokens** |
+| **Turnbook** | **88.8%** (all 500) | **0** | **3.4k tokens** |
 | agentmemory | 80.4% (same 499) | — | ~16.5k tokens |
 | MemPalace 3.10.0 | 57.5% (40 questions) | 0 | — |
 | Mem0 2.2.1 (open source) | 52.5% (40 questions) | ~640,000 per question | — |
 
-On agentmemory's 499 Graph-MIND scored 89.0%; on the 40, 85.0%. Retrieval alone, on agentmemory's own measure
-(an answer session among the first 5 retrieved): Graph-MIND 98.5%, agentmemory 95.2%.
+On agentmemory's 499 Turnbook scored 89.0%; on the 40, 85.0%. Retrieval alone, on agentmemory's own measure
+(an answer session among the first 5 retrieved): Turnbook 98.5%, agentmemory 95.2%.
 These runs used the embedding model of 0.9.9 and before; on a 100-question sample the current one
 finds the answer session as often or more (among the first 5: 99.0% against 97.9%).
 
@@ -171,13 +171,13 @@ packet of about 3k tokens when a question needs the past.
 No telemetry. Secrets (API keys, passwords, card numbers...) are masked before storing.
 
 **How is this different from CLAUDE.md or an app's built-in memory?** Those keep notes a model
-wrote, one app at a time. Graph-MIND keeps every turn as it was said and shares it across every
+wrote, one app at a time. Turnbook keeps every turn as it was said and shares it across every
 app and model on the PC.
 
 **Korean?** Yes: Korean and English conversations, and questions in either language. A Korean
 question about something said only in English is found most of the time, not always.
 
-**How do I remove it?** `graph-mind-uninstall` disconnects every app and stops the service; the
+**How do I remove it?** `turnbook-uninstall` disconnects every app and stops the service; the
 memory stays in `~/.graph-mind` unless you add `--purge`.
 
 > [!NOTE]
@@ -187,7 +187,7 @@ memory stays in `~/.graph-mind` unless you add `--purge`.
 ## More
 
 [MCP tools](docs/install.md#mcp-tools) · [See your memory in 3D](docs/privacy.md#seeing-your-memory)
-(`graph-mind-view`) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) ·
+(`turnbook-view`) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) ·
 Development: `pip install -r requirements.txt`, then `python -m unittest discover -s tests`
 
 Contributions are welcome under the [CLA](CLA.md). License: [AGPL-3.0](LICENSE); a
@@ -202,7 +202,7 @@ Contributions are welcome under the [CLA](CLA.md). License: [AGPL-3.0](LICENSE);
 [platform-link]: docs/benchmarks.md#known-limits
 [longmemeval-shield]: https://img.shields.io/badge/LongMemEval-88.8%25-2ea44f?style=flat-square
 [benchmarks-link]: docs/benchmarks.md
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/graph-mind/tests.yml?style=flat-square&label=tests
-[ci-link]: https://github.com/goyohan0611-png/graph-mind/actions/workflows/tests.yml
-[pypi-shield]: https://img.shields.io/pypi/v/graph-mind-memory?style=flat-square&label=pypi
-[pypi-link]: https://pypi.org/project/graph-mind-memory/
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/turnbook/tests.yml?style=flat-square&label=tests
+[ci-link]: https://github.com/goyohan0611-png/turnbook/actions/workflows/tests.yml
+[pypi-shield]: https://img.shields.io/pypi/v/turnbook?style=flat-square&label=pypi
+[pypi-link]: https://pypi.org/project/turnbook/

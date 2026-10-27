@@ -1,4 +1,4 @@
-"""After `pip install graph-mind-memory` on a fresh machine: the server starts, lists its tools,
+"""After `pip install turnbook` on a fresh machine: the server starts, lists its tools,
 saves a memory and finds it again. Run by .github/workflows/install-check.yml.
 
     python smoke_install.py            # save, then recall

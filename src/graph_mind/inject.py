@@ -14,7 +14,7 @@ import sys
 
 # GRAPH_MIND_INJECT=items,chars to change it (research/opencode_longmemeval.py measures sizes)
 LIMIT, CHARS = (int(v) for v in os.environ.get("GRAPH_MIND_INJECT", "8,4000").split(","))
-HEADER = ("Graph-MIND memory: what the user said or saved before that may bear on this message "
+HEADER = ("Turnbook memory: what the user said or saved before that may bear on this message "
           "(dated; older lines can be out of date). Use it if it helps, ignore it if not; for "
           "more, call brain_context.\n\n")
 

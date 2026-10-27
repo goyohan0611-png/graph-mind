@@ -81,6 +81,9 @@ that answer the question.
 
 - **One shared brain for every agent in your terminal.** Whichever coding agent or model you
   run, they all read and write the same memory. Switch agents or models; the memory stays.
+- **Made for orchestration.** When an orchestrator runs several agents at once, they all write
+  to the same memory as they work, so what one agent decided is there for the next. Every
+  memory keeps which app and session it came from.
 - **Remembers conversations word for word**, on your own PC. Saving is a database write: no model
   call, no tokens. When a question depends on the past, the agent gets back the few thousand
   tokens that answer it. Korean and English.

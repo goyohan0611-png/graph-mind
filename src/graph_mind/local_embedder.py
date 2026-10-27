@@ -20,6 +20,14 @@ from graph_mind.vector_cache import VectorCache, convert
 # English evidence R@5 99.0% vs 97.9%, 699 MB vs 869 MB loaded; 2.4x slower to embed, 10 ms a query
 LOCAL_MODEL = ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
                "@onnx/model_quint8_avx2.onnx")
+# Models trained with a marker before each text (e5): (question, stored text). Others: none.
+PREFIXES = {"intfloat/multilingual-e5": ("query: ", "passage: ")}
+
+
+def prefixes(model):
+    return next((p for repo, p in PREFIXES.items() if model.startswith(repo)), ("", ""))
+
+
 OLD_MODELS = ("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",)
 
 
@@ -149,9 +157,10 @@ class LocalEmbedder:
     def _key(self, text):
         return hashlib.sha256((self.model_name + "\0" + text).encode("utf-8")).hexdigest()
 
-    def _encode(self, texts):
+    def _encode(self, texts, query=False):
         import numpy as np
-        encoded = LocalEmbedder._tok.encode_batch(texts)
+        marker = prefixes(self.model_name)[0 if query else 1]
+        encoded = LocalEmbedder._tok.encode_batch([marker + t for t in texts])
         ids = np.array([e.ids for e in encoded], dtype=np.int64)
         mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)
         feed = {"input_ids": ids, "attention_mask": mask}
@@ -163,14 +172,14 @@ class LocalEmbedder:
         pooled /= np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-12, None)
         return pooled.tolist()
 
-    def _encode_now(self, texts):
+    def _encode_now(self, texts, query=False):
         """Beside any backlog chunk, not after it: ONNX Runtime runs a session from several
         threads at once (one chunk held a question 5 s on CI)."""
         if not texts:
             return []
         with LocalEmbedder._lock:
             self._load()
-        return self._encode(texts)
+        return self._encode(texts, query)
 
     def _keep(self, texts, vectors):
         with LocalEmbedder._lock:
@@ -213,10 +222,10 @@ class LocalEmbedder:
         on disk) for good, though a question is rarely asked twice."""
         text = text.strip()[:2000]
         key = self._key(text)
-        if key in self.cache:                         # stored text asked about verbatim
+        if key in self.cache and not any(prefixes(self.model_name)):   # stored text, verbatim
             return self.cache.get(key)
         served = _service.encode(self.model_name, [text], keep=False)
-        return served[0] if served is not None else self._encode_now([text])[0]
+        return served[0] if served is not None else self._encode_now([text], query=True)[0]
 
     def flush(self):
         with LocalEmbedder._lock:

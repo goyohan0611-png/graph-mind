@@ -1,0 +1,4 @@
+paraphrase-multilingual-mpnet-base-v2    en 582 q  top10 60.7%  top30 75.6%  top50 82.3%
+paraphrase-multilingual-mpnet-base-v2    ko 582 q  top10 48.8%  top30 67.5%  top50 74.6%
+multilingual-e5-small                    en 582 q  top10 64.8%  top30 80.4%  top50 86.8%
+multilingual-e5-small                    ko 582 q  top10 69.6%  top30 81.3%  top50 86.6%

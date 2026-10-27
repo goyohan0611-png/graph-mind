@@ -1,0 +1,83 @@
+
+== signal: oracle  (3 conversations, 3 seeds; test = last 40% of each conversation)
+arm                asked   hit@5  hit@10  hit@30     mrr
+shipped                0   56.2%   67.0%   83.9%   0.458
+personal               0   56.2%   67.0%   83.9%   0.458
+general                0   61.5%   70.2%   85.7%   0.480
+general+personal       0   61.5%   70.2%   85.7%   0.480
+shipped               10   56.2%   67.0%   83.9%   0.458
+personal              10   55.5%   66.3%   83.8%   0.462
+general               10   61.5%   70.2%   85.7%   0.480
+general+personal      10   61.4%   70.6%   86.0%   0.482
+shipped               25   56.2%   67.0%   83.9%   0.458
+personal              25   57.3%   66.0%   85.0%   0.471
+general               25   61.5%   70.2%   85.7%   0.480
+general+personal      25   61.6%   70.7%   86.0%   0.478
+shipped               50   56.2%   67.0%   83.9%   0.458
+personal              50   57.6%   65.8%   85.2%   0.479
+general               50   61.5%   70.2%   85.7%   0.480
+general+personal      50   61.1%   70.6%   86.3%   0.478
+shipped              100   56.2%   67.0%   83.9%   0.458
+personal             100   58.7%   66.2%   86.1%   0.470
+general              100   61.5%   70.2%   85.7%   0.480
+general+personal     100   63.3%   73.7%   86.1%   0.489
+shipped              all   56.2%   67.0%   83.9%   0.458
+personal             all   58.7%   66.2%   86.1%   0.470
+general              all   61.5%   70.2%   85.7%   0.480
+general+personal     all   63.3%   73.7%   86.1%   0.489
+
+== signal: proxy  (3 conversations, 3 seeds; test = last 40% of each conversation)
+arm                asked   hit@5  hit@10  hit@30     mrr
+shipped                0   56.2%   67.0%   83.9%   0.458
+personal               0   56.2%   67.0%   83.9%   0.458
+general                0   61.5%   70.2%   85.7%   0.480
+general+personal       0   61.5%   70.2%   85.7%   0.480
+shipped               10   56.2%   67.0%   83.9%   0.458
+personal              10   55.8%   66.6%   82.8%   0.465
+general               10   61.5%   70.2%   85.7%   0.480
+general+personal      10   62.4%   70.4%   85.7%   0.486
+shipped               25   56.2%   67.0%   83.9%   0.458
+personal              25   56.6%   65.3%   85.4%   0.457
+general               25   61.5%   70.2%   85.7%   0.480
+general+personal      25   62.1%   69.9%   86.0%   0.480
+shipped               50   56.2%   67.0%   83.9%   0.458
+personal              50   56.7%   65.6%   85.6%   0.461
+general               50   61.5%   70.2%   85.7%   0.480
+general+personal      50   61.3%   69.4%   86.8%   0.476
+shipped              100   56.2%   67.0%   83.9%   0.458
+personal             100   56.2%   66.4%   84.6%   0.457
+general              100   61.5%   70.2%   85.7%   0.480
+general+personal     100   62.5%   70.7%   87.2%   0.490
+shipped              all   56.2%   67.0%   83.9%   0.458
+personal             all   56.2%   66.4%   84.6%   0.457
+general              all   61.5%   70.2%   85.7%   0.480
+general+personal     all   62.5%   70.7%   87.2%   0.490
+
+== signal: reply  (3 conversations, 3 seeds; test = last 40% of each conversation)
+arm                asked   hit@5  hit@10  hit@30     mrr
+shipped                0   56.2%   67.0%   83.9%   0.458
+personal               0   56.2%   67.0%   83.9%   0.458
+general                0   61.5%   70.2%   85.7%   0.480
+general+personal       0   61.5%   70.2%   85.7%   0.480
+shipped               10   56.2%   67.0%   83.9%   0.458
+personal              10   56.4%   67.0%   84.2%   0.465
+general               10   61.5%   70.2%   85.7%   0.480
+general+personal      10   61.2%   70.2%   85.2%   0.481
+shipped               25   56.2%   67.0%   83.9%   0.458
+personal              25   56.9%   66.5%   84.1%   0.456
+general               25   61.5%   70.2%   85.7%   0.480
+general+personal      25   61.9%   70.1%   85.9%   0.483
+shipped               50   56.2%   67.0%   83.9%   0.458
+personal              50   56.4%   66.0%   85.0%   0.466
+general               50   61.5%   70.2%   85.7%   0.480
+general+personal      50   61.2%   70.7%   86.3%   0.488
+shipped              100   56.2%   67.0%   83.9%   0.458
+personal             100   57.5%   66.4%   86.1%   0.461
+general              100   61.5%   70.2%   85.7%   0.480
+general+personal     100   63.1%   72.5%   85.3%   0.490
+shipped              all   56.2%   67.0%   83.9%   0.458
+personal             all   57.5%   66.4%   86.1%   0.461
+general              all   61.5%   70.2%   85.7%   0.480
+general+personal     all   63.1%   72.5%   85.3%   0.490
+
+written: C:\graph-mind\research\runs\graph-v9.20-learning\curve-reply.json

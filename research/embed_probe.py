@@ -61,7 +61,7 @@ def main() -> None:
     psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS if sys.platform == "win32" else 19)
     english = [s for s in json.loads(DATA.read_text(encoding="utf-8")) if s["sample_id"] in CONVS]
     sets = {"en": english, "ko": korean(english)}
-    for repo, tok_file, model_file, q_pre, p_pre in MODELS:
+    for repo, tok_file, model_file, q_pre, p_pre in MODELS[1 if "--e5" in sys.argv else 0:]:
         encode = encoder(repo, tok_file, model_file)
         for lang, samples in sets.items():
             hits, total = {10: 0, 30: 0, 50: 0}, 0

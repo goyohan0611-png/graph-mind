@@ -63,7 +63,8 @@ def main() -> None:
         slug = model.replace("/", "_").replace("@", "_")
         embedders[name] = LocalEmbedder(CACHE / f"embed-{slug}.json", model=model)
     with tempfile.TemporaryDirectory() as directory:
-        for name in ("A", "B"):
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+        for name in sys.argv[1] if len(sys.argv) > 1 else "AB":
             path = RUN / f"packets-{name}.jsonl"
             done = {json.loads(line)["question_id"] for line in path.open(encoding="utf-8")} \
                 if path.exists() else set()
@@ -71,6 +72,8 @@ def main() -> None:
             embedder = embedders[name]
             with path.open("a", encoding="utf-8") as log:
                 for n, row in enumerate(stream_instances(DATA)):
+                    if limit and n >= limit:
+                        break
                     if row["question_id"] in done:
                         continue
                     store = Path(directory) / f"{name}-{row['question_id']}.sqlite"

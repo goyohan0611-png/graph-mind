@@ -106,9 +106,20 @@ def rank(pool: list[str], x: np.ndarray, w: np.ndarray) -> list[str]:
     return [pool[i] for i in sorted(range(len(pool)), key=lambda i: (-score[i], i))]
 
 
+REPLIES: dict[tuple[str, int], str] = {}
+
+
 def positives(question: dict, shown: list[str], texts: dict, signal: str) -> list[str]:
     if signal == "oracle":
         return [t for t in shown if t in set(question["evidence"])]
+    if signal == "reply":
+        # the shown turns the model's reply drew on: words it shares with them beyond the
+        # question's own words, at least two, best three
+        said = terms(REPLIES.get((question["conv"], question["n"]), "")) - terms(
+            question["question"])
+        mine = texts[question["conv"]]
+        shared = {t: len(said & terms(mine.get(t, {}).get("text", ""))) for t in shown}
+        return [t for t in sorted(shown, key=lambda t: -shared[t])[:3] if shared[t] >= 2]
     answer = terms(question["answer"])
     if not answer:
         return []
@@ -200,11 +211,19 @@ def main() -> None:
     questions = [q for q in data["questions"] if q["evidence"]]
     convs = sorted({q["conv"] for q in questions})
     results = {}
-    for signal in ("oracle", "proxy"):
-        general = {c: general_weights(questions, texts, signal, c) for c in convs}
+    signals = ["oracle", "proxy"]
+    tested = convs
+    if "--reply" in sys.argv:       # only the conversations Codex answered (codex_replies.py)
+        for row in map(json.loads, POOLS.with_name("replies.jsonl").open(encoding="utf-8")):
+            REPLIES[(row["conv"], row["n"])] = row["reply"]
+        tested = sorted({conv for conv, _ in REPLIES})
+        signals.append("reply")
+    # the general re-ranker is trained once, offline, on labelled conversations: the evidence
+    general = {c: general_weights(questions, texts, "oracle", c) for c in tested}
+    for signal in signals:
         table = {}
         for seed in SEEDS:
-            for conv in convs:
+            for conv in tested:
                 mine = [q for q in questions if q["conv"] == conv]
                 random.Random(seed).shuffle(mine)
                 cut = int(len(mine) * 0.6)
@@ -227,16 +246,14 @@ def main() -> None:
         results[signal] = {f"{arm}@{step}": {k: round(float(np.mean(v)), 4)
                                              for k, v in metrics.items()}
                            for (arm, step), metrics in table.items()}
-        print(f"\n== signal: {signal}  ({len(questions)} questions, {len(convs)} conversations, "
+        print(f"\n== signal: {signal}  ({len(tested)} conversations, "
               f"{len(SEEDS)} seeds; test = last 40% of each conversation)")
         print(f"{'arm':<18}{'asked':>6}{'hit@5':>8}{'hit@10':>8}{'hit@30':>8}{'mrr':>8}")
         for (arm, step), metrics in table.items():
             means = {k: np.mean(v) for k, v in metrics.items()}
             print(f"{arm:<18}{step!s:>6}{means['hit@5']:>8.1%}{means['hit@10']:>8.1%}"
                   f"{means['hit@30']:>8.1%}{means['mrr']:>8.3f}")
-        print("general weights (conv-26 held out):",
-              dict(zip(NAMES, np.round(general[convs[0]], 2))))
-    out = POOLS.with_name("curve.json")
+    out = POOLS.with_name("curve-reply.json" if "--reply" in sys.argv else "curve.json")
     out.write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
     print(f"\nwritten: {out}")
     sys.stdout.flush()

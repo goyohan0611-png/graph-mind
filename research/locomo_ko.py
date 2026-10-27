@@ -5,7 +5,7 @@ chat. Person names stay in English spelling, so particles attach to them as they
 noun. Ids are kept, so the evidence labels still apply. Resumable; the result is not committed
 (it is the dataset's text).
 
-    python research/locomo_ko.py                 # all 10 conversations
+    python research/locomo_ko.py conv-26 conv-30 conv-41 conv-42   # these conversations
 """
 from __future__ import annotations
 
@@ -44,13 +44,16 @@ def main() -> None:
     samples = json.loads(DATA.read_text(encoding="utf-8"))
     done = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    batch = 90                                  # turns per call: the call itself costs ~2 min
     for sample in samples:
         sid = sample["sample_id"]
+        if sys.argv[1:] and sid not in sys.argv[1:]:
+            continue
         mine = done.setdefault(sid, {"turns": {}, "qa": {}})
         talk = sample["conversation"]
+        items = []
         for key in sorted((k for k in talk if k.startswith("session_")
                            and isinstance(talk[k], list)), key=lambda k: int(k.split("_")[1])):
-            items = []
             for turn in talk[key]:
                 if turn["dia_id"] in mine["turns"]:
                     continue
@@ -58,15 +61,15 @@ def main() -> None:
                 if turn.get("blip_caption"):
                     text += f" [shares a photo: {turn['blip_caption']}]"
                 items.append({"id": turn["dia_id"], "text": text})
-            if items:
-                mine["turns"].update(ask(items))
-                OUT.write_text(json.dumps(done, ensure_ascii=False), encoding="utf-8")
-                print(sid, key, len(mine["turns"]), flush=True)
+        for start in range(0, len(items), batch):
+            mine["turns"].update(ask(items[start:start + batch]))
+            OUT.write_text(json.dumps(done, ensure_ascii=False), encoding="utf-8")
+            print(sid, "turns", len(mine["turns"]), flush=True)
         wanted = [{"id": n, "text": f"Q: {qa['question']}\nA: {qa.get('answer', '')}"}
                   for n, qa in enumerate(sample["qa"])
                   if qa["category"] != 5 and str(n) not in mine["qa"]]
-        for start in range(0, len(wanted), 40):
-            mine["qa"].update(ask(wanted[start:start + 40]))
+        for start in range(0, len(wanted), 60):
+            mine["qa"].update(ask(wanted[start:start + 60]))
             OUT.write_text(json.dumps(done, ensure_ascii=False), encoding="utf-8")
             print(sid, "qa", len(mine["qa"]), flush=True)
 

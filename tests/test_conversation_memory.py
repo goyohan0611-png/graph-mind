@@ -7,7 +7,7 @@ import unittest
 from graph_mind.conversation_memory import (ClaudeCodeConversationCapture,
                                             ClaudeCoworkConversationCapture,
                                  CodexConversationCapture,
-                                 ConversationMemoryStore)
+                                 ConversationMemoryStore, search_terms)
 
 
 def row(ordinal, role, text, timestamp="2026-09-16T10:00:00"):
@@ -18,6 +18,23 @@ def row(ordinal, role, text, timestamp="2026-09-16T10:00:00"):
 
 
 class ConversationMemoryTests(unittest.TestCase):
+    def test_korean_particles_come_off_the_question_words(self):
+        self.assertEqual(search_terms("Caroline은 언제 지지 모임에 갔어?"),
+                         ["caroline", "언제", "지지", "모임", "갔어"])
+        self.assertEqual(search_terms("콩이가 콩이를"), ["콩이"])     # "콩이" itself stays
+        self.assertEqual(search_terms("What did Mel paint in 2022?"),
+                         ["what", "did", "mel", "paint", "in", "2022"])
+        with tempfile.TemporaryDirectory() as directory:
+            with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
+                for n, text in enumerate(["Caroline이 모임이 좋았대", "날씨 얘기"]):
+                    store.record({"turn_id": f"t{n}", "client": "test",
+                                  "client_session_id": "s", "scope": "global", "role": "user",
+                                  "content_redacted": text, "raw_sha256": f"t{n}",
+                                  "source_path": "s", "happened_at": "2026-10-01T10:00:00",
+                                  "known_at": "2026-10-01T10:00:00", "source_ordinal": n})
+                found = store.search("Caroline은 모임에 갔어?")["turns"]
+                self.assertEqual([t["turn_id"] for t in found], ["t0"])
+
     def test_incremental_capture_redacts_secrets_and_searches_fts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

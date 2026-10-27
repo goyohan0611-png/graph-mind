@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="demo/logo.png" alt="Turnbook" width="112">
+
 # Turnbook
 
 ### AI는 세션이 끝나면 다 잊어버립니다. 이건 기억합니다. 그것도 LLM을 한 번도 부르지 않고요.

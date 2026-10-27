@@ -1,6 +1,8 @@
 <!-- mcp-name: io.github.goyohan0611-png/turnbook -->
 <div align="center">
 
+<img src="demo/logo.png" alt="Turnbook" width="112">
+
 # Turnbook
 
 ### Your AI forgets everything when the session ends. This one remembers, and it never calls an LLM to do it.

@@ -20,8 +20,9 @@ from locomo_pools import DATA, fetch  # noqa: E402
 OUT = Path(__file__).resolve().parent / "runs/graph-v9.21-korean/locomo_ko.json"
 RULES = ("Translate each item's text into natural, casual Korean, the way people chat. Keep every "
          "person's name exactly as written in English letters (e.g. 'Caroline은'). Keep numbers "
-         "and dates accurate, and keep the labels 'Q:' and 'A:' where they appear. Do not run any commands or read files. Reply with ONLY a JSON list "
-         'of objects {"id": ..., "text": ...}, one per input item, same ids.\n\nINPUT:\n')
+         "and dates accurate, and keep the labels 'Q:' and 'A:' where they appear. Do not run "
+         "any commands or read files. Reply with ONLY a JSON list of objects "
+         ' {"id": ..., "text": ...}, one per input item, same ids.\n\nINPUT:\n')
 
 
 def ask(items: list[dict]) -> dict:

@@ -4,7 +4,7 @@ For each question a fresh store is filled with its haystack exactly as the captu
 fill it (every turn, verbatim, dated by its session, embedded before anyone asks: a server meeting
 a backlog answers from word search while it embeds), the question goes through what brain_context
 runs with its shipped defaults, and we check which answer-bearing turns reach the packet. No model
-is called: this is the part of accuracy that Graph-MIND itself controls, measured on every change.
+is called: this is the part of accuracy that Turnbook itself controls, measured on every change.
 The answer accuracy behind it (88.8%) needs an answer model and a judge: research/REPORT.md §10.
 
 Reported overall, per question type, and apart for the 120 questions the path was tuned on:

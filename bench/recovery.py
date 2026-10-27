@@ -1,4 +1,4 @@
-"""Does Graph-MIND heal by itself? Every fault it is meant to survive, run and timed.
+"""Does Turnbook heal by itself? Every fault it is meant to survive, run and timed.
 
 Each scenario is a test that breaks something the way it breaks on users' PCs and checks the
 memory keeps answering or comes back without the user. The gaps below are faults nothing handles

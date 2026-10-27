@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="demo/logo.png" alt="Turnbook" width="112">
+<img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/logo.png" alt="Turnbook" width="112">
 
 # Turnbook
 
@@ -19,7 +19,7 @@
 
 [English](README.md) · **한국어**
 
-<img src="demo/demo.gif" alt="실제 녹화: Claude Code가 Turnbook에 저장한 결정을 다른 앱인 Codex가 기억하는 장면" width="900">
+<img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/demo.gif" alt="실제 녹화: Claude Code가 Turnbook에 저장한 결정을 다른 앱인 Codex가 기억하는 장면" width="900">
 
 <sub>한 PC에서 실제로 녹화: Claude Code(Opus 5.5, effort high)와 Codex(GPT-6.1-Sol, effort high)가 Turnbook 기억 하나를 같이 씁니다. 모델이 생각하는 시간은 빨리 감았습니다.</sub>
 

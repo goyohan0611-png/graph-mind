@@ -1,7 +1,7 @@
 <!-- mcp-name: io.github.goyohan0611-png/turnbook -->
 <div align="center">
 
-<img src="demo/logo.png" alt="Turnbook" width="112">
+<img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/logo.png" alt="Turnbook" width="112">
 
 # Turnbook
 
@@ -23,7 +23,7 @@
 
 **English** · [한국어](README.ko.md)
 
-<img src="demo/demo.gif" alt="Recorded live: Claude Code saves a decision to Turnbook, and Codex, a different app, recalls it" width="900">
+<img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/demo.gif" alt="Recorded live: Claude Code saves a decision to Turnbook, and Codex, a different app, recalls it" width="900">
 
 <sub>Recorded live on one PC: Claude Code (Opus 5.5, effort high) and Codex (GPT-6.1-Sol, effort high) sharing one Turnbook memory. Model thinking time is fast-forwarded.</sub>
 

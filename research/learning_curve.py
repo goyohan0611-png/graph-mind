@@ -175,13 +175,13 @@ def collect(stream: list[dict], texts: dict, signal: str, w: np.ndarray, history
 
 
 def score(test: list[dict], texts: dict, w: np.ndarray, history: History) -> dict:
-    out = {f"hit@{k}": 0 for k in (5, 10, 30)} | {"mrr": 0.0}
+    out = {f"hit@{k}": 0 for k in (5, 10, 20, 30)} | {"mrr": 0.0}
     for question in test:
         pool, x = features(question, texts[question["conv"]], history)
         order = rank(pool, x, w)
         gold = set(question["evidence"])
         first = next((i for i, t in enumerate(order) if t in gold), None)
-        for k in (5, 10, 30):
+        for k in (5, 10, 20, 30):
             out[f"hit@{k}"] += first is not None and first < k
         out["mrr"] += 1 / (first + 1) if first is not None else 0
     return {k: v / len(test) for k, v in out.items()}

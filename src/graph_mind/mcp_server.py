@@ -471,6 +471,45 @@ def fuse(*rankings, limit):
     return [keep[turn_id] for turn_id in order]
 
 
+# A small re-ranker over the fused pool (research/reranker_weights.py): weights learned on LoCoMo's
+# evidence labels, checked on LongMemEval_S (answer turn in the first 5: 81.0% -> 83.9%, first 30:
+# 98.1% -> 98.3%). Rank in each list (as the fusion above), the meaning score itself, and the share
+# of the question's words the whole turn contains.
+RERANK = {"meaning": 1.93, "words": 1.609, "similarity": 0.622, "both": -0.294, "overlap": 2.251}
+RERANK_POOL = 50            # per list, as measured
+STOPWORDS = frozenset(
+    "a an the of to in on at for and or but is are was were be been do does did what when where "
+    "who whom which why how that this with from by as it its his her their they them he she you "
+    "your i my me we our has have had not no yes would could should will can about after before "
+    "during into than then there so".split())
+
+
+def words_of(text):
+    return {w for w in re.findall(r"[^\W_]{2,}", text.casefold()) if w not in STOPWORDS}
+
+
+def rerank(query, meaning, words, *, limit):
+    """Order the pool of both searches by the learned score; ties keep the fusion's pool order.
+    ponytail: English stop words and exact word overlap; Korean particles ("콩이를") make the
+    overlap term weaker there, so Korean ranking stays closer to plain fusion."""
+    by_meaning = {t["turn_id"]: (rank, t.get("similarity", 0.0)) for rank, t in enumerate(meaning)}
+    by_words = {t["turn_id"]: rank for rank, t in enumerate(words)}
+    keep = {}
+    for turn in meaning + words:
+        keep.setdefault(turn["turn_id"], turn)        # the meaning list's version (its excerpt)
+    asked = words_of(query)
+
+    def score(turn_id):
+        meaning_hit, word_rank = by_meaning.get(turn_id), by_words.get(turn_id)
+        text = keep[turn_id].get("full", keep[turn_id]["content"])
+        return (RERANK["meaning"] * (60 / (60 + meaning_hit[0]) if meaning_hit else 0.0)
+                + RERANK["words"] * (60 / (60 + word_rank) if word_rank is not None else 0.0)
+                + RERANK["similarity"] * (meaning_hit[1] if meaning_hit else 0.0)
+                + RERANK["both"] * (meaning_hit is not None and word_rank is not None)
+                + RERANK["overlap"] * len(asked & words_of(text)) / max(len(asked), 1))
+    return [keep[turn_id] for turn_id in sorted(keep, key=score, reverse=True)[:limit]]
+
+
 def excerpt(turn):
     """A word-search hit, cut to one piece: the answering sentence sits within the first 500
     characters of every answer-bearing turn in LongMemEval (span_cap_check.py)."""
@@ -522,12 +561,12 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
                                              until=until)["turns"]
         else:
             words = [excerpt(t) for t in conversations.search(
-                         query, scopes=scopes, limit=max(limit, 20), until=until)["turns"]
+                         query, scopes=scopes, limit=max(limit, RERANK_POOL), until=until)["turns"]
                      if not since or t["happened_at"] >= since]
     if not recent:
         try:
             meaning = semantic_turns(database, query, scopes=scopes, since=since,
-                                     until=until, limit=max(limit, 20),
+                                     until=until, limit=max(limit, RERANK_POOL),
                                      embedder=embedder or embedder_for(database),
                                      about_assistant=about_assistant)
         except Exception:                 # no local model yet: word search still answers
@@ -546,7 +585,9 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
                 inside = []
             rankings = [inside, [t for t in words if span[0] <= t["happened_at"] < span[1]],
                         *rankings]
-        turns = fuse(*rankings, limit=limit)
+        # with a date window the window's own lists lead (fusion); otherwise the learned order
+        turns = fuse(*rankings, limit=limit) if span else rerank(query, meaning, words,
+                                                                 limit=limit)
         if about_assistant:
             # "How many mummies were in the one-shot you wrote?" needs the whole answer, not a
             # 500-character piece of it: the assistant's answers run 1,000-4,000 characters and

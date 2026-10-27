@@ -1,0 +1,138 @@
+"""Candidate pools for the learning-curve study (learning_curve.py), from LoCoMo.
+
+LoCoMo (snap-research/locomo): 10 long two-person conversations, ~200 questions each, every
+question labelled with the turns that answer it. One conversation stands in for one user's memory,
+so its questions can be replayed in order to see whether recall improves with use.
+
+Each conversation is stored as the capture service would store it, embedded, and every question
+goes through the shipped word and meaning searches (top 50 each). We keep both rankings, the
+shipped fused order, and the turn texts, so learning_curve.py can run offline in seconds.
+No model is called. Adversarial questions (category 5, no answer in the conversation) are skipped.
+
+    python research/locomo_pools.py            # all 10 conversations
+    python research/locomo_pools.py --limit 1  # a quick look
+"""
+from __future__ import annotations
+
+from argparse import ArgumentParser
+from datetime import datetime, timedelta
+from pathlib import Path
+import hashlib
+import json
+import sys
+import tempfile
+import urllib.request
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
+from graph_mind.local_embedder import LOCAL_MODEL, LocalEmbedder  # noqa: E402
+from graph_mind.mcp_server import _PIECES, CONTEXT_LIMIT, excerpt, fuse, semantic_turns  # noqa: E402
+from graph_mind.warmup import warm_turns  # noqa: E402
+
+DATA = ROOT / "research/external/locomo/locomo10.json"
+URL = "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json"
+SHA256 = "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+CACHE = ROOT / "bench/.cache"
+OUT = ROOT / "research/runs/graph-v9.20-learning/pools.json"
+POOL = 50
+
+
+def fetch() -> None:
+    if not DATA.exists():
+        DATA.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(URL, DATA)
+    if hashlib.sha256(DATA.read_bytes()).hexdigest() != SHA256:
+        sys.exit(f"{DATA} does not match the pinned LoCoMo file")
+
+
+def turns_of(sample: dict):
+    """(turn_id, text, happened_at) in order; a shared photo is kept as its caption."""
+    talk = sample["conversation"]
+    sessions = sorted((int(k.split("_")[1]) for k in talk
+                       if k.startswith("session_") and isinstance(talk[k], list)))
+    for number in sessions:
+        start = datetime.strptime(talk[f"session_{number}_date_time"], "%I:%M %p on %d %B, %Y")
+        for index, turn in enumerate(talk[f"session_{number}"]):
+            text = f"{turn['speaker']}: {turn['text']}"
+            if turn.get("blip_caption"):
+                text += f" [shares a photo: {turn['blip_caption']}]"
+            yield turn["dia_id"], text, (start + timedelta(seconds=30 * index)).isoformat()
+
+
+def evidence_ids(qa: dict) -> list[str]:
+    ids = []
+    for item in qa.get("evidence", []):
+        ids += [part.strip() for part in str(item).replace(",", ";").split(";") if part.strip()]
+    return ids
+
+
+def conversation(sample: dict, directory: Path, embedder) -> tuple[dict, list[dict]]:
+    store = directory / f"{sample['sample_id']}.sqlite"
+    texts = {}
+    with ConversationMemoryStore(store) as conversations:
+        for ordinal, (tid, text, at) in enumerate(turns_of(sample)):
+            texts[tid] = {"text": text, "at": at}
+            conversations.record({"turn_id": tid, "client": "locomo",
+                                  "client_session_id": tid.split(":")[0], "scope": "global",
+                                  "role": "user", "content_redacted": text, "raw_sha256": tid,
+                                  "source_path": sample["sample_id"], "happened_at": at,
+                                  "known_at": at, "source_ordinal": ordinal})
+    while warm_turns(store, limit=2048, embedder=embedder):
+        pass
+    questions = []
+    with ConversationMemoryStore(store) as conversations:
+        for number, qa in enumerate(sample["qa"]):
+            if qa["category"] == 5:
+                continue
+            query = qa["question"]
+            words = [excerpt(t) for t in conversations.search(query, limit=POOL)["turns"]]
+            meaning = semantic_turns(store, query, limit=POOL, embedder=embedder)
+            shipped = fuse(meaning, words, limit=CONTEXT_LIMIT)
+            questions.append({
+                "conv": sample["sample_id"], "n": number, "question": query,
+                "answer": str(qa.get("answer", "")), "category": qa["category"],
+                "evidence": evidence_ids(qa),
+                "meaning": [[t["turn_id"], t["similarity"]] for t in meaning],
+                "words": [t["turn_id"] for t in words],
+                "shipped": [t["turn_id"] for t in shipped]})
+    _PIECES.pop(str(store), None)
+    return texts, questions
+
+
+def hit(order: list[str], gold: list[str], k: int) -> bool:
+    return bool(set(order[:k]) & set(gold))
+
+
+def hits(questions: list[dict]) -> str:
+    shown = [q for q in questions if q["evidence"]]
+    return f"{len(shown)} questions " + " ".join(
+        f"hit@{k} {sum(hit(q['shipped'], q['evidence'], k) for q in shown) / len(shown):.1%}"
+        for k in (5, 10, 30))
+
+
+def main() -> None:
+    parser = ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--limit", type=int, help="first N conversations only")
+    args = parser.parse_args()
+    fetch()
+    samples = json.loads(DATA.read_text(encoding="utf-8"))[:args.limit]
+    CACHE.mkdir(parents=True, exist_ok=True)
+    slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")
+    embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=LOCAL_MODEL)
+    result = {"turns": {}, "questions": []}
+    with tempfile.TemporaryDirectory() as directory:
+        for sample in samples:
+            texts, questions = conversation(sample, Path(directory), embedder)
+            result["turns"][sample["sample_id"]] = texts
+            result["questions"] += questions
+            print(sample["sample_id"], len(texts), "turns", hits(questions), flush=True)
+            embedder.cache.flush()
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    print("all", hits(result["questions"]))
+
+
+if __name__ == "__main__":
+    main()

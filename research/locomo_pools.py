@@ -159,15 +159,17 @@ def main() -> None:
                         help="also store the next N conversations in each one's memory")
     parser.add_argument("--pool", type=int, default=POOL, help="turns kept from each search")
     parser.add_argument("--ko", action="store_true", help="the Korean translation")
+    parser.add_argument("--model", default=LOCAL_MODEL, help="another embedding model")
+    parser.add_argument("--only", nargs="*", help="these conversations only")
     args = parser.parse_args()
     fetch()
     everything = json.loads(DATA.read_text(encoding="utf-8"))
     if args.ko:
         everything = korean(everything)
-    samples = everything[:args.limit]
+    samples = [s for s in everything[:args.limit] if not args.only or s["sample_id"] in args.only]
     CACHE.mkdir(parents=True, exist_ok=True)
-    slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")
-    embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=LOCAL_MODEL)
+    slug = args.model.replace("/", "_").replace("@", "_")
+    embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=args.model)
     result = {"turns": {}, "questions": []}
     with tempfile.TemporaryDirectory() as directory:
         for i, sample in enumerate(samples):
@@ -181,6 +183,8 @@ def main() -> None:
     out = OUT.with_name(f"pools-mix{args.mix}.json") if args.mix else OUT
     if args.ko:
         out = out.with_name(out.name.replace("pools", "pools-ko"))
+    if args.model != LOCAL_MODEL:
+        out = out.with_name(out.stem + "-" + args.model.split("/")[1].split("@")[0] + ".json")
     if args.pool != POOL:
         out = out.with_name(f"{out.stem}-pool{args.pool}.json")
     out.parent.mkdir(parents=True, exist_ok=True)

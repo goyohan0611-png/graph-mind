@@ -70,5 +70,84 @@ def main() -> None:
                   flush=True)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and "--variants" not in sys.argv:
     main()
+
+
+def variants() -> None:
+    """Which feature sets hold on both benchmarks? LoCoMo 10x (leave one out) and LongMemEval."""
+    lc.background()
+    train = json.loads(lc.POOLS.read_text(encoding="utf-8"))
+    big = json.loads(lc.POOLS.with_name("pools-mix9-pool200.json").read_text(encoding="utf-8"))
+    lme = json.loads(lc.POOLS.with_name("lme_pools.json").read_text(encoding="utf-8"))
+    rows = [q for q in lme["questions"] if q["evidence"]]
+    qs = [q for q in train["questions"] if q["evidence"]]
+    sets = {
+        "shipped 5": v2.SHIPPED,
+        "+ rare, prefix": v2.SHIPPED + ["rare_overlap", "prefix_overlap"],
+        "+ rare, prefix, neighbour": v2.SHIPPED + ["rare_overlap", "prefix_overlap", "neighbour"],
+        "all but length": [n for n in v2.NAMES if n != "length"],
+        "all but length, sessions": [n for n in v2.NAMES
+                                     if n not in ("length", "session_hits", "session_best")],
+    }
+    print("\nfeature set                    LoCoMo 10x (5/10/30)       LongMemEval (5/10/30)")
+    for label, names in sets.items():
+        cols = [v2.NAMES.index(n) for n in names]
+        loco = leave_one_out(train, big, cols)
+        prior = np.zeros(len(cols))
+        prior[:2] = 1
+        w = v2.fit_linear(v2.pairs(qs, train["turns"], 50, cols), prior)
+        m = v2.evaluate(rows, lme["turns"], 50, lambda x, w=w: x @ w, cols)
+        print(f"  {label:<28} {loco[5]:.1%} / {loco[10]:.1%} / {loco[30]:.1%}    "
+              f"{m[5]:.1%} / {m[10]:.1%} / {m[30]:.1%}   "
+              + str({n: round(float(v), 2) for n, v in zip(names, w)}), flush=True)
+
+
+if __name__ == "__main__" and "--variants" in sys.argv:
+    variants()
+
+
+def joint() -> None:
+    """Learn on LoCoMo (minus the scored conversation) plus half of LongMemEval; score LoCoMo 10x
+    and the other half of LongMemEval. Weights that must hold on both."""
+    import random
+    lc.background()
+    train = json.loads(lc.POOLS.read_text(encoding="utf-8"))
+    big = json.loads(lc.POOLS.with_name("pools-mix9-pool200.json").read_text(encoding="utf-8"))
+    lme = json.loads(lc.POOLS.with_name("lme_pools.json").read_text(encoding="utf-8"))
+    rows = [q for q in lme["questions"] if q["evidence"]]
+    random.Random(7).shuffle(rows)
+    lme_train, lme_test = rows[:len(rows) // 2], rows[len(rows) // 2:]
+    qs = [q for q in train["questions"] if q["evidence"]]
+    sets = {"shipped 5": v2.SHIPPED,
+            "+ rare, prefix": v2.SHIPPED + ["rare_overlap", "prefix_overlap"],
+            "all but length": [n for n in v2.NAMES if n != "length"],
+            "all": v2.NAMES}
+    print("\njoint training   LoCoMo 10x held-out conv (5/10/30)   LongMemEval held-out half")
+    for label, names in sets.items():
+        cols = [v2.NAMES.index(n) for n in names]
+        prior = np.zeros(len(cols))
+        prior[:2] = 1
+        lme_pairs = v2.pairs(lme_train, lme["turns"], 50, cols)
+        test_q = [q for q in big["questions"] if q["evidence"]]
+        total = {5: 0.0, 10: 0.0, 30: 0.0}
+        for c in sorted({q["conv"] for q in test_q}):
+            loco_pairs = v2.pairs([q for q in qs if q["conv"] != c], train["turns"], 50, cols)
+            # each benchmark weighs the same, whatever its number of pairs
+            both = np.concatenate([loco_pairs, lme_pairs[np.random.default_rng(0).choice(
+                len(lme_pairs), len(loco_pairs))]])
+            w = v2.fit_linear(both, prior)
+            mine = [q for q in test_q if q["conv"] == c]
+            m = v2.evaluate(mine, big["turns"], 50, lambda x, w=w: x @ w, cols)
+            for k in total:
+                total[k] += m[k] * len(mine) / len(test_q)
+        m = v2.evaluate(lme_test, lme["turns"], 50, lambda x, w=w: x @ w, cols)
+        f = v2.evaluate(lme_test, lme["turns"], 50, lambda x: x[:, 0] + x[:, 1], cols)
+        print(f"  {label:<16} {total[5]:.1%} / {total[10]:.1%} / {total[30]:.1%}        "
+              f"{m[5]:.1%} / {m[10]:.1%} / {m[30]:.1%}  (fusion {f[5]:.1%} / {f[10]:.1%} / "
+              f"{f[30]:.1%})  " + str({n: round(float(v), 2) for n, v in zip(names, w)}),
+              flush=True)
+
+
+if __name__ == "__main__" and "--joint" in sys.argv:
+    joint()

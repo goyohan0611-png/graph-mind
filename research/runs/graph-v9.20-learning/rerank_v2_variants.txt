@@ -1,0 +1,7 @@
+
+feature set                    LoCoMo 10x (5/10/30)       LongMemEval (5/10/30)
+  shipped 5                    60.0% / 69.3% / 80.5%    86.2% / 92.9% / 97.1%   {'rrf_meaning': 1.33, 'rrf_words': 0.95, 'similarity': 0.53, 'both': -0.41, 'overlap': 2.39}
+  + rare, prefix               63.7% / 71.5% / 81.5%    87.3% / 92.1% / 96.5%   {'rrf_meaning': 1.22, 'rrf_words': 0.51, 'similarity': 0.44, 'both': -0.45, 'overlap': 1.26, 'rare_overlap': 1.24, 'prefix_overlap': 1.57}
+  + rare, prefix, neighbour    64.8% / 73.6% / 82.2%    80.2% / 89.6% / 95.2%   {'rrf_meaning': 1.09, 'rrf_words': 0.5, 'similarity': 0.35, 'both': -0.46, 'overlap': 1.26, 'rare_overlap': 1.17, 'prefix_overlap': 1.54, 'neighbour': 1.11}
+  all but length               65.0% / 74.3% / 83.5%    82.0% / 90.4% / 96.7%   {'rrf_meaning': 1.02, 'rrf_words': 0.5, 'similarity': 0.3, 'both': -0.47, 'overlap': 1.26, 'rare_overlap': 1.15, 'prefix_overlap': 1.53, 'neighbour': 0.9, 'session_hits': 0.4, 'session_best': 0.6}
+  all but length, sessions     64.8% / 73.6% / 82.2%    80.2% / 89.6% / 95.2%   {'rrf_meaning': 1.09, 'rrf_words': 0.5, 'similarity': 0.35, 'both': -0.46, 'overlap': 1.26, 'rare_overlap': 1.17, 'prefix_overlap': 1.54, 'neighbour': 1.11}

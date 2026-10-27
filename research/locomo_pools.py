@@ -61,6 +61,33 @@ def turns_of(sample: dict):
             yield turn["dia_id"], text, (start + timedelta(seconds=30 * index)).isoformat()
 
 
+def korean(samples: list[dict]) -> list[dict]:
+    """The conversations locomo_ko.py translated, with their Korean text in place."""
+    path = ROOT / "research/runs/graph-v9.21-korean/locomo_ko.json"
+    done = json.loads(path.read_text(encoding="utf-8"))
+    out = []
+    for sample in samples:
+        ko = done.get(sample["sample_id"])
+        if not ko or not ko["qa"]:
+            continue
+        talk = {k: v for k, v in sample["conversation"].items()}
+        for key, turns in talk.items():
+            if key.startswith("session_") and isinstance(turns, list):
+                talk[key] = [{"speaker": t["speaker"], "dia_id": t["dia_id"],
+                              "text": ko["turns"].get(t["dia_id"], t["text"])} for t in turns]
+        qa = []
+        for n, item in enumerate(sample["qa"]):
+            text = ko["qa"].get(str(n))
+            if text is None:
+                qa.append({**item, "category": 5})        # untranslated: skipped like category 5
+                continue
+            question, _, answer = text.partition("A:")
+            qa.append({**item, "question": question.replace("Q:", "").strip(),
+                       "answer": answer.strip()})
+        out.append({**sample, "conversation": talk, "qa": qa})
+    return out
+
+
 def evidence_ids(qa: dict) -> list[str]:
     ids = []
     for item in qa.get("evidence", []):
@@ -131,9 +158,12 @@ def main() -> None:
     parser.add_argument("--mix", type=int, default=0,
                         help="also store the next N conversations in each one's memory")
     parser.add_argument("--pool", type=int, default=POOL, help="turns kept from each search")
+    parser.add_argument("--ko", action="store_true", help="the Korean translation")
     args = parser.parse_args()
     fetch()
     everything = json.loads(DATA.read_text(encoding="utf-8"))
+    if args.ko:
+        everything = korean(everything)
     samples = everything[:args.limit]
     CACHE.mkdir(parents=True, exist_ok=True)
     slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")
@@ -149,6 +179,8 @@ def main() -> None:
             print(sample["sample_id"], len(texts), "turns", hits(questions), flush=True)
             embedder.cache.flush()
     out = OUT.with_name(f"pools-mix{args.mix}.json") if args.mix else OUT
+    if args.ko:
+        out = out.with_name(out.name.replace("pools", "pools-ko"))
     if args.pool != POOL:
         out = out.with_name(f"{out.stem}-pool{args.pool}.json")
     out.parent.mkdir(parents=True, exist_ok=True)

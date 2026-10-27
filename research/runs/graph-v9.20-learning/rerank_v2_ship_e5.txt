@@ -1,0 +1,4 @@
+fusion LoCoMo 10x: 57.1% / 66.5% / 79.3%
+fusion LongMemEval half: 81.2% / 90.0% / 97.1%
+held out: LoCoMo 10x 62.0% / 71.7% / 83.2%   LongMemEval half 85.8% / 93.3% / 97.1%
+RERANK2 = {'rrf_meaning': 1.762, 'rrf_words': 0.889, 'similarity': 0.566, 'both': -0.301, 'overlap': 0.969, 'rare_overlap': 1.125, 'prefix_overlap': 1.104, 'session_hits': 0.637, 'session_best': 0.221}

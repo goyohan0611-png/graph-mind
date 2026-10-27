@@ -165,13 +165,19 @@ def ship() -> None:
     cols = [v2.NAMES.index(n) for n in SHIP_V2]
     prior = np.zeros(len(cols))
     prior[:2] = 1
-    loco = json.loads(lc.POOLS.read_text(encoding="utf-8"))
-    big = json.loads(lc.POOLS.with_name("pools-mix9-pool200.json").read_text(encoding="utf-8"))
-    lme = json.loads(lc.POOLS.with_name("lme_pools.json").read_text(encoding="utf-8"))
+    e5 = "-multilingual-e5-small" if "--e5" in sys.argv else ""
+    loco = json.loads(lc.POOLS.with_name(f"pools{e5}.json").read_text(encoding="utf-8"))
+    big = json.loads(lc.POOLS.with_name(f"pools-mix9{e5}-pool200.json")
+                     .read_text(encoding="utf-8"))
+    lme = json.loads(lc.POOLS.with_name(f"lme_pools{e5}.json").read_text(encoding="utf-8"))
     qs = [q for q in loco["questions"] if q["evidence"]]
     rows = [q for q in lme["questions"] if q["evidence"]]
     random.Random(7).shuffle(rows)
     half = len(rows) // 2
+    for label, data, group in (("LoCoMo 10x", big, [q for q in big["questions"] if q["evidence"]]),
+                               ("LongMemEval half", lme, rows[half:])):
+        f = v2.evaluate(group, data["turns"], 50, lambda x: x[:, 0] + x[:, 1], cols)
+        print(f"fusion {label}: {f[5]:.1%} / {f[10]:.1%} / {f[30]:.1%}", flush=True)
     lme_pairs = v2.pairs(rows[:half], lme["turns"], 50, cols)
     total = {5: 0.0, 10: 0.0, 30: 0.0}
     test_q = [q for q in big["questions"] if q["evidence"]]

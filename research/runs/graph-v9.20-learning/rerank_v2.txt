@@ -1,0 +1,28 @@
+trained without conv-26 linear weights: {'rrf_meaning': 1.26, 'rrf_words': 0.62, 'similarity': 0.38, 'both': -0.47, 'overlap': 0.89, 'rare_overlap': 0.91, 'prefix_overlap': 1.04, 'neighbour': 0.8, 'session_hits': 0.42, 'session_best': 0.62, 'length': 1.21}
+trained without conv-30 linear weights: {'rrf_meaning': 1.26, 'rrf_words': 0.59, 'similarity': 0.39, 'both': -0.48, 'overlap': 0.9, 'rare_overlap': 0.87, 'prefix_overlap': 1.04, 'neighbour': 0.81, 'session_hits': 0.37, 'session_best': 0.63, 'length': 1.24}
+trained without conv-41 linear weights: {'rrf_meaning': 1.25, 'rrf_words': 0.59, 'similarity': 0.39, 'both': -0.49, 'overlap': 0.87, 'rare_overlap': 0.87, 'prefix_overlap': 1.02, 'neighbour': 0.78, 'session_hits': 0.45, 'session_best': 0.65, 'length': 1.22}
+trained without conv-42 linear weights: {'rrf_meaning': 1.25, 'rrf_words': 0.57, 'similarity': 0.38, 'both': -0.5, 'overlap': 0.9, 'rare_overlap': 0.92, 'prefix_overlap': 1.07, 'neighbour': 0.82, 'session_hits': 0.39, 'session_best': 0.6, 'length': 1.23}
+trained without conv-43 linear weights: {'rrf_meaning': 1.26, 'rrf_words': 0.65, 'similarity': 0.36, 'both': -0.51, 'overlap': 0.86, 'rare_overlap': 0.9, 'prefix_overlap': 1.05, 'neighbour': 0.82, 'session_hits': 0.36, 'session_best': 0.63, 'length': 1.22}
+trained without conv-44 linear weights: {'rrf_meaning': 1.24, 'rrf_words': 0.63, 'similarity': 0.36, 'both': -0.52, 'overlap': 0.89, 'rare_overlap': 0.89, 'prefix_overlap': 1.06, 'neighbour': 0.83, 'session_hits': 0.42, 'session_best': 0.64, 'length': 1.19}
+trained without conv-47 linear weights: {'rrf_meaning': 1.27, 'rrf_words': 0.6, 'similarity': 0.39, 'both': -0.52, 'overlap': 0.89, 'rare_overlap': 0.88, 'prefix_overlap': 1.06, 'neighbour': 0.8, 'session_hits': 0.37, 'session_best': 0.6, 'length': 1.22}
+trained without conv-48 linear weights: {'rrf_meaning': 1.26, 'rrf_words': 0.62, 'similarity': 0.38, 'both': -0.51, 'overlap': 0.87, 'rare_overlap': 0.93, 'prefix_overlap': 1.01, 'neighbour': 0.77, 'session_hits': 0.35, 'session_best': 0.65, 'length': 1.27}
+trained without conv-49 linear weights: {'rrf_meaning': 1.34, 'rrf_words': 0.6, 'similarity': 0.45, 'both': -0.51, 'overlap': 0.87, 'rare_overlap': 0.88, 'prefix_overlap': 1.05, 'neighbour': 0.86, 'session_hits': 0.41, 'session_best': 0.59, 'length': 1.22}
+trained without conv-50 linear weights: {'rrf_meaning': 1.24, 'rrf_words': 0.59, 'similarity': 0.39, 'both': -0.51, 'overlap': 0.89, 'rare_overlap': 0.88, 'prefix_overlap': 1.05, 'neighbour': 0.85, 'session_hits': 0.41, 'session_best': 0.62, 'length': 1.19}
+
+memory   pool  model           hit@5  hit@10  hit@30
+x1         50  fusion          57.9%   68.0%   82.3%
+x1         50  shipped         63.1%   71.8%   83.2%
+x1         50  linear+new      66.1%   75.9%   86.3%
+x1         50  network+new     64.6%   74.8%   86.0%
+x1        100  fusion          58.4%   67.9%   81.1%
+x1        100  shipped         64.1%   72.6%   83.8%
+x1        100  linear+new      64.9%   74.5%   86.6%
+x1        100  network+new     63.3%   72.9%   84.6%
+x10        50  fusion          54.0%   64.3%   77.1%
+x10        50  shipped         60.0%   69.3%   80.5%
+x10        50  linear+new      64.2%   74.1%   84.4%
+x10        50  network+new     63.7%   73.8%   84.4%
+x10       100  fusion          54.2%   63.8%   77.4%
+x10       100  shipped         60.7%   70.1%   80.9%
+x10       100  linear+new      63.3%   73.4%   85.5%
+x10       100  network+new     62.7%   72.6%   84.5%

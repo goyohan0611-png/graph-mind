@@ -1,0 +1,13 @@
+memory      turns  arm                          hit@5  hit@10  hit@30     mrr
+x1            588  shipped                      57.7%   67.8%   82.3%   0.449
+x1            588  re-ranked (general)          61.4%   70.2%   83.7%   0.489
+x1            588  general+personal oracle      64.6%   74.0%   85.0%   0.497
+x1            588  general+personal proxy       63.0%   71.8%   84.8%   0.478
+x4           2353  shipped                      55.7%   65.5%   79.0%   0.432
+x4           2353  re-ranked (general)          59.7%   68.7%   82.0%   0.480
+x4           2353  general+personal oracle      62.9%   72.9%   83.5%   0.483
+x4           2353  general+personal proxy       60.2%   71.3%   83.9%   0.466
+x10          5882  shipped                      54.1%   63.9%   77.0%   0.416
+x10          5882  re-ranked (general)          59.1%   68.3%   81.7%   0.470
+x10          5882  general+personal oracle      62.4%   71.4%   82.3%   0.479
+x10          5882  general+personal proxy       60.2%   70.1%   82.2%   0.458

@@ -196,5 +196,5 @@ agentmemory 95.2%.
 [benchmarks-link]: docs/benchmarks.md
 [ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/turnbook/tests.yml?style=flat-square&label=tests
 [ci-link]: https://github.com/goyohan0611-png/turnbook/actions/workflows/tests.yml
-[pypi-shield]: https://img.shields.io/pypi/v/turnbook?style=flat-square&label=pypi
+[pypi-shield]: https://img.shields.io/pypi/v/turnbook?style=flat-square&label=pypi&cacheSeconds=3600
 [pypi-link]: https://pypi.org/project/turnbook/

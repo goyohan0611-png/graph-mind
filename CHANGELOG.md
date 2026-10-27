@@ -3,6 +3,13 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.45 — 2026-10-27
+- **Turnbook is now under the Apache-2.0 license** (was AGPL-3.0). You can use, change and ship it
+  in any product, open or closed, including a hosted service, without publishing your changes.
+  The CLA and the separate commercial license are gone; they are no longer needed. Versions up to
+  0.9.44 stay under the AGPL-3.0.
+- The demo in the README is the live recording again, and the README images now show on PyPI.
+
 ## 0.9.44 — 2026-10-27
 - **Graph-MIND is now Turnbook.** The package is `turnbook` and the commands are `turnbook`,
   `turnbook-install` and so on; the repository moved to github.com/goyohan0611-png/turnbook (old

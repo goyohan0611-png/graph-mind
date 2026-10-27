@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turnbook"
-version = "0.9.44"
+version = "0.9.45"
 description = "Local long-term memory for AI agents: every conversation word for word, on your own PC, shared by all your agents, nothing spent to save."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "AGPL-3.0-only"
-license-files = ["LICENSE"]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Yohan Ko", email = "goyohan0611@gmail.com" }]
 keywords = ["mcp", "mcp-server", "memory", "agent-memory", "long-term-memory", "claude", "claude-code",
             "codex", "cursor", "gemini-cli", "copilot", "opencode", "llm", "longmemeval",

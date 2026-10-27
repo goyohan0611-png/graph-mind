@@ -182,11 +182,10 @@ agentmemory 95.2%.
 [MCP 도구](docs/install.md#mcp-tools) · [기억을 3D로 보기](docs/privacy.md#seeing-your-memory)
 (`turnbook-view`) · [변경 기록](CHANGELOG.md) · [보안](SECURITY.md)
 
-기여는 [CLA](CLA.md)에 따라 환영합니다. 라이선스: [AGPL-3.0](LICENSE). 변경 내용을 공개할 수 없는
-제품에는 [상용 라이선스](COMMERCIAL.md)를 드립니다.
+기여를 환영합니다. 라이선스: [Apache-2.0](LICENSE).
 
 <!-- Links -->
-[license-shield]: https://img.shields.io/badge/license-AGPL--3.0-4dc9f6?style=flat-square
+[license-shield]: https://img.shields.io/badge/license-Apache--2.0-4dc9f6?style=flat-square
 [license-link]: LICENSE
 [python-shield]: https://img.shields.io/badge/python-3.10+-7dd8f8?style=flat-square&logo=python&logoColor=white
 [python-link]: https://www.python.org/

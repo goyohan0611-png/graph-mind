@@ -192,11 +192,10 @@ memory stays in `~/.graph-mind` unless you add `--purge`.
 (`turnbook-view`) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) ·
 Development: `pip install -r requirements.txt`, then `python -m unittest discover -s tests`
 
-Contributions are welcome under the [CLA](CLA.md). License: [AGPL-3.0](LICENSE); a
-[commercial license](COMMERCIAL.md) is available for products that cannot publish their changes.
+Contributions are welcome. License: [Apache-2.0](LICENSE).
 
 <!-- Links -->
-[license-shield]: https://img.shields.io/badge/license-AGPL--3.0-4dc9f6?style=flat-square
+[license-shield]: https://img.shields.io/badge/license-Apache--2.0-4dc9f6?style=flat-square
 [license-link]: LICENSE
 [python-shield]: https://img.shields.io/badge/python-3.10+-7dd8f8?style=flat-square&logo=python&logoColor=white
 [python-link]: https://www.python.org/

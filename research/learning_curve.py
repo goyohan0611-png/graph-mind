@@ -107,19 +107,35 @@ def rank(pool: list[str], x: np.ndarray, w: np.ndarray) -> list[str]:
 
 
 REPLIES: dict[tuple[str, int], str] = {}
+_RARITY: dict[str, dict[str, float]] = {}
+
+
+def rarity(conv: str, mine: dict) -> dict[str, float]:
+    """Inverse document frequency of each word over one user's turns."""
+    if conv not in _RARITY:
+        counts: dict[str, int] = {}
+        for value in mine.values():
+            for word in terms(value["text"]):
+                counts[word] = counts.get(word, 0) + 1
+        _RARITY[conv] = {w: math.log(len(mine) / (1 + c)) for w, c in counts.items()}
+    return _RARITY[conv]
 
 
 def positives(question: dict, shown: list[str], texts: dict, signal: str) -> list[str]:
     if signal == "oracle":
         return [t for t in shown if t in set(question["evidence"])]
     if signal == "reply":
-        # the shown turns the model's reply drew on: words it shares with them beyond the
-        # question's own words, at least two, best three
+        # the one shown turn the model's reply drew on most: the words it shares with it beyond
+        # the question's own, rare words counting more (on 127 replies: right 55% of the time,
+        # against 31% for "best three by shared words")
         said = terms(REPLIES.get((question["conv"], question["n"]), "")) - terms(
             question["question"])
         mine = texts[question["conv"]]
-        shared = {t: len(said & terms(mine.get(t, {}).get("text", ""))) for t in shown}
-        return [t for t in sorted(shown, key=lambda t: -shared[t])[:3] if shared[t] >= 2]
+        rare = rarity(question["conv"], mine)
+        weight = {t: sum(rare.get(w, 0.0) for w in said & terms(mine.get(t, {}).get("text", "")))
+                  for t in shown}
+        best = max(shown, key=lambda t: weight[t], default=None)
+        return [best] if best is not None and weight[best] >= 4 else []
     answer = terms(question["answer"])
     if not answer:
         return []

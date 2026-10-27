@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.46 — 2026-10-27
+- **Recall puts the right conversation nearer the top.** The turns found by word search and by
+  meaning are now ordered by a small learned score (how high each search ranked a turn, how
+  close its meaning is, and how many of the question's words it contains) instead of a fixed
+  blend. On LongMemEval_S the answer now reaches the model for 98.3% of questions (was 97.5%)
+  and 94.2% of answer turns (was 92.4%), with packets the same size. The weights were learned on
+  a different benchmark (LoCoMo), so this is not tuned to the test. Questions with a date range
+  are ordered as before.
+
 ## 0.9.45 — 2026-10-27
 - **Turnbook is now under the Apache-2.0 license** (was AGPL-3.0). You can use, change and ship it
   in any product, open or closed, including a hosted service, without publishing your changes.

@@ -155,6 +155,18 @@ On agentmemory's 499 Turnbook scored 89.0%; on the 40, 85.0%. Retrieval alone, o
 These runs used the embedding model of 0.9.9 and before; on a 100-question sample the current one
 finds the answer session as often or more (among the first 5: 99.0% against 97.9%).
 
+### As the memory grows
+
+Recall gets harder as memory piles up: more past conversations look like the one you mean. Since 0.9.46
+Turnbook orders what it finds with a small learned score instead of a fixed blend. On LoCoMo (1,536
+questions), with each person's memory grown to 10× by storing other conversations beside it, the
+share of questions whose answer reaches the model fell 5.6 points before (82.5% → 76.9%) and 3.1
+points now (83.5% → 80.4%). Each conversation was scored with weights learned on the other nine;
+the added conversations are other people's, likely easier to tell apart than one person's own
+history. On LongMemEval the same change took the answer reaching the model from 97.5% to 98.3%.
+
+<p align="center"><img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/scale.png" alt="Recall at 1x, 4x and 10x memory: 83.5 to 80.4 percent with learned re-ranking, 82.5 to 76.9 percent before" width="720"></p>
+
 Every question, answer and verdict is in [`research/runs/`](research/runs); method, failures and
 how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
 

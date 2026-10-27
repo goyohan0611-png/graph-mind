@@ -179,7 +179,7 @@ class LocalEmbedder:
             return []
         with LocalEmbedder._lock:
             self._load()
-        return self._encode(texts, query)
+        return self._encode(texts, query) if query else self._encode(texts)
 
     def _keep(self, texts, vectors):
         with LocalEmbedder._lock:

@@ -1,0 +1,16 @@
+weights: {'rrf_meaning': 1.9, 'rrf_words': 1.56, 'similarity': 0.61, 'both': -0.26, 'overlap': 2.06, 'position': -0.18, 'used_before': 0.18, 'session_used': -0.05, 'near_used': 0.09, 'term_link': 0.74}
+type                            n  arm         hit@5  hit@10  hit@30     mrr
+all                           479  shipped     81.0%   88.9%   98.1%   0.667
+all                           479  general     83.3%   91.4%   97.9%   0.687
+knowledge-update               72  shipped     97.2%   98.6%  100.0%   0.774
+knowledge-update               72  general     98.6%   98.6%  100.0%   0.801
+multi-session                 125  shipped     92.0%   96.8%  100.0%   0.748
+multi-session                 125  general     92.0%   95.2%   99.2%   0.774
+single-session-assistant       56  shipped     10.7%   51.8%   94.6%   0.154
+single-session-assistant       56  general     30.4%   75.0%   96.4%   0.206
+single-session-preference      30  shipped     60.0%   70.0%   96.7%   0.477
+single-session-preference      30  general     60.0%   76.7%   96.7%   0.454
+single-session-user            64  shipped     96.9%   98.4%  100.0%   0.850
+single-session-user            64  general     96.9%   98.4%  100.0%   0.866
+temporal-reasoning            132  shipped     88.6%   91.7%   96.2%   0.705
+temporal-reasoning            132  general     87.9%   90.9%   95.5%   0.712

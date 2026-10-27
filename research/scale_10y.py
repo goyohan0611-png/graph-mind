@@ -35,6 +35,8 @@ from graph_mind.local_embedder import LOCAL_MODEL, LocalEmbedder  # noqa: E402
 from graph_mind.warmup import warm_turns  # noqa: E402
 
 SIZES = [0, 50_000, 150_000, 400_000]          # other turns added beside LoCoMo's 5,882
+if "--big" in sys.argv:                         # only the large sizes, the best arms (time)
+    SIZES = [150_000, 400_000]
 RUN = ROOT / "research/runs/graph-v9.20-learning"
 
 
@@ -46,6 +48,8 @@ def arms():
         v2 = json.loads(path.read_text(encoding="utf-8"))
         for pool in (50, 100, 200):
             out[f"v2, {pool} per search"] = (v2, pool)
+    if "--big" in sys.argv:
+        out = {k: v for k, v in out.items() if k in ("fusion (0.9.45)", "v2, 100 per search")}
     return out
 
 
@@ -83,6 +87,7 @@ def main() -> None:
         others = distractors()
         added = 0
         for size in SIZES:
+            began = time.perf_counter()
             with ConversationMemoryStore(store) as memory:
                 while added < size:
                     try:
@@ -100,9 +105,12 @@ def main() -> None:
                                        "source_ordinal": ordinal})
                         ordinal += 1
                         added += 1
+            stored = time.perf_counter()
             while warm_turns(store, limit=4096, embedder=embedder):
                 pass
             embedder.cache.flush()
+            print(f"{5882 + added} turns: stored in {stored - began:.0f} s, embedded in "
+                  f"{time.perf_counter() - stored:.0f} s", flush=True)
             total = 5882 + added
             for arm, (weights, pool) in arms().items():
                 mcp_server.RERANK_POOL = pool

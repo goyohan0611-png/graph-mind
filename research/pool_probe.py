@@ -55,7 +55,7 @@ def main() -> None:
             continue
         data = json.loads(path.read_text(encoding="utf-8"))
         questions = [q for q in data["questions"] if q["evidence"]]
-        for size in (50, 100, 150, 200):
+        for size in (30, 50, 75, 100, 125, 150, 175, 200):
             group = [cut(q, size) for q in questions]
             inside = np.mean([bool(set(q["evidence"]) & ({t for t, _ in q["meaning"]}
                                                           | set(q["words"]))) for q in group])

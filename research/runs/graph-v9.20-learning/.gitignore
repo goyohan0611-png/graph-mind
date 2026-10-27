@@ -1,5 +1,5 @@
 pools.json
-pools-mix*.json
+pools-*.json
 lme_pools.json
 replies.jsonl
 replies.log

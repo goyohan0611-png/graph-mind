@@ -75,8 +75,8 @@ def features(question: dict, texts: dict, history: History) -> tuple[list[str], 
     words = {tid: rank for rank, tid in enumerate(question["words"])}
     pool = list(dict.fromkeys([t for t, _ in question["meaning"]] + question["words"]))
     asked = terms(question["question"])
-    order = list(texts)
-    where = {tid: i / max(len(order) - 1, 1) for i, tid in enumerate(order)}
+    last = max(len(texts) - 1, 1)
+    where = {tid: v.get("pos", i / last) for i, (tid, v) in enumerate(texts.items())}
     near = {}
     for tid in history.used:
         session, number = turn_number(tid)
@@ -174,8 +174,27 @@ def background() -> None:
     psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS if sys.platform == "win32" else 19)
 
 
+def transfer() -> None:
+    """Weights learned on all of LoCoMo (its evidence labels), scored on LongMemEval_S pools."""
+    data = json.loads(POOLS.read_text(encoding="utf-8"))
+    questions = [q for q in data["questions"] if q["evidence"]]
+    w = general_weights(questions, data["turns"], "oracle", leave=None)
+    print("weights:", {k: round(float(v), 2) for k, v in zip(NAMES, w)})
+    lme = json.loads(POOLS.with_name("lme_pools.json").read_text(encoding="utf-8"))
+    rows = [q for q in lme["questions"] if q["evidence"]]
+    print(f"{'type':<28}{'n':>5}  {'arm':<9}{'hit@5':>8}{'hit@10':>8}{'hit@30':>8}{'mrr':>8}")
+    for kind in ["all"] + sorted({q["category"] for q in rows}):
+        group = [q for q in rows if kind == "all" or q["category"] == kind]
+        for arm, weights in (("shipped", PRIOR), ("general", w)):
+            m = score(group, lme["turns"], weights, History())
+            print(f"{kind:<28}{len(group):>5}  {arm:<9}{m['hit@5']:>8.1%}{m['hit@10']:>8.1%}"
+                  f"{m['hit@30']:>8.1%}{m['mrr']:>8.3f}")
+
+
 def main() -> None:
     background()
+    if "--transfer" in sys.argv:
+        return transfer()
     data = json.loads(POOLS.read_text(encoding="utf-8"))
     texts = data["turns"]
     questions = [q for q in data["questions"] if q["evidence"]]

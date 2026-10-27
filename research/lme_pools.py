@@ -35,9 +35,10 @@ OUT = ROOT / "research/runs/graph-v9.20-learning/lme_pools.json"
 def main() -> None:
     parser = ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--limit", type=int, help="first N questions only")
+    parser.add_argument("--model", default=LOCAL_MODEL, help="another embedding model")
     args = parser.parse_args()
-    slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")
-    embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=LOCAL_MODEL)
+    slug = args.model.replace("/", "_").replace("@", "_")
+    embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=args.model)
     result = {"turns": {}, "questions": []}
     with tempfile.TemporaryDirectory() as directory:
         for seen, row in enumerate(stream_instances(DATA)):
@@ -72,8 +73,10 @@ def main() -> None:
             store.unlink()
             print(f"\r  {seen + 1} questions", end="", flush=True)
     embedder.cache.flush()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    out = OUT if args.model == LOCAL_MODEL else OUT.with_name(
+        "lme_pools-" + args.model.split("/")[1].split("@")[0] + ".json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     print("\nall", hits(result["questions"]))
 
 

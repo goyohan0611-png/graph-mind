@@ -151,3 +151,47 @@ def joint() -> None:
 
 if __name__ == "__main__" and "--joint" in sys.argv:
     joint()
+
+
+SHIP_V2 = v2.SHIPPED + ["rare_overlap", "prefix_overlap", "session_hits", "session_best"]
+
+
+def ship() -> None:
+    """The set the product can compute exactly (no neighbour: real ordinals are not consecutive).
+    Joint weights on all of LoCoMo + all of LongMemEval, printed for mcp_server.RERANK2; and the
+    held-out check as in joint()."""
+    import random
+    lc.background()
+    cols = [v2.NAMES.index(n) for n in SHIP_V2]
+    prior = np.zeros(len(cols))
+    prior[:2] = 1
+    loco = json.loads(lc.POOLS.read_text(encoding="utf-8"))
+    big = json.loads(lc.POOLS.with_name("pools-mix9-pool200.json").read_text(encoding="utf-8"))
+    lme = json.loads(lc.POOLS.with_name("lme_pools.json").read_text(encoding="utf-8"))
+    qs = [q for q in loco["questions"] if q["evidence"]]
+    rows = [q for q in lme["questions"] if q["evidence"]]
+    random.Random(7).shuffle(rows)
+    half = len(rows) // 2
+    lme_pairs = v2.pairs(rows[:half], lme["turns"], 50, cols)
+    total = {5: 0.0, 10: 0.0, 30: 0.0}
+    test_q = [q for q in big["questions"] if q["evidence"]]
+    for c in sorted({q["conv"] for q in test_q}):
+        a = v2.pairs([q for q in qs if q["conv"] != c], loco["turns"], 50, cols)
+        w = v2.fit_linear(np.concatenate(
+            [a, lme_pairs[np.random.default_rng(0).choice(len(lme_pairs), len(a))]]), prior)
+        mine = [q for q in test_q if q["conv"] == c]
+        m = v2.evaluate(mine, big["turns"], 50, lambda x, w=w: x @ w, cols)
+        for k in total:
+            total[k] += m[k] * len(mine) / len(test_q)
+    m = v2.evaluate(rows[half:], lme["turns"], 50, lambda x, w=w: x @ w, cols)
+    print(f"held out: LoCoMo 10x {total[5]:.1%} / {total[10]:.1%} / {total[30]:.1%}   "
+          f"LongMemEval half {m[5]:.1%} / {m[10]:.1%} / {m[30]:.1%}")
+    a = v2.pairs(qs, loco["turns"], 50, cols)
+    b = v2.pairs(rows, lme["turns"], 50, cols)
+    w = v2.fit_linear(np.concatenate([a, b[np.random.default_rng(0).choice(len(b), len(a))]]),
+                      prior)
+    print("RERANK2 =", {n: round(float(x), 3) for n, x in zip(SHIP_V2, w)})
+
+
+if __name__ == "__main__" and "--ship" in sys.argv:
+    ship()

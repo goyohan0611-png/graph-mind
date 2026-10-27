@@ -1,0 +1,66 @@
+old True 앞으로 릴리스 노트는 영어로만 쓰자.
+old True We decided to drop Python 3.9 support.
+old True 나 다음 달에 판교로 이사해.
+old True My manager is now Jiwoo, not Sam.
+old True 코드 리뷰할 때 테스트부터 봐줘. 항상.
+old True From now on, use tabs, not spaces, in this repo.
+old True 이거 기억해: 스테이징 DB는 매주 월요일에 초기화돼.
+old True Launch moved to November 14.
+old True 나 커피는 디카페인만 마셔.
+old True Let's go with Postgres for the hub, SQLite is too limited.
+old True 우리 팀 회의는 이제 화요일 10시야.
+old True I prefer short answers, no bullet lists.
+old True 결정했어, 로고는 1번으로 간다.
+old True Our AWS bill this month was $1,240.
+old True 콩이가 이번 주에 중성화 수술했어.
+old True Remember that the client wants weekly reports.
+old False 이 함수 왜 에러 나는지 봐줘.
+old False What does this regex do?
+old False ㅋㅋ 오늘 날씨 좋다
+old False Thanks, that worked!
+old False 테스트 돌려봐
+old False Can you make this loop faster?
+old False 이 문장 영어로 번역해줘: 안녕하세요
+old False Show me the git log.
+old False 음 잠깐만
+old False Which is better, React or Vue?
+old False README 오타 고쳐줘
+old False Explain how OAuth works.
+old False 이거 커밋해
+old False lol ok
+old False 로그 좀 보여줘
+old False How many lines is this file?
+new True 앞으로 릴리스 노트는 영어로만 쓰자.
+new True We decided to drop Python 3.9 support.
+new True 나 다음 달에 판교로 이사해.
+new True My manager is now Jiwoo, not Sam.
+new True 코드 리뷰할 때 테스트부터 봐줘. 항상.
+new True From now on, use tabs, not spaces, in this repo.
+new True 이거 기억해: 스테이징 DB는 매주 월요일에 초기화돼.
+new True Launch moved to November 14.
+new True 나 커피는 디카페인만 마셔.
+new True Let's go with Postgres for the hub, SQLite is too limited.
+new True 우리 팀 회의는 이제 화요일 10시야.
+new True I prefer short answers, no bullet lists.
+new True 결정했어, 로고는 1번으로 간다.
+new True Our AWS bill this month was $1,240.
+new True 콩이가 이번 주에 중성화 수술했어.
+new True Remember that the client wants weekly reports.
+new False 이 함수 왜 에러 나는지 봐줘.
+new False What does this regex do?
+new False ㅋㅋ 오늘 날씨 좋다
+new False Thanks, that worked!
+new False 테스트 돌려봐
+new False Can you make this loop faster?
+new False 이 문장 영어로 번역해줘: 안녕하세요
+new False Show me the git log.
+new False 음 잠깐만
+new False Which is better, React or Vue?
+new False README 오타 고쳐줘
+new False Explain how OAuth works.
+new False 이거 커밋해
+new False lol ok
+new False 로그 좀 보여줘
+new False How many lines is this file?
+old: saved 16/16 that should be, 0/16 that should not; missed: []
+new: saved 16/16 that should be, 0/16 that should not; missed: []

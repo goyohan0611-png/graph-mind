@@ -40,6 +40,17 @@ def tokens(text: str) -> list[str]:
     return [w for w in WORD.findall(text.casefold()) if w not in lc.STOP]
 
 
+STEM = "--stem" in sys.argv or bool(__import__("os").environ.get("RERANK_STEM"))
+
+
+def question_terms(text: str) -> list[str]:
+    """The question's words; with STEM, Korean particles off as word search does."""
+    if not STEM:
+        return tokens(text)
+    from graph_mind.conversation_memory import search_terms
+    return [w for w in search_terms(text) if w not in lc.STOP]
+
+
 def session_of(tid: str) -> str:
     return tid.rsplit(":", 1)[0]
 
@@ -56,9 +67,11 @@ def features(question: dict, texts: dict, size: int) -> tuple[list[str], np.ndar
     words = {t: r for r, t in enumerate(question["words"][:size])}
     pool = list(dict.fromkeys([t for t, _ in question["meaning"][:size]]
                               + question["words"][:size]))
-    asked = set(tokens(question["question"]))
+    asked = set(question_terms(question["question"]))
     bags = {t: set(tokens(texts.get(t, {}).get("text", ""))) for t in pool}
-    df = {w: sum(w in bag for bag in bags.values()) for w in asked}
+    def has(w, bag):
+        return w in bag or (STEM and not w.isascii() and any(x.startswith(w) for x in bag))
+    df = {w: sum(has(w, bag) for bag in bags.values()) for w in asked}
     rare = {w: math.log((len(pool) + 1) / (df[w] + 0.5)) for w in asked}
     total = sum(rare.values()) or 1.0
     sessions: dict[str, list[str]] = {}
@@ -69,7 +82,7 @@ def features(question: dict, texts: dict, size: int) -> tuple[list[str], np.ndar
         rank_m, sim = meaning.get(t, (None, 0.0))
         rank_w = words.get(t)
         bag = bags[t]
-        found = asked & bag
+        found = {w for w in asked if has(w, bag)}
         prefixed = {w for w in asked if any(b.startswith(w) for b in bag)}
         near = max((meaning[n][1] for n in neighbours(t) if n in meaning), default=0.0)
         mates = sessions[session_of(t)]

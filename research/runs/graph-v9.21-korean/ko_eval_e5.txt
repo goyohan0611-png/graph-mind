@@ -1,0 +1,10 @@
+v2 weights: {'rrf_meaning': 1.666, 'rrf_words': 0.824, 'similarity': 0.553, 'both': -0.206, 'overlap': 0.997, 'rare_overlap': 1.076, 'prefix_overlap': 1.156, 'neighbour': 0.285, 'session_hits': 0.496, 'session_best': 0.713}
+ko x1 e5          582 fusion          56.4% / 66.0% / 80.2%
+ko x1 e5          582 shipped 0.9.46  57.0% / 67.7% / 82.0%
+ko x1 e5          582 v2 joint        58.1% / 70.3% / 83.3%
+ko x4 e5          582 fusion          55.0% / 65.8% / 79.4%
+ko x4 e5          582 shipped 0.9.46  56.9% / 67.5% / 82.5%
+ko x4 e5          582 v2 joint        59.3% / 70.6% / 83.2%
+en x1 (same 4) e5  582 fusion          59.3% / 70.1% / 83.3%
+en x1 (same 4) e5  582 shipped 0.9.46  61.3% / 71.8% / 85.4%
+en x1 (same 4) e5  582 v2 joint        66.3% / 74.2% / 86.8%

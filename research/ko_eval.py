@@ -42,8 +42,12 @@ def main() -> None:
     shipped = np.array([RERANK[k] for k in ("meaning", "words", "similarity", "both", "overlap")])
     five = list(range(5))
     cols = [v2.NAMES.index(n) for n in V2]
-    for label, name in (("ko x1", "pools-ko-pool200.json"), ("ko x4", "pools-ko-mix3-pool200.json"),
-                        ("en x1 (same 4)", "pools-pool200.json")):
+    files = (("ko x1", "pools-ko-pool200.json"), ("ko x4", "pools-ko-mix3-pool200.json"),
+             ("en x1 (same 4)", "pools-pool200.json"))
+    if "--e5" in sys.argv:
+        files = tuple((label + " e5", name.replace("-pool200", "-multilingual-e5-small-pool200"))
+                      for label, name in files)
+    for label, name in files:
         data = json.loads(lc.POOLS.with_name(name).read_text(encoding="utf-8"))
         qs = [q for q in data["questions"] if q["evidence"]
               and q["conv"] in ("conv-26", "conv-30", "conv-41", "conv-42")]

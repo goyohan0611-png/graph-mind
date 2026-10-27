@@ -1,0 +1,35 @@
+ablation, memory 10x, pool 50 (hit@5 / hit@10 / hit@30)
+  without (nothing)        64.2% / 74.1% / 84.4%
+  without rare_overlap     63.8% / 74.3% / 84.4%
+  without prefix_overlap   63.4% / 73.9% / 84.3%
+  without neighbour        63.9% / 73.8% / 83.5%
+  without session_hits     63.9% / 73.1% / 84.1%
+  without session_best     63.8% / 73.9% / 84.4%
+  without length           65.0% / 74.3% / 83.5%
+
+weights learned on all of LoCoMo: {'rrf_meaning': 1.262, 'rrf_words': 0.607, 'similarity': 0.387, 'both': -0.502, 'overlap': 0.884, 'rare_overlap': 0.893, 'prefix_overlap': 1.043, 'neighbour': 0.814, 'session_hits': 0.394, 'session_best': 0.623, 'length': 1.22}
+
+LongMemEval_S (never trained on), pool 50
+  all                        479 fusion   81.0% / 88.9% / 98.1%
+  all                        479 shipped  86.2% / 92.9% / 97.1%
+  all                        479 v2       16.7% / 32.6% / 87.5%
+  knowledge-update            72 fusion   97.2% / 98.6% / 100.0%
+  knowledge-update            72 shipped  97.2% / 100.0% / 100.0%
+  knowledge-update            72 v2       19.4% / 47.2% / 97.2%
+  multi-session              125 fusion   92.0% / 96.8% / 100.0%
+  multi-session              125 shipped  90.4% / 94.4% / 97.6%
+  multi-session              125 v2       3.2% / 15.2% / 90.4%
+  single-session-assistant    56 fusion   10.7% / 51.8% / 94.6%
+  single-session-assistant    56 shipped  60.7% / 87.5% / 94.6%
+  single-session-assistant    56 v2       73.2% / 80.4% / 94.6%
+  single-session-preference   30 fusion   60.0% / 70.0% / 96.7%
+  single-session-preference   30 shipped  63.3% / 73.3% / 90.0%
+  single-session-preference   30 v2       0.0% / 0.0% / 70.0%
+  single-session-user         64 fusion   96.9% / 98.4% / 100.0%
+  single-session-user         64 shipped  96.9% / 98.4% / 100.0%
+  single-session-user         64 v2       29.7% / 56.2% / 93.8%
+  temporal-reasoning         132 fusion   88.6% / 91.7% / 96.2%
+  temporal-reasoning         132 shipped  87.1% / 91.7% / 96.2%
+  temporal-reasoning         132 v2       1.5% / 16.7% / 77.3%
+held out: LoCoMo 10x 62.4% / 70.2% / 82.3%   LongMemEval half 87.5% / 92.9% / 97.5%
+RERANK2 = {'rrf_meaning': 1.637, 'rrf_words': 0.816, 'similarity': 0.536, 'both': -0.225, 'overlap': 1.016, 'rare_overlap': 1.092, 'prefix_overlap': 1.171, 'session_hits': 0.515, 'session_best': 0.76}

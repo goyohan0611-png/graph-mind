@@ -106,8 +106,14 @@ def main() -> None:
                         ordinal += 1
                         added += 1
             stored = time.perf_counter()
+            print(f"{5882 + added} turns: stored in {stored - began:.0f} s", flush=True)
+            batches = 0
             while warm_turns(store, limit=4096, embedder=embedder):
-                pass
+                batches += 1
+                print(f"  embedded {batches * 4096} in {time.perf_counter() - stored:.0f} s",
+                      flush=True)
+                if batches % 10 == 0:               # keep progress if the job times out
+                    embedder.cache.flush()
             embedder.cache.flush()
             print(f"{5882 + added} turns: stored in {stored - began:.0f} s, embedded in "
                   f"{time.perf_counter() - stored:.0f} s", flush=True)

@@ -7,7 +7,7 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 - **Recall holds up better as memory grows.** The learned score that orders what search finds
   now also weighs how rare the shared words are and how much of one past conversation was found,
   and each search brings 100 candidates instead of 50. In a memory of 205,000 turns (LoCoMo inside
-  other conversations, about ten years of daily use) the answer turn is among the first 30 for
+  other conversations) the answer turn is among the first 30 for
   79.7% of questions (73.0% with 0.9.45's fixed blend); a search there takes about 0.4 s. The
   weights were trained on LoCoMo and LongMemEval together.
 - **Korean word search sees past particles:** "콩이를", "콩이는" and "콩이가" find "콩이". On LoCoMo

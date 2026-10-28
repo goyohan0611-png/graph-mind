@@ -167,8 +167,10 @@ history. On LongMemEval the same change took the answer reaching the model from 
 
 0.9.47 adds more to that score (how rare the shared words are, how much of one past conversation was
 found) and looks at 100 candidates per search instead of 50. With LoCoMo inside a memory grown to
-205,000 turns (about ten years of daily use), the answer turn is among the first 30 found for 79.7%
+205,000 turns, the answer turn is among the first 30 found for 79.7%
 of questions, against 73.0% with the fixed blend of 0.9.45; a search takes about 0.4 s there.
+
+<p align="center"><img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/scale-large.png" alt="Answer turn among the first 30 from 6k to 205k turns: 82.8 to 79.7 percent with 0.9.47, 76.8 to 73.0 percent with plain rank fusion" width="720"></p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/scale.png" alt="Recall at 1x, 4x and 10x memory: 83.5 to 80.4 percent with learned re-ranking, 82.5 to 76.9 percent before" width="720"></p>
 

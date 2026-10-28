@@ -159,9 +159,11 @@ agentmemory 95.2%.
 있습니다. 같은 변경으로 LongMemEval에서는 답이 모델에 전달된 비율이 97.5%에서 98.3%가 되었습니다.
 
 0.9.47은 이 점수에 더 많은 단서(겹친 단어가 얼마나 드문지, 한 과거 대화에서 몇 개가 함께 찾아졌는지)를 넣고,
-검색마다 후보를 50개가 아니라 100개 봅니다. LoCoMo를 20만 5천 턴(매일 써서 약 10년치)의 기억 안에 넣었을 때,
+검색마다 후보를 50개가 아니라 100개 봅니다. LoCoMo를 20만 5천 턴의 기억 안에 넣었을 때,
 답이 든 대화가 상위 30개 안에 든 질문은 79.7%로, 0.9.45의 고정 공식(73.0%)보다 많았습니다. 그 크기에서 검색 한
 번은 약 0.4초입니다.
+
+<p align="center"><img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/scale-large.png" alt="6천 턴에서 20만 5천 턴까지 답이 상위 30개 안에 든 비율: 0.9.47은 82.8%에서 79.7%, 단순 순위 결합은 76.8%에서 73.0%" width="720"></p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/scale.png" alt="기억 1배, 4배, 10배에서의 검색 정확도: 학습 재정렬 83.5%에서 80.4%, 이전 방식 82.5%에서 76.9%" width="720"></p>
 

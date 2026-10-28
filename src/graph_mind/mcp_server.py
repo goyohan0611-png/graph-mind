@@ -1406,6 +1406,56 @@ def build_server(db_path=None, terminal=False):
                         "which to delete, then call brain_forget with those ids."}
 
     @server.tool(
+        name="brain_bundle",
+        structured_output=True,
+        annotations=types.ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=False,
+            openWorldHint=False,
+        ),
+    )
+    def brain_bundle(action: Literal["list", "show", "delete", "restore"] = "list",
+                     bundle: str | None = None, since: str | None = None,
+                     until: str | None = None, token: str | None = None,
+                     backup_file: str | None = None) -> dict[str, Any]:
+        """One piece of work as a unit: everything said in one project folder, from any app.
+        "그 프로젝트 기억 다 지워줘", "what do you remember per project?", "delete the old
+        client work".
+
+        `list`: the bundles (a folder, or "app:<name>" for chats with no folder) with turn
+        counts, apps and dates. `show` with `bundle` (and optional `since`/`until`, ISO dates):
+        what deleting it would remove, masked previews, and a `token`. Show that to the user and
+        ask. `delete` with the same `bundle`, dates and the `token`: deletes it here, in the
+        search indexes, the shared memory and the user's other PCs, after writing a backup
+        file (the last 10 are kept). `restore` with `backup_file` brings a backup back on this
+        PC. Never delete without the user's yes to the `show` result."""
+        from graph_mind import bundles
+        from graph_mind.paths import graph_mind_home
+        if action == "list":
+            return {"status": "BUNDLES", "bundles": bundles.list_bundles(database)}
+        if action == "restore":
+            if not backup_file:
+                return {"status": "BACKUP_FILE_REQUIRED"}
+            return {"status": "RESTORED", **bundles.restore(database, backup_file)}
+        if not bundle:
+            return {"status": "BUNDLE_REQUIRED",
+                    "next": "Call with action='list' and ask the user which bundle."}
+        if action == "show":
+            planned = bundles.plan(database, bundle, since, until)
+            planned.pop("ids")
+            return {"status": "PLANNED", **planned,
+                    "next": "Show the counts and previews; on the user's yes call "
+                            "action='delete' with this bundle, dates and token."}
+        from graph_mind.sharing import folder
+        try:
+            shared = folder()
+        except Exception:
+            shared = None
+        return bundles.delete(database, bundle, token or "", shared=shared,
+                              backups=graph_mind_home() / "backups", since=since, until=until)
+
+    @server.tool(
         name="code_activity",
         structured_output=True,
         annotations=types.ToolAnnotations(

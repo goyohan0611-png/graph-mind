@@ -20,13 +20,21 @@ from locomo_pools import DATA, evidence_ids, korean, turns_of  # noqa: E402
 import numpy as np  # noqa: E402
 
 CONVS = ("conv-26", "conv-30", "conv-41", "conv-42")
+QWEN = "Instruct: Given a question, retrieve past conversation turns that answer it\nQuery:"
+# (repo, tokenizer, onnx, query prefix, passage prefix, pooling)
 MODELS = [("sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-           "tokenizer.json", "onnx/model_quint8_avx2.onnx", "", ""),
+           "tokenizer.json", "onnx/model_quint8_avx2.onnx", "", "", "mean"),
           ("intfloat/multilingual-e5-small", "onnx/tokenizer.json", "onnx/model.onnx",
-           "query: ", "passage: ")]
+           "query: ", "passage: ", "mean"),
+          ("intfloat/multilingual-e5-base", "tokenizer.json", "onnx/model_qint8_avx512_vnni.onnx",
+           "query: ", "passage: ", "mean"),
+          ("Snowflake/snowflake-arctic-embed-m-v2.0", "tokenizer.json", "onnx/model_int8.onnx",
+           "query: ", "", "cls"),
+          ("onnx-community/Qwen3-Embedding-0.6B-ONNX", "tokenizer.json", "onnx/model_int8.onnx",
+           QWEN, "", "last")]
 
 
-def encoder(repo, tok_file, model_file):
+def encoder(repo, tok_file, model_file, pooling="mean"):
     from huggingface_hub import hf_hub_download
     from tokenizers import Tokenizer
     import onnxruntime
@@ -48,9 +56,16 @@ def encoder(repo, tok_file, model_file):
             feed = {"input_ids": ids, "attention_mask": mask}
             if "token_type_ids" in names:
                 feed["token_type_ids"] = np.zeros_like(ids)
+            if "position_ids" in names:
+                feed["position_ids"] = np.clip(np.cumsum(mask, 1) - 1, 0, None)
             hidden = session.run(None, feed)[0]
-            w = mask[..., None].astype(np.float32)
-            v = (hidden * w).sum(1) / np.clip(w.sum(1), 1e-9, None)
+            if pooling == "cls":
+                v = hidden[:, 0]
+            elif pooling == "last":                   # right padding: the last real token
+                v = hidden[np.arange(len(ids)), mask.sum(1) - 1]
+            else:
+                w = mask[..., None].astype(np.float32)
+                v = (hidden * w).sum(1) / np.clip(w.sum(1), 1e-9, None)
             out.append(v / np.linalg.norm(v, axis=1, keepdims=True))
         return np.concatenate(out)
     return encode
@@ -63,8 +78,14 @@ def main() -> None:
     ko = korean(english)
     # (turns from, questions from): "ko>en" asks in Korean about what was said in English
     sets = {"en": (english, english), "ko": (ko, ko), "ko>en": (english, ko), "en>ko": (ko, english)}
-    for repo, tok_file, model_file, q_pre, p_pre in MODELS[1 if "--e5" in sys.argv else 0:]:
-        encode = encoder(repo, tok_file, model_file)
+    only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
+    for repo, tok_file, model_file, q_pre, p_pre, pooling in MODELS[1 if "--e5" in sys.argv else 0:]:
+        if only and only not in repo:
+            continue
+        encode = encoder(repo, tok_file, model_file, pooling)
+        if pooling == "last":                         # Qwen3 embeds up to its end token
+            p_pre, plain = "", encode
+            encode = lambda texts, f=plain: f([t + "<|endoftext|>" for t in texts])  # noqa: E731
         for lang, (samples, asking) in sets.items():
             hits, total = {10: 0, 30: 0, 50: 0}, 0
             for sample, asker in zip(samples, asking):

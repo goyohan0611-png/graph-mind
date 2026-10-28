@@ -27,7 +27,7 @@ hashes before anyone looked; nobody had tuned on those questions.
 |---|---|---|
 | **Turnbook** | **85.0%** | **0** |
 | MemPalace 3.10.0 | 57.5% | 0 |
-| Mem0 2.2.1 (open source) | 52.5% | ~640,000 |
+| Mem0 2.2.1 (open source, default fact extraction) | 52.5% | ~640,000 |
 
 Turnbook ran its shipped path with the earlier 20-item packet; Mem0 2.2.1 was the latest
 open-source release on PyPI. The lead over both is significant (exact McNemar p = 0.002 and

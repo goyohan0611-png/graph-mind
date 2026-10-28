@@ -6,3 +6,12 @@ multilingual-e5-small                    en 582 q  top10 64.8%  top30 80.4%  top
 multilingual-e5-small                    ko 582 q  top10 69.6%  top30 81.3%  top50 86.6%
 multilingual-e5-small                    ko>en 582 q  top10 49.1%  top30 67.4%  top50 75.6%
 multilingual-e5-small                    en>ko 582 q  top10 54.6%  top30 74.1%  top50 79.6%
+    return io.open(self, mode, buffering, encoding, errors, newline)
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\User\\AppData\\Local\\Temp\\claude\\C--Users-User-OneDrive---------241----ChatGPT-MIND\\676b428b-2f4f-43fd-8199-3f9c9f44a285\\scratchpad\\hf\\hub\\models--intfloat--multilingual-e5-base\\blobs\\62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626.32a3a353.incomplete'
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\User\\AppData\\Local\\Temp\\claude\\C--Users-User-OneDrive---------241----ChatGPT-MIND\\676b428b-2f4f-43fd-8199-3f9c9f44a285\\scratchpad\\hf\\hub\\models--Snowflake--snowflake-arctic-embed-m-v2.0\\snapshots\\95c2741480856aa9666782eb4afe11959938017f\\tokenizer.json'
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\User\\AppData\\Local\\Temp\\claude\\C--Users-User-OneDrive---------241----ChatGPT-MIND\\676b428b-2f4f-43fd-8199-3f9c9f44a285\\scratchpad\\hf\\hub\\models--onnx-community--Qwen3-Embedding-0.6B-ONNX\\snapshots\\c25a394dd583836952667c12f008335071b3f43d\\tokenizer.json'
+multilingual-e5-base                     en 582 q  top10 68.7%  top30 80.6%  top50 85.2%
+multilingual-e5-base                     ko 582 q  top10 65.3%  top30 79.4%  top50 84.2%
+multilingual-e5-base                     ko>en 582 q  top10 57.4%  top30 73.7%  top50 78.9%
+multilingual-e5-base                     en>ko 582 q  top10 56.4%  top30 74.6%  top50 79.2%
+  (multilingual-e5-base: 772 s)

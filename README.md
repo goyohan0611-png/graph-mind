@@ -153,7 +153,7 @@ answer model (gpt-5-mini), the same prompt and the official gpt-4o judge; only t
 | **Turnbook** | **88.8%** (all 500) | **0** | **3.4k tokens** |
 | agentmemory | 80.4% (same 499) | — | ~16.5k tokens |
 | MemPalace 3.10.0 | 57.5% (40 questions) | 0 | — |
-| Mem0 2.2.1 (open source) | 52.5% (40 questions) | ~640,000 per question | — |
+| Mem0 2.2.1 (open source, default fact extraction) | 52.5% (40 questions) | ~640,000 per question | — |
 
 On agentmemory's 499 Turnbook scored 89.0%; on the 40, 85.0%. Retrieval alone, on agentmemory's own measure
 (an answer session among the first 5 retrieved): Turnbook 98.5%, agentmemory 95.2%.

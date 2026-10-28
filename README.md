@@ -131,7 +131,7 @@ flowchart LR
 
 - **Saving costs nothing.** Turns are stored as they were said. No model summarises or extracts
   anything at write time, so nothing is lost or invented on the way in, and no tokens are spent.
-- **Search runs on your PC.** Word search, a multilingual embedding model (multilingual-e5-small; ONNX, no GPU)
+- **Search runs on your PC.** Word search, a multilingual embedding model (mpnet, int8; ONNX, no GPU)
   and when things were said are combined; the agent gets a short packet with
   the source turns, not a dump of history.
 - **The model you already use does the thinking.** Turnbook hands it evidence; it answers.
@@ -165,7 +165,25 @@ points now (83.5% → 80.4%). Each conversation was scored with weights learned 
 the added conversations are other people's, likely easier to tell apart than one person's own
 history. On LongMemEval the same change took the answer reaching the model from 97.5% to 98.3%.
 
+0.9.47 adds more to that score (how rare the shared words are, how much of one past conversation was
+found) and looks at 100 candidates per search instead of 50. With LoCoMo inside a memory grown to
+205,000 turns (about ten years of daily use), the answer turn is among the first 30 found for 79.7%
+of questions, against 73.0% with the fixed blend of 0.9.45; a search takes about 0.4 s there.
+
 <p align="center"><img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/scale.png" alt="Recall at 1x, 4x and 10x memory: 83.5 to 80.4 percent with learned re-ranking, 82.5 to 76.9 percent before" width="720"></p>
+
+### In Korean
+
+Four LoCoMo conversations translated into Korean (582 questions). Share of questions whose answer
+turn is among the first 30 found:
+
+| | Korean | Korean, memory 4× | English (same conversations) |
+|---|---|---|---|
+| 0.9.46 | 74.4% | 71.8% | 83.8% |
+| **0.9.47** | **77.5%** | **76.8%** | **84.7%** |
+
+Word search now finds "콩이" in "콩이를" (Korean particles), and the re-ranker was trained on two
+benchmarks instead of one. [research/runs/graph-v9.21-korean](research/runs/graph-v9.21-korean)
 
 Every question, answer and verdict is in [`research/runs/`](research/runs); method, failures and
 how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
@@ -189,7 +207,8 @@ wrote, one app at a time. Turnbook keeps every turn as it was said and shares it
 app and model on the PC.
 
 **Korean?** Yes: Korean and English conversations, and questions in either language. A Korean
-question about something said only in English is found most of the time, not always.
+question about something said only in English is found most of the time, not always. Korean
+recall still trails English by about 7 points: [In Korean](#in-korean).
 
 **How do I remove it?** `turnbook-uninstall` disconnects every app and stops the service; the
 memory stays in `~/.graph-mind` unless you add `--purge`.

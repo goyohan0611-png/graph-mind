@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.9.47 — 2026-10-28
+- **Recall holds up better as memory grows.** The learned score that orders what search finds
+  now also weighs how rare the shared words are and how much of one past conversation was found,
+  and each search brings 100 candidates instead of 50. In a memory of 205,000 turns (LoCoMo inside
+  other conversations, about ten years of daily use) the answer turn is among the first 30 for
+  79.7% of questions (73.0% with 0.9.45's fixed blend); a search there takes about 0.4 s. The
+  weights were trained on LoCoMo and LongMemEval together.
+- **Korean word search sees past particles:** "콩이를", "콩이는" and "콩이가" find "콩이". On LoCoMo
+  translated into Korean, the answer turn is among the first 30 for 77.5% of questions (was 74.4%).
+- The search model is unchanged, so nothing is re-read after the update.
+- Sharing a memory between PCs: a hub that was still starting no longer fails the first connect.
+
 ## 0.9.46 — 2026-10-27
 - **Recall puts the right conversation nearer the top.** The turns found by word search and by
   meaning are now ordered by a small learned score (how high each search ranked a turn, how

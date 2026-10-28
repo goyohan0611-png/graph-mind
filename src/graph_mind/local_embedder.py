@@ -1,4 +1,4 @@
-"""The on-device embedder: multilingual-e5-small, mean pooling, vectors cached on disk.
+"""The on-device embedder: multilingual mpnet (int8), mean pooling, vectors cached on disk.
 
 No text leaves the machine. Split out of the v0.7.3 research script (semantic_grounding_v073.py),
 which still imports it from here, so the product no longer pulls that script's experiment chain.
@@ -15,10 +15,11 @@ import time
 
 from graph_mind.vector_cache import VectorCache, convert
 
-# "repo@file": the ONNX export in the model's own repo (MIT). Against mpnet int8 (0.9.47 and
-# before), research/runs/graph-v9.20-learning: meaning search top 30, Korean 67.5% -> 81.3%,
-# English 75.6% -> 80.4%; LongMemEval answers 76/80 both (graph-v9.22-ab). 470 MB download.
-LOCAL_MODEL = "intfloat/multilingual-e5-small@onnx/model.onnx"
+# "repo@file": the int8 export in the model's own repo. Against MiniLM (0.9.9 and before), on
+# research/runs/graph-v9.13-int8-models: Korean questions 19/20 vs 17/20, formal Korean 17 vs 13,
+# English evidence R@5 99.0% vs 97.9%, 699 MB vs 869 MB loaded; 2.4x slower to embed, 10 ms a query
+LOCAL_MODEL = ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+               "@onnx/model_quint8_avx2.onnx")
 # Models trained with a marker before each text (e5): (question, stored text). Others: none.
 PREFIXES = {"intfloat/multilingual-e5": ("query: ", "passage: ")}
 
@@ -27,8 +28,7 @@ def prefixes(model):
     return next((p for repo, p in PREFIXES.items() if model.startswith(repo)), ("", ""))
 
 
-OLD_MODELS = ("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-              "sentence-transformers/paraphrase-multilingual-mpnet-base-v2")
+OLD_MODELS = ("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",)
 
 
 def own_hf_home() -> Path:
@@ -421,7 +421,7 @@ def cosine(a, b):
 
 def default_embedder(db_path):
     """Local, on-device embedder with a cache persisted beside the memory DB."""
-    # a new name per model: the old cache holds another model's vectors (768 dims, not 384),
+    # a new name per model: the old cache holds another model's vectors (384 dims, not 768),
     # and servers of the old version still running write to it
     db_path = Path(db_path)
-    return LocalEmbedder(db_path.with_name(db_path.stem + ".semantic-embed-e5small.json"))
+    return LocalEmbedder(db_path.with_name(db_path.stem + ".semantic-embed-mpnet8.json"))

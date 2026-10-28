@@ -47,10 +47,20 @@ def chosen_model() -> str:
         try:
             name = model_file().read_text(encoding="utf-8").strip()
         except OSError:
-            from graph_mind.paths import graph_mind_home
-            name = ("multilingual" if any(graph_mind_home().glob("*.semantic-embed-mpnet8.*"))
-                    else "english")
+            name = "multilingual" if existing_memory() else "english"
     return PRESETS.get(name, name)
+
+
+def existing_memory() -> bool:
+    """A memory from before the presets (0.9.47 and earlier): it keeps the multilingual model,
+    whatever the PC's language, so an update reads nothing again and Korean stays searchable."""
+    from graph_mind.paths import graph_mind_home
+    home = graph_mind_home()
+    try:
+        return (any(home.glob("*.semantic-embed-mpnet8.*"))
+                or (home / "development.sqlite").stat().st_size > 1_000_000)
+    except OSError:
+        return False
 
 
 def english_pc() -> bool:
@@ -69,8 +79,7 @@ def pick_for_this_pc() -> None:
     already made, or vectors of the multilingual model already here, is left alone."""
     if os.environ.get("GRAPH_MIND_MODEL") or model_file().exists():
         return
-    from graph_mind.paths import graph_mind_home
-    if any(graph_mind_home().glob("*.semantic-embed-mpnet8.*")):
+    if existing_memory():
         return
     model_file().parent.mkdir(parents=True, exist_ok=True)
     model_file().write_text("english\n" if english_pc() else "multilingual\n", encoding="utf-8")

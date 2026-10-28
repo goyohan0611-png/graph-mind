@@ -25,6 +25,8 @@ PRESETS = {"english": "Snowflake/snowflake-arctic-embed-s@onnx/model_int8.onnx",
                             "@onnx/model_quint8_avx2.onnx")}
 # Models trained with a marker before each text: (question, stored text). Others: none.
 PREFIXES = {"intfloat/multilingual-e5": ("query: ", "passage: "),
+            "onnx-community/embeddinggemma": ("task: search result | query: ",
+                                              "title: none | text: "),
             "Snowflake/snowflake-arctic-embed": (
                 "Represent this sentence for searching relevant passages: ", "")}
 CLS_POOLED = ("Snowflake/snowflake-arctic-embed",)       # the first token's state, not the mean
@@ -116,7 +118,34 @@ def model_paths(model=None) -> tuple:
     """Local paths of the tokenizer and the ONNX model, downloaded on first use."""
     from huggingface_hub import hf_hub_download
     repo, files = model_files(model)
-    return tuple(hf_hub_download(repo, name) for name in files)
+    tokenizer, graph = (hf_hub_download(repo, name) for name in files)
+    if repo in SPLIT_WEIGHTS:
+        graph = _beside(graph, hf_hub_download(repo, files[1] + "_data"))
+    return tokenizer, graph
+
+
+SPLIT_WEIGHTS = ("onnx-community/embeddinggemma-300m-ONNX",)   # graph + "<graph>_data"
+
+
+def _beside(graph, data) -> str:
+    """ONNX Runtime reads a model's weights file only from the graph's own folder, and the
+    Hugging Face cache may keep each in its own blob folder (symlinks): one folder of our own,
+    hard links when the disk allows (no second copy), else copies."""
+    import shutil
+
+    from graph_mind.paths import graph_mind_home
+    folder = graph_mind_home() / "models" / hashlib.sha256(graph.encode()).hexdigest()[:16]
+    folder.mkdir(parents=True, exist_ok=True)
+    name = Path(graph).name
+    for source, target in ((graph, folder / name), (data, folder / (name + "_data"))):
+        source = os.path.realpath(source)
+        if not target.exists() or target.stat().st_size != os.path.getsize(source):
+            target.unlink(missing_ok=True)
+            try:
+                os.link(source, target)
+            except OSError:
+                shutil.copyfile(source, target)
+    return str(folder / name)
 
 
 class LocalEmbedder:
@@ -211,8 +240,12 @@ class LocalEmbedder:
         feed = {"input_ids": ids, "attention_mask": mask}
         if "token_type_ids" in {i.name for i in LocalEmbedder._model.get_inputs()}:
             feed["token_type_ids"] = np.zeros_like(ids)
-        hidden = LocalEmbedder._model.run(None, feed)[0]
-        if self.model_name.startswith(CLS_POOLED):
+        outputs = LocalEmbedder._model.run(None, feed)
+        hidden = outputs[0]
+        names = [o.name for o in LocalEmbedder._model.get_outputs()]
+        if "sentence_embedding" in names:          # the export pools (and projects) itself
+            pooled = outputs[names.index("sentence_embedding")].astype(np.float32)
+        elif self.model_name.startswith(CLS_POOLED):
             pooled = hidden[:, 0].copy()
         else:
             weights = mask[..., None].astype(np.float32)

@@ -6,7 +6,7 @@
 
 ### AI는 세션이 끝나면 다 잊어버립니다. 이건 기억합니다. 그것도 LLM을 한 번도 부르지 않고요.
 
-**LongMemEval 88.8%. 기억을 저장하는 데 쓰는 모델 토큰 0. 내 PC에서 돌아갑니다.**
+**LongMemEval 88.8% ([0.9.9에서 측정](#정말-되나요)). 기억을 저장하는 데 쓰는 모델 토큰 0. 내 PC에서 돌아갑니다.**
 
 [![][license-shield]][license-link]
 [![][python-shield]][python-link]

@@ -7,7 +7,7 @@
 
 ### Your AI forgets everything when the session ends. This one remembers, and it never calls an LLM to do it.
 
-**88.8% on LongMemEval. Zero model tokens spent saving memory. Runs on your own PC.**
+**88.8% on LongMemEval ([measured on 0.9.9](#does-it-work)). Zero model tokens spent saving memory. Runs on your own PC.**
 
 [![][license-shield]][license-link]
 [![][python-shield]][python-link]

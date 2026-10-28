@@ -1523,7 +1523,10 @@ def terminal_command(argv):
     if args.command == "model":
         from graph_mind import local_embedder
         if not args.name:
-            print(local_embedder.LOCAL_MODEL)
+            print(f"Search model: {local_embedder.mode()} ({local_embedder.chosen_model()})\n"
+                  "  turnbook model english        English only, small and fast (default)\n"
+                  "  turnbook model multilingual   Korean, Japanese, Chinese, ... and English\n"
+                  "  turnbook model REPO@FILE      any ONNX embedding model on Hugging Face")
             return
         local_embedder.model_file().parent.mkdir(parents=True, exist_ok=True)
         local_embedder.model_file().write_text(args.name.strip() + "\n", encoding="utf-8")

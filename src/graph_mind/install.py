@@ -503,12 +503,12 @@ def main(argv=None):
         from graph_mind.sharing import _save
         _save({"user_name": " ".join(args.name.split())[:40]})
         step(f"teammates will see you as {args.name}")
-    if not args.skip_model:
-        from graph_mind.local_embedder import pick_for_this_pc
-        pick_for_this_pc()                 # before the service starts: it loads that model
     step(capture_service(start=not args.no_start))
     if not args.skip_model:
-        step("downloading the local embedding model")
+        from graph_mind.local_embedder import mode
+        step(f"downloading the search model: {mode()}"
+             + (" (English only; for Korean and other languages: turnbook model multilingual)"
+                if mode() == "english" else ""))
         embedding_model()
     if args.join and args.join.strip().startswith("gmt1."):
         from graph_mind.project_brains import join_team

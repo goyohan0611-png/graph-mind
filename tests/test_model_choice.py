@@ -14,7 +14,8 @@ class ModelChoiceTests(unittest.TestCase):
     def test_choice(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
-            with mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory, "GRAPH_MIND_MODEL": ""}):
+            env = {"GRAPH_MIND_HOME": directory, "GRAPH_MIND_MODEL": ""}
+            with mock.patch.dict(os.environ, env):
                 self.assertEqual(chosen_model(), PRESETS["english"])
                 (home / "development.semantic-embed-mpnet8.vec").mkdir()
                 self.assertEqual(chosen_model(), PRESETS["multilingual"])

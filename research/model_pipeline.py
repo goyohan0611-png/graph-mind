@@ -2,7 +2,7 @@
 1x, and 10x with 200 per search), LongMemEval_S pools, then re-ranker weights trained on both with
 held-out recall (rerank_v2_check.py --ship). Progress lives in bench/.cache (vectors).
 
-    gh workflow run bench -f research="model_pipeline.py Snowflake/snowflake-arctic-embed-s@onnx/model_int8.onnx"
+    gh workflow run bench -f research="model_pipeline.py REPO@onnx/model_int8.onnx"
 """
 from pathlib import Path
 import subprocess

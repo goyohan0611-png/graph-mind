@@ -1,4 +1,5 @@
-"""The on-device embedder: arctic-embed-s (English) or multilingual mpnet, int8 ONNX, vectors cached on disk.
+"""The on-device embedder: arctic-embed-s (English) or multilingual mpnet, int8 ONNX; vectors
+cached on disk.
 
 No text leaves the machine. Split out of the v0.7.3 research script (semantic_grounding_v073.py),
 which still imports it from here, so the product no longer pulls that script's experiment chain.
@@ -63,26 +64,10 @@ def existing_memory() -> bool:
         return False
 
 
-def english_pc() -> bool:
-    """The PC's display language is English (Windows UI language, else LANG / the locale)."""
-    try:
-        import ctypes
-        return ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF == 0x09
-    except Exception:
-        import locale
-        name = os.environ.get("LC_ALL") or os.environ.get("LANG") or (locale.getlocale()[0] or "")
-        return name.lower().startswith("en") or name.startswith("English")
-
-
-def pick_for_this_pc() -> None:
-    """At install: a new memory on a PC not set to English gets the multilingual model. A choice
-    already made, or vectors of the multilingual model already here, is left alone."""
-    if os.environ.get("GRAPH_MIND_MODEL") or model_file().exists():
-        return
-    if existing_memory():
-        return
-    model_file().parent.mkdir(parents=True, exist_ok=True)
-    model_file().write_text("english\n" if english_pc() else "multilingual\n", encoding="utf-8")
+def mode() -> str:
+    """The preset in use ("english", "multilingual") or the model itself when custom."""
+    return next((name for name, model in PRESETS.items() if model == chosen_model()),
+                chosen_model())
 
 
 LOCAL_MODEL = chosen_model()
@@ -492,5 +477,6 @@ def default_embedder(db_path):
     # a new name per model: the old cache holds another model's vectors (384 dims, not 768),
     # and servers of the old version still running write to it
     db_path = Path(db_path)
-    name = "mpnet8" if LOCAL_MODEL == PRESETS["multilingual"] else         LOCAL_MODEL.split("@")[0].rsplit("/", 1)[-1]
+    name = ("mpnet8" if LOCAL_MODEL == PRESETS["multilingual"]
+            else LOCAL_MODEL.split("@")[0].rsplit("/", 1)[-1])
     return LocalEmbedder(db_path.with_name(f"{db_path.stem}.semantic-embed-{name}.json"))

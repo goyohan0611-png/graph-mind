@@ -1,4 +1,4 @@
-"""The on-device embedder: multilingual mpnet (int8), mean pooling, vectors cached on disk.
+"""The on-device embedder: arctic-embed-s (English) or multilingual mpnet, int8 ONNX, vectors cached on disk.
 
 No text leaves the machine. Split out of the v0.7.3 research script (semantic_grounding_v073.py),
 which still imports it from here, so the product no longer pulls that script's experiment chain.
@@ -15,17 +15,68 @@ import time
 
 from graph_mind.vector_cache import VectorCache, convert
 
-# "repo@file": the int8 export in the model's own repo. Against MiniLM (0.9.9 and before), on
-# research/runs/graph-v9.13-int8-models: Korean questions 19/20 vs 17/20, formal Korean 17 vs 13,
-# English evidence R@5 99.0% vs 97.9%, 699 MB vs 869 MB loaded; 2.4x slower to embed, 10 ms a query
-LOCAL_MODEL = ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-               "@onnx/model_quint8_avx2.onnx")
-# Models trained with a marker before each text (e5): (question, stored text). Others: none.
-PREFIXES = {"intfloat/multilingual-e5": ("query: ", "passage: ")}
+# "repo@file": the int8 export in the model's own repo. Two presets, chosen per install
+# (research/runs/graph-v9.21-korean/embed_probe_cross.txt, meaning search, answer in the first 30):
+#   english       arctic-embed-s, 34 MB: English 84.4% (mpnet 75.6%); Korean 15.6%
+#   multilingual  mpnet int8, 279 MB: English 75.6%, Korean 67.5%, Korean asked of English 70.6%
+PRESETS = {"english": "Snowflake/snowflake-arctic-embed-s@onnx/model_int8.onnx",
+           "multilingual": ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+                            "@onnx/model_quint8_avx2.onnx")}
+# Models trained with a marker before each text: (question, stored text). Others: none.
+PREFIXES = {"intfloat/multilingual-e5": ("query: ", "passage: "),
+            "Snowflake/snowflake-arctic-embed": (
+                "Represent this sentence for searching relevant passages: ", "")}
+CLS_POOLED = ("Snowflake/snowflake-arctic-embed",)       # the first token's state, not the mean
 
 
 def prefixes(model):
     return next((p for repo, p in PREFIXES.items() if model.startswith(repo)), ("", ""))
+
+
+def model_file() -> Path:
+    from graph_mind.paths import graph_mind_home
+    return graph_mind_home() / "model.txt"
+
+
+def chosen_model() -> str:
+    """GRAPH_MIND_MODEL, else ~/.graph-mind/model.txt (`turnbook model`), else: an install that
+    already holds the multilingual model's vectors keeps it (nothing to read again), a new one
+    gets English. A preset name or "repo@onnx/file.onnx"."""
+    name = os.environ.get("GRAPH_MIND_MODEL", "").strip()
+    if not name:
+        try:
+            name = model_file().read_text(encoding="utf-8").strip()
+        except OSError:
+            from graph_mind.paths import graph_mind_home
+            name = ("multilingual" if any(graph_mind_home().glob("*.semantic-embed-mpnet8.*"))
+                    else "english")
+    return PRESETS.get(name, name)
+
+
+def english_pc() -> bool:
+    """The PC's display language is English (Windows UI language, else LANG / the locale)."""
+    try:
+        import ctypes
+        return ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF == 0x09
+    except Exception:
+        import locale
+        name = os.environ.get("LC_ALL") or os.environ.get("LANG") or (locale.getlocale()[0] or "")
+        return name.lower().startswith("en") or name.startswith("English")
+
+
+def pick_for_this_pc() -> None:
+    """At install: a new memory on a PC not set to English gets the multilingual model. A choice
+    already made, or vectors of the multilingual model already here, is left alone."""
+    if os.environ.get("GRAPH_MIND_MODEL") or model_file().exists():
+        return
+    from graph_mind.paths import graph_mind_home
+    if any(graph_mind_home().glob("*.semantic-embed-mpnet8.*")):
+        return
+    model_file().parent.mkdir(parents=True, exist_ok=True)
+    model_file().write_text("english\n" if english_pc() else "multilingual\n", encoding="utf-8")
+
+
+LOCAL_MODEL = chosen_model()
 
 
 OLD_MODELS = ("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",)
@@ -51,9 +102,9 @@ use_own_hf_home()
 MODEL_FILES = ("tokenizer.json", "onnx/model.onnx")
 
 
-def model_files(model=LOCAL_MODEL) -> tuple:
+def model_files(model=None) -> tuple:
     """(repo, (tokenizer file, ONNX file)) for "repo" or "repo@onnx/another.onnx"."""
-    repo, _, onnx_file = model.partition("@")
+    repo, _, onnx_file = (model or chosen_model()).partition("@")
     return repo, (MODEL_FILES[0], onnx_file or MODEL_FILES[1])
 
 
@@ -67,7 +118,7 @@ def model_on_disk() -> bool:
                for snapshot in (snapshots.iterdir() if snapshots.is_dir() else []))
 
 
-def model_paths(model=LOCAL_MODEL) -> tuple:
+def model_paths(model=None) -> tuple:
     """Local paths of the tokenizer and the ONNX model, downloaded on first use."""
     from huggingface_hub import hf_hub_download
     repo, files = model_files(model)
@@ -167,8 +218,11 @@ class LocalEmbedder:
         if "token_type_ids" in {i.name for i in LocalEmbedder._model.get_inputs()}:
             feed["token_type_ids"] = np.zeros_like(ids)
         hidden = LocalEmbedder._model.run(None, feed)[0]
-        weights = mask[..., None].astype(np.float32)
-        pooled = (hidden * weights).sum(1) / np.clip(weights.sum(1), 1e-9, None)
+        if self.model_name.startswith(CLS_POOLED):
+            pooled = hidden[:, 0].copy()
+        else:
+            weights = mask[..., None].astype(np.float32)
+            pooled = (hidden * weights).sum(1) / np.clip(weights.sum(1), 1e-9, None)
         pooled /= np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-12, None)
         return pooled.tolist()
 
@@ -257,7 +311,12 @@ class LocalEmbedder:
         # every service start and re-embedded ~11k pieces for an hour. Corrupt caches sit near 0.
         # "not >= 0.9", not "< 0.9": NaN compares false both ways, and a cache of NaN
         # vectors passed as healthy
-        if int((~(cosines >= 0.9)).sum()) <= len(picked) // 2:
+        # and nearest to its own text: models that put all text close together (e5, arctic)
+        # gave a shuffled cache cosines above 0.9
+        cross = (fresh / np.clip(np.linalg.norm(fresh, axis=1, keepdims=True), 1e-9, None)) @ (
+            cached / np.clip(np.linalg.norm(cached, axis=1, keepdims=True), 1e-9, None)).T
+        own = cross.argmax(1) == np.arange(len(picked))
+        if int((~((cosines >= 0.9) & own)).sum()) <= len(picked) // 2:
             return False
         self.cache.clear()
         return True
@@ -340,7 +399,7 @@ def _replace_old_service(info, model) -> bool:
     """The capture service lends an older version's model: this process is newer (Turnbook was
     updated while it ran). Restart it on this version, or every app's server would load its own
     copy of the new model, ~700 MB each. An older server never restarts a newer service."""
-    if info.get("model") not in OLD_MODELS or model != LOCAL_MODEL:
+    if info.get("model") == model or model != LOCAL_MODEL:
         return False
     try:
         import psutil
@@ -424,4 +483,5 @@ def default_embedder(db_path):
     # a new name per model: the old cache holds another model's vectors (384 dims, not 768),
     # and servers of the old version still running write to it
     db_path = Path(db_path)
-    return LocalEmbedder(db_path.with_name(db_path.stem + ".semantic-embed-mpnet8.json"))
+    name = "mpnet8" if LOCAL_MODEL == PRESETS["multilingual"] else         LOCAL_MODEL.split("@")[0].rsplit("/", 1)[-1]
+    return LocalEmbedder(db_path.with_name(f"{db_path.stem}.semantic-embed-{name}.json"))

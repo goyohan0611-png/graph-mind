@@ -25,7 +25,8 @@ from locomo_pools import POOL, hits  # noqa: E402
 from longmemeval_m_fetch import stream_instances  # noqa: E402
 
 from graph_mind.conversation_memory import ConversationMemoryStore  # noqa: E402
-from graph_mind.local_embedder import LOCAL_MODEL, LocalEmbedder  # noqa: E402
+from graph_mind.local_embedder import PRESETS, LocalEmbedder  # noqa: E402
+LOCAL_MODEL = PRESETS["multilingual"]   # the pools' default: files without a model suffix
 from graph_mind.mcp_server import _PIECES, CONTEXT_LIMIT, excerpt, fuse, semantic_turns  # noqa: E402
 from graph_mind.warmup import warm_turns  # noqa: E402
 

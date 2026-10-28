@@ -412,7 +412,7 @@ def capture_service(start: bool) -> str:
 
 
 def embedding_model():
-    from graph_mind.local_embedder import model_files, model_paths, own_hf_home
+    from graph_mind.local_embedder import chosen_model, model_files, model_paths, own_hf_home
     try:
         import onnxruntime  # noqa: F401  (a DLL failure here would leave search on words only)
     except ImportError as error:
@@ -423,7 +423,7 @@ def embedding_model():
                  "    https://aka.ms/vs/17/release/vc_redist.x64.exe\n"
                  "The apps are already connected; until then recall works by word search only.")
     try:
-        model_paths()
+        model_paths(chosen_model())
     except OSError as error:
         # ~/.cache refused (access denied): move Hugging Face's whole home under ~/.graph-mind,
         # where every Turnbook process looks from now on (local_embedder.use_own_hf_home)
@@ -503,6 +503,9 @@ def main(argv=None):
         from graph_mind.sharing import _save
         _save({"user_name": " ".join(args.name.split())[:40]})
         step(f"teammates will see you as {args.name}")
+    if not args.skip_model:
+        from graph_mind.local_embedder import pick_for_this_pc
+        pick_for_this_pc()                 # before the service starts: it loads that model
     step(capture_service(start=not args.no_start))
     if not args.skip_model:
         step("downloading the local embedding model")

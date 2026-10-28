@@ -166,6 +166,8 @@ def ship() -> None:
     prior = np.zeros(len(cols))
     prior[:2] = 1
     e5 = "-multilingual-e5-small" if "--e5" in sys.argv else ""
+    if "--suffix" in sys.argv:                    # pools of another model: "-<model name>"
+        e5 = sys.argv[sys.argv.index("--suffix") + 1]
     loco = json.loads(lc.POOLS.with_name(f"pools{e5}.json").read_text(encoding="utf-8"))
     big = json.loads(lc.POOLS.with_name(f"pools-mix9{e5}-pool200.json")
                      .read_text(encoding="utf-8"))

@@ -48,6 +48,9 @@ def _tokens(value):
 
 
 MEANING_FLOOR = 0.2      # measured: unrelated questions stay under 0.15, "where do I live?" 0.27
+# arctic-embed-s scores everything higher: 11 related questions 0.577-0.726 (all found), 12
+# unrelated 0.469-0.601 (one above)
+FLOORS = {"Snowflake/snowflake-arctic-embed-s@onnx/model_int8.onnx": 0.57}
 MEANING_MARGIN = 0.1     # and only those close to the best: the rest is the model's noise
 
 
@@ -400,8 +403,10 @@ class LocalBrainStore:
             similar = meaning(query, [m["title"] + "\n" + m["content"] for m in everything]) \
                 if meaning and everything and not selected else None
             if similar:
+                from graph_mind.local_embedder import LOCAL_MODEL
+                floor = FLOORS.get(LOCAL_MODEL, MEANING_FLOOR)
                 close = sorted(((score, i) for i, score in enumerate(similar)
-                                if score is not None and score >= MEANING_FLOOR), reverse=True)
+                                if score is not None and score >= floor), reverse=True)
                 selected = [everything[i] for score, i in close
                             if score >= close[0][0] - MEANING_MARGIN][:limit]
         if not selected:

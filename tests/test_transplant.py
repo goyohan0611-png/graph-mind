@@ -122,7 +122,9 @@ class MeaningTests(unittest.IsolatedAsyncioTestCase):
                             ).structured_content.get("matches", [])
                     found[query] = [m["content"][:10] for m in rows]
         self.assertEqual(found["What breed is my dog?"][:1], ["Our golden"])
-        self.assertEqual(found["우리 강아지 품종이 뭐였지?"][:1], ["Our golden"])
+        from graph_mind.local_embedder import LOCAL_MODEL, PRESETS
+        if LOCAL_MODEL == PRESETS["multilingual"]:   # the English model reads no Korean
+            self.assertEqual(found["우리 강아지 품종이 뭐였지?"][:1], ["Our golden"])
         self.assertEqual(found["Paris weather forecast?"], [])
 
 

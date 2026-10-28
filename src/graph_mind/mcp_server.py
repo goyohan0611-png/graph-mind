@@ -212,7 +212,10 @@ def memory_meaning(embedder, query, texts):
         if len(missing) > INLINE_EMBED_LIMIT:
             embed_in_background(embedder, missing)
             return None
-        vectors = np.asarray(embedder.embed(texts + [query]), dtype=np.float32)
+        # the question as a question: models with a query marker (arctic, e5) need it
+        ask = getattr(embedder, "embed_query", None) or (lambda q: embedder.embed([q])[0])
+        vectors = np.asarray(list(embedder.embed(texts)) + [ask(query)],
+                             dtype=np.float32)
         norms = np.linalg.norm(vectors, axis=1)
         similar = vectors[:-1] @ vectors[-1] / np.clip(norms[:-1] * norms[-1], 1e-9, None)
         return similar.tolist()
@@ -1483,6 +1486,7 @@ def keep_capture_running(every=60.0):
 def terminal_command(argv):
     """turnbook folder [PATH | local | share | CODE] [--share-existing]
     turnbook export FILE [--project FOLDER] | turnbook import FILE | turnbook compact
+    turnbook model [english|multilingual]
     turnbook team invite NAME --role viewer|editor|owner --project P [--project P2]
     turnbook team host
 
@@ -1503,6 +1507,9 @@ def terminal_command(argv):
     export.add_argument("file")
     export.add_argument("--project", help="only the conversations held in this folder")
     commands.add_parser("import", help="add a memory file to this memory").add_argument("file")
+    commands.add_parser("model", help="show or change the search model: english (small, "
+                                      "English only) or multilingual").add_argument(
+        "name", nargs="?", help="english, multilingual, or repo@onnx/file.onnx")
     team = commands.add_parser("team", help="give a teammate access, or host projects here")
     team_actions = team.add_subparsers(dest="action", required=True)
     team_actions.add_parser("host", help="make this PC the team's project hub")
@@ -1513,6 +1520,27 @@ def terminal_command(argv):
     team_actions.add_parser("instructions", help="apply the instructions your AI proposed"
                             ).add_argument("project")
     args = parser.parse_args(argv)
+    if args.command == "model":
+        from graph_mind import local_embedder
+        if not args.name:
+            print(local_embedder.LOCAL_MODEL)
+            return
+        local_embedder.model_file().parent.mkdir(parents=True, exist_ok=True)
+        local_embedder.model_file().write_text(args.name.strip() + "\n", encoding="utf-8")
+        print(f"Search model: {local_embedder.PRESETS.get(args.name, args.name)}. Restart your "
+              "AI apps; memory is read again with it in the background, at half pace.")
+        try:                              # the capture service lends the model: restart it
+            from graph_mind.automatic_capture import ensure_service
+            info = json.loads(local_embedder.service_file().read_text(encoding="utf-8"))
+            import psutil
+            service = psutil.Process(int(info["pid"]))
+            if "capture_cli" in " ".join(service.cmdline()):
+                service.terminate()
+                service.wait(15)
+                ensure_service()
+        except Exception:
+            pass
+        return
     if args.command == "compact":
         import sqlite3
 

@@ -20,6 +20,7 @@ from locomo_pools import DATA, evidence_ids, korean, turns_of  # noqa: E402
 import numpy as np  # noqa: E402
 
 CONVS = ("conv-26", "conv-30", "conv-41", "conv-42")
+BGE = "Represent this sentence for searching relevant passages: "
 QWEN = "Instruct: Given a question, retrieve past conversation turns that answer it\nQuery:"
 # (repo, tokenizer, onnx, query prefix, passage prefix, pooling)
 MODELS = [("sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
@@ -31,7 +32,15 @@ MODELS = [("sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
           ("Snowflake/snowflake-arctic-embed-m-v2.0", "tokenizer.json", "onnx/model_int8.onnx",
            "query: ", "", "cls"),
           ("onnx-community/Qwen3-Embedding-0.6B-ONNX", "tokenizer.json", "onnx/model_int8.onnx",
-           QWEN, "", "last")]
+           QWEN, "", "last"),
+          ("ibm-granite/granite-embedding-278m-multilingual", "tokenizer.json", "model.onnx",
+           "", "", "cls"),
+          ("onnx-community/embeddinggemma-300m-ONNX", "tokenizer.json", "onnx/model_q4.onnx",
+           "task: search result | query: ", "title: none | text: ", "sentence"),
+          ("Xenova/bge-small-en-v1.5", "tokenizer.json", "onnx/model_int8.onnx",
+           BGE, "", "cls"),
+          ("Snowflake/snowflake-arctic-embed-s", "tokenizer.json", "onnx/model_int8.onnx",
+           BGE, "", "cls")]
 
 
 def encoder(repo, tok_file, model_file, pooling="mean"):
@@ -43,6 +52,10 @@ def encoder(repo, tok_file, model_file, pooling="mean"):
     tok.enable_padding()
     options = onnxruntime.SessionOptions()
     options.intra_op_num_threads = 2
+    try:                                              # weights kept beside the graph
+        hf_hub_download(repo, model_file + "_data")
+    except Exception:
+        pass
     session = onnxruntime.InferenceSession(hf_hub_download(repo, model_file), options,
                                            providers=["CPUExecutionProvider"])
     names = {i.name for i in session.get_inputs()}
@@ -56,10 +69,17 @@ def encoder(repo, tok_file, model_file, pooling="mean"):
             feed = {"input_ids": ids, "attention_mask": mask}
             if "token_type_ids" in names:
                 feed["token_type_ids"] = np.zeros_like(ids)
+            for i in session.get_inputs():           # decoder exports (Qwen3): an empty cache
+                if i.name.startswith("past_key_values"):
+                    feed[i.name] = np.zeros((len(ids), i.shape[1], 0, i.shape[3]),
+                                            dtype=np.float16 if "16" in i.type else np.float32)
             if "position_ids" in names:
                 feed["position_ids"] = np.clip(np.cumsum(mask, 1) - 1, 0, None)
-            hidden = session.run(None, feed)[0]
-            if pooling == "cls":
+            outputs = session.run(None, feed)
+            hidden = outputs[0]
+            if pooling == "sentence":                 # the export's own pooled output
+                v = outputs[[o.name for o in session.get_outputs()].index("sentence_embedding")]
+            elif pooling == "cls":
                 v = hidden[:, 0]
             elif pooling == "last":                   # right padding: the last real token
                 v = hidden[np.arange(len(ids)), mask.sum(1) - 1]

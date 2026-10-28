@@ -15,3 +15,8 @@ multilingual-e5-base                     ko 582 q  top10 65.3%  top30 79.4%  top
 multilingual-e5-base                     ko>en 582 q  top10 57.4%  top30 73.7%  top50 78.9%
 multilingual-e5-base                     en>ko 582 q  top10 56.4%  top30 74.6%  top50 79.2%
   (multilingual-e5-base: 772 s)
+embeddinggemma-300m-ONNX                 en 582 q  top10 80.9%  top30 90.2%  top50 91.6%
+embeddinggemma-300m-ONNX                 ko 582 q  top10 79.0%  top30 86.9%  top50 90.7%
+embeddinggemma-300m-ONNX                 ko>en 582 q  top10 80.2%  top30 87.8%  top50 90.9%
+embeddinggemma-300m-ONNX                 en>ko 582 q  top10 79.2%  top30 88.1%  top50 91.6%
+  (embeddinggemma: 1875 s)

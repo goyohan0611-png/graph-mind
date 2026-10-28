@@ -50,7 +50,10 @@ def _tokens(value):
 MEANING_FLOOR = 0.2      # measured: unrelated questions stay under 0.15, "where do I live?" 0.27
 # arctic-embed-s scores everything higher: 11 related questions 0.577-0.726 (all found), 12
 # unrelated 0.469-0.601 (one above)
-FLOORS = {"Snowflake/snowflake-arctic-embed-s@onnx/model_int8.onnx": 0.57}
+# EmbeddingGemma separates cleanly: 16 related (5 asked in Korean of English) 0.352-0.647, all
+# found; 16 unrelated 0.088-0.230
+FLOORS = {"Snowflake/snowflake-arctic-embed-s@onnx/model_int8.onnx": 0.57,
+          "onnx-community/embeddinggemma-300m-ONNX@onnx/model_q4.onnx": 0.3}
 MEANING_MARGIN = 0.1     # and only those close to the best: the rest is the model's noise
 
 

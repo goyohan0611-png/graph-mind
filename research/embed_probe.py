@@ -52,11 +52,18 @@ def encoder(repo, tok_file, model_file, pooling="mean"):
     tok.enable_padding()
     options = onnxruntime.SessionOptions()
     options.intra_op_num_threads = 2
-    try:                                              # weights kept beside the graph
-        hf_hub_download(repo, model_file + "_data")
+    graph = hf_hub_download(repo, model_file)
+    try:                                              # weights kept beside the graph: ONNX
+        data = hf_hub_download(repo, model_file + "_data")   # Runtime wants them in one folder
+        import shutil
+        import tempfile
+        folder = Path(tempfile.mkdtemp())
+        shutil.copy(graph, folder / Path(model_file).name)
+        shutil.copy(data, folder / (Path(model_file).name + "_data"))
+        graph = str(folder / Path(model_file).name)
     except Exception:
         pass
-    session = onnxruntime.InferenceSession(hf_hub_download(repo, model_file), options,
+    session = onnxruntime.InferenceSession(graph, options,
                                            providers=["CPUExecutionProvider"])
     names = {i.name for i in session.get_inputs()}
 

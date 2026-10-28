@@ -70,7 +70,7 @@ def main() -> None:
                   flush=True)
 
 
-if __name__ == "__main__" and "--variants" not in sys.argv:
+if __name__ == "__main__" and not {"--variants", "--joint", "--ship"} & set(sys.argv):
     main()
 
 

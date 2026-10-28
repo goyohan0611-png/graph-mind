@@ -15,3 +15,22 @@ multilingual-e5-base                     ko 582 q  top10 65.3%  top30 79.4%  top
 multilingual-e5-base                     ko>en 582 q  top10 57.4%  top30 73.7%  top50 78.9%
 multilingual-e5-base                     en>ko 582 q  top10 56.4%  top30 74.6%  top50 79.2%
   (multilingual-e5-base: 772 s)
+snowflake-arctic-embed-m-v2.0            en 582 q  top10 72.2%  top30 84.2%  top50 88.8%
+snowflake-arctic-embed-m-v2.0            ko 582 q  top10 56.2%  top30 68.9%  top50 75.4%
+snowflake-arctic-embed-m-v2.0            ko>en 582 q  top10 48.5%  top30 64.4%  top50 73.9%
+snowflake-arctic-embed-m-v2.0            en>ko 582 q  top10 50.2%  top30 67.7%  top50 75.6%
+  (arctic-embed-m-v2.0: 1111 s)
+Qwen3-Embedding-0.6B-ONNX                en 582 q  top10 54.5%  top30 69.6%  top50 77.1%
+  (Qwen3-Embedding: 1562 s)
+bge-small-en-v1.5                        en 582 q  top10 63.6%  top30 80.1%  top50 85.6%
+bge-small-en-v1.5                        ko 582 q  top10 8.4%  top30 16.8%  top50 25.4%
+bge-small-en-v1.5                        ko>en 582 q  top10 7.6%  top30 15.6%  top50 21.5%
+bge-small-en-v1.5                        en>ko 582 q  top10 4.5%  top30 11.0%  top50 17.2%
+  (bge-small-en: 411 s)
+snowflake-arctic-embed-s                 en 582 q  top10 73.5%  top30 84.4%  top50 89.0%
+snowflake-arctic-embed-s                 ko 582 q  top10 7.9%  top30 15.6%  top50 24.6%
+snowflake-arctic-embed-s                 ko>en 582 q  top10 4.8%  top30 12.7%  top50 19.6%
+snowflake-arctic-embed-s                 en>ko 582 q  top10 5.5%  top30 10.3%  top50 14.4%
+  (arctic-embed-s: 603 s)
+onnxruntime.capi.onnxruntime_pybind11_state.Fail: [ONNXRuntimeError] : 1 : FAIL : External data path validation failed for initializer: model.embed_tokens.weight_Q4. Error: External data path escapes model directory. External data path: "model_q4.onnx_data" resolved path: "C:\\Users\\User\\AppData\\Local\\Temp\\tbhf\\hub\\models--onnx-community--embeddinggemma-300m-ONNX\\snapshots\\5090578d9565bb06545b4552f76e6bc2c93e4a66\\onnx\\model_q4.onnx_data" allowed directory: "C:\\Users\\User\\AppData\\Local\\Temp\\tbhf\\hub\\blobs\\20"
+  (embeddinggemma: 23 s)

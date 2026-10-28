@@ -13,7 +13,8 @@ license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Yohan Ko", email = "goyohan0611@gmail.com" }]
 keywords = ["mcp", "mcp-server", "memory", "agent-memory", "long-term-memory", "claude", "claude-code",
             "codex", "cursor", "gemini-cli", "copilot", "opencode", "llm", "longmemeval",
-            "local-first"]
+            "local-first", "rag", "retrieval", "hybrid-search", "semantic-search",
+            "conversational-memory", "chatbot-memory"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",

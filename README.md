@@ -89,7 +89,7 @@ that answer the question.
 - **Remembers conversations word for word**, on your own PC. Saving is a database write: no model
   call, no tokens. When a question depends on the past, the agent gets back the few thousand
   tokens that answer it.
-- **Holds up after years of use.** In a memory of 205,000 turns the answer is still among the
+- **Holds up as memory piles up.** In a memory of 205,000 turns the answer is still among the
   first 30 found for 79.7% of questions (82.8% at 6,000), and a search takes about 0.4 s.
   [As the memory grows](#as-the-memory-grows)
 - **Any language, across languages.** The search model is multilingual: ask in Korean about

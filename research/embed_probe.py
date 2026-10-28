@@ -60,16 +60,18 @@ def main() -> None:
     import psutil
     psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS if sys.platform == "win32" else 19)
     english = [s for s in json.loads(DATA.read_text(encoding="utf-8")) if s["sample_id"] in CONVS]
-    sets = {"en": english, "ko": korean(english)}
+    ko = korean(english)
+    # (turns from, questions from): "ko>en" asks in Korean about what was said in English
+    sets = {"en": (english, english), "ko": (ko, ko), "ko>en": (english, ko), "en>ko": (ko, english)}
     for repo, tok_file, model_file, q_pre, p_pre in MODELS[1 if "--e5" in sys.argv else 0:]:
         encode = encoder(repo, tok_file, model_file)
-        for lang, samples in sets.items():
+        for lang, (samples, asking) in sets.items():
             hits, total = {10: 0, 30: 0, 50: 0}, 0
-            for sample in samples:
+            for sample, asker in zip(samples, asking):
                 turns = list(turns_of(sample))
                 ids = [t for t, _, _ in turns]
                 docs = encode([p_pre + text for _, text, _ in turns])
-                qa = [q for q in sample["qa"] if q["category"] != 5 and evidence_ids(q)]
+                qa = [q for q in asker["qa"] if q["category"] != 5 and evidence_ids(q)]
                 queries = encode([q_pre + q["question"] for q in qa])
                 for q, vector in zip(qa, queries):
                     order = np.argsort(-(docs @ vector))

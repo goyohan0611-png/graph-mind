@@ -131,7 +131,7 @@ flowchart LR
 
 - **Saving costs nothing.** Turns are stored as they were said. No model summarises or extracts
   anything at write time, so nothing is lost or invented on the way in, and no tokens are spent.
-- **Search runs on your PC.** Word search, a multilingual embedding model (mpnet, int8; ONNX, no GPU)
+- **Search runs on your PC.** Word search, a multilingual embedding model (multilingual-e5-small; ONNX, no GPU)
   and when things were said are combined; the agent gets a short packet with
   the source turns, not a dump of history.
 - **The model you already use does the thinking.** Turnbook hands it evidence; it answers.

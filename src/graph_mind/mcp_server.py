@@ -475,11 +475,11 @@ def fuse(*rankings, limit):
 # evidence labels, checked on LongMemEval_S (answer turn in the first 5: 81.0% -> 83.9%, first 30:
 # 98.1% -> 98.3%). Rank in each list (as the fusion above), the meaning score itself, and the share
 # of the question's words the whole turn contains.
-# Trained on LoCoMo + LongMemEval together (research/rerank_v2.py, rerank2_weights.json)
-RERANK = {"meaning": 1.637, "words": 0.816, "similarity": 0.536, "both": -0.225, "overlap": 1.016,
-          "rare_overlap": 1.092, "prefix_overlap": 1.171, "session_hits": 0.515,
-          "session_best": 0.76}
-RERANK_POOL = 100           # per list: best at 56k turns (research/scale_10y.py), ~110 ms
+# Trained on LoCoMo + LongMemEval together for e5 (research/rerank_v2.py, rerank2_weights_e5.json)
+RERANK = {"meaning": 1.762, "words": 0.889, "similarity": 0.566, "both": -0.301, "overlap": 0.969,
+          "rare_overlap": 1.125, "prefix_overlap": 1.104, "session_hits": 0.637,
+          "session_best": 0.221}
+RERANK_POOL = 50            # per list, as the A/B measured (research/runs/graph-v9.22-ab)
 STOPWORDS = frozenset(
     "a an the of to in on at for and or but is are was were be been do does did what when where "
     "who whom which why how that this with from by as it its his her their they them he she you "

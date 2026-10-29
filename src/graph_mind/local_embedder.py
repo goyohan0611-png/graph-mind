@@ -20,7 +20,7 @@ from graph_mind.vector_cache import VectorCache, convert
 # (research/runs/graph-v9.21-korean/embed_probe_cross.txt, meaning search, answer in the first 30):
 #   english       arctic-embed-s, 34 MB: English 84.4% (mpnet 75.6%); Korean 15.6%
 #   multilingual  mpnet int8, 279 MB: English 75.6%, Korean 67.5%, Korean asked of English 70.6%
-PRESETS = {"english": "Snowflake/snowflake-arctic-embed-s@onnx/model_int8.onnx",
+PRESETS = {"english": "onnx-community/embeddinggemma-300m-ONNX@onnx/model_q4.onnx",
            "multilingual": ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
                             "@onnx/model_quint8_avx2.onnx")}
 # Models trained with a marker before each text: (question, stored text). Others: none.

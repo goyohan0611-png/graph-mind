@@ -25,7 +25,7 @@ from graph_mind.local_embedder import LOCAL_MODEL  # noqa: E402
 
 slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")   # bench/evidence.py's cache for it
 sys.argv = [sys.argv[0], "spans", "--out", str(WORK), "--writable",
-            "--ids", "runs/graph-v7.0-full500-30/ids.json",
+            "--ids", sys.argv[2] if len(sys.argv) > 2 else "runs/graph-v7.0-full500-30/ids.json",
             "--cache", str(CACHE / f"embed-{slug}.json")]
 import product_answer_eval  # noqa: E402
 

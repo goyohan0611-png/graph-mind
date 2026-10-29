@@ -486,7 +486,9 @@ RERANK = {"meaning": 1.637, "words": 0.816, "similarity": 0.536, "both": -0.225,
           "session_best": 0.76}
 # Weights of other embedding models, keyed like local_brain.FLOORS (research/model_pipeline.py);
 # a model left out uses RERANK.
-RERANKS = {}
+RERANKS = {"onnx-community/embeddinggemma-300m-ONNX@onnx/model_q4.onnx": {
+    "meaning": 2.258, "words": 0.787, "similarity": 1.007, "both": -0.368, "overlap": 0.82,
+    "rare_overlap": 0.989, "prefix_overlap": 0.883, "session_hits": 0.458, "session_best": 0.934}}
 RERANK_POOL = 100           # per list: best at 56k turns (research/scale_10y.py), ~110 ms
 STOPWORDS = frozenset(
     "a an the of to in on at for and or but is are was were be been do does did what when where "

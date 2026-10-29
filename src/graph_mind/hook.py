@@ -25,6 +25,13 @@ EVENTS = {
 }
 
 
+# agents whose transcripts the capture service already reads: their hook only adds the memory
+# that bears on the message, before the model answers (nothing is saved twice). Cursor's
+# beforeSubmitPrompt can only allow or block, so it has none.
+INJECT_ONLY = {"claude-code": "UserPromptSubmit", "codex": "UserPromptSubmit",
+               "copilot-cli": "userPromptTransformed"}
+
+
 def hooks_root():
     from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "hooks"
@@ -88,15 +95,19 @@ def _append(path, line: dict) -> None:
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
-def reply(agent: str, event_name: str, text: str | None) -> dict:
-    """What the agent expects back on stdout."""
-    if agent == "gemini-cli" and event_name == "BeforeAgent" and text:
-        from graph_mind.inject import context
-        memory = context(text[:4000])
-        if memory:
-            return {"hookSpecificOutput": {"hookEventName": "BeforeAgent",
-                                           "additionalContext": memory}}
-    return {}
+def reply(agent: str, event_name: str, text: str | None, event: dict | None = None) -> dict:
+    """What the agent expects back on stdout: the memory for the message, in its shape."""
+    if not text or (agent, event_name) not in {("gemini-cli", "BeforeAgent"),
+                                               *INJECT_ONLY.items()}:
+        return {}
+    from graph_mind.inject import context
+    memory = context(text[:4000])
+    if not memory:
+        return {}
+    if agent == "copilot-cli":          # its only way in: the text the model receives, extended
+        base = (event or {}).get("transformedPrompt") or text
+        return {"modifiedTransformedPrompt": base + "\n\n" + memory}
+    return {"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": memory}}
 
 
 def main(argv=None) -> None:
@@ -104,8 +115,10 @@ def main(argv=None) -> None:
     text = None
     try:
         sys.stdin.reconfigure(encoding="utf-8", errors="replace")
-        text = record(agent, event_name, json.loads(sys.stdin.read() or "{}"))
-        answer = reply(agent, event_name, text)
+        event = json.loads(sys.stdin.read() or "{}")
+        text = (event.get("prompt") if agent in INJECT_ONLY
+                else record(agent, event_name, event))
+        answer = reply(agent, event_name, text if isinstance(text, str) else None, event)
     except Exception:
         answer = reply(agent, event_name, None)
     sys.stdout.reconfigure(encoding="utf-8")

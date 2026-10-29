@@ -93,8 +93,8 @@ def warm_turns(db_path, *, limit: int = 512, embedder=None) -> int:
         # the question is about what it said: left to the server, a fresh server spent minutes
         # embedding all of them on the first such question, and every query waited meanwhile)
         rows = db.execute(f"SELECT rowid,{text_columns(db)} FROM conversation_turns "
-                          "WHERE rowid>? AND role IN ('user','assistant') "
-                          "ORDER BY role='user' DESC, happened_at DESC", (after,))
+                          "WHERE rowid>? AND role IN ('user','assistant','document') "
+                          "ORDER BY role='assistant', happened_at DESC", (after,))
         texts, seen, cached = [], set(), []
         for revision, plain, packed in rows:
             high = max(high, revision)

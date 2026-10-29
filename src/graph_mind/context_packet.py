@@ -174,10 +174,15 @@ def _memory_item(memory):
 
 
 def _conversation_item(turn):
+    if turn["role"] == "document":     # a section of a project document (documents.py)
+        title = ("document section, replaced on " + turn["replaced_at"][:10] + " by a newer text"
+                 if turn.get("replaced_at") else "document section")
+    else:
+        title = turn["role"] + " conversation turn"
     return {
         "id": turn["turn_id"], "source_kind": "CONVERSATION_TURN",
         "memory_class": "EPISODE", "modality": "CONVERSATION",
-        "scope": turn["scope"], "title": turn["role"] + " conversation turn",
+        "scope": turn["scope"], "title": title,
         "content": turn["content"], "effective_at": turn["happened_at"],
         "known_at": turn["happened_at"],
         "provenance": {"source_type": turn["client"],

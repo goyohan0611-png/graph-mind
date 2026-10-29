@@ -13,6 +13,10 @@ on:
         description: "Instead of the bench, run this research/ script on the cached vectors"
         required: false
         default: ""
+      cache_from:
+        description: "Restore the cache this run id saved, not the newest (parallel jobs)"
+        required: false
+        default: ""
 
 jobs:
   bench:
@@ -43,7 +47,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: bench/.cache
-          key: bench2-${{ github.run_id }}
+          key: bench2-${{ inputs.cache_from || github.run_id }}
           restore-keys: bench2-
       - name: Recovery
         if: ${{ !inputs.research }}

@@ -579,8 +579,9 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
     since = local_time(since) if since else None
     span = window(around)
     with LocalBrainStore(database) as store:
+        # saved memories stop at 50; a bigger packet takes more conversation turns only
         result = store.recall(query, scopes=scopes, as_of=as_of, knowledge_cutoff=knowledge_cutoff,
-                              limit=limit, recent=recent, since=since,
+                              limit=min(limit, 50), recent=recent, since=since,
                               meaning=lambda q, texts: memory_meaning(
                                   embedder or embedder_for(database), q, texts))
     with ConversationMemoryStore(database) as conversations:

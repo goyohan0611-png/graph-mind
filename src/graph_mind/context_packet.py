@@ -201,7 +201,7 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
     order="time" lays memories and conversation turns out together, newest first. With the
     default, curated memories go first and can use up the budget before any recent turn fits,
     which is exactly wrong for "what was I just doing"."""
-    if type(max_chars) is not int or not 256 <= max_chars <= 30000:
+    if type(max_chars) is not int or not 256 <= max_chars <= 200000:
         raise ValueError("INVALID_CONTEXT_CHAR_BUDGET")
     memories = [_memory_item(item) for item in recall_result.get("matches", [])]
     # A note the model wrote after answering from old turns cites them: the note stands in for

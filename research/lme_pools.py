@@ -37,6 +37,8 @@ def main() -> None:
     parser = ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--limit", type=int, help="first N questions only")
     parser.add_argument("--model", default=LOCAL_MODEL, help="another embedding model")
+    parser.add_argument("--part", help="START:END, questions [START, END) only, into their own "
+                                       "file (parallel CI jobs; research/merge_lme_pools.py)")
     args = parser.parse_args()
     slug = args.model.replace("/", "_").replace("@", "_")
     embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=args.model)
@@ -45,6 +47,12 @@ def main() -> None:
         for seen, row in enumerate(stream_instances(DATA)):
             if args.limit and seen >= args.limit:
                 break
+            if args.part:
+                start, end = (int(x) for x in args.part.split(":"))
+                if seen >= end:
+                    break
+                if seen < start:
+                    continue
             qid = row["question_id"]
             store = Path(directory) / f"{qid}.sqlite"
             wanted = fill(store, row)
@@ -76,6 +84,8 @@ def main() -> None:
     embedder.cache.flush()
     out = OUT if args.model == LOCAL_MODEL else OUT.with_name(
         "lme_pools-" + args.model.split("/")[1].split("@")[0] + ".json")
+    if args.part:
+        out = out.with_name(f"{out.stem}-part{args.part.replace(':', '-')}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     print("\nall", hits(result["questions"]))

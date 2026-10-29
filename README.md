@@ -144,12 +144,23 @@ flowchart LR
 
 ## Beyond agent memory
 
-Underneath, Turnbook is a retrieval engine for conversations: it stores every turn verbatim at no
-model cost and finds the few that answer a question by words, meaning and time (when it was said,
-what changed since), re-ranked by a small learned score. That is RAG over chat history, and the
-same engine could serve a chatbot that remembers each of its users, a support bot that recalls
-past tickets, or a team's searchable decision log. Today it ships as a personal, local memory;
-a Python API and multi-user server mode are not built yet. Interested? Open an issue.
+Underneath, Turnbook is RAG over chat history with everything before the answer built in. A
+typical RAG stack is assembled from parts; Turnbook runs every step up to the answer on its own
+and leaves only the answer to the model you already use:
+
+| Step | Typical RAG stack | Turnbook |
+|---|---|---|
+| Collect | an ingestion script you write | every turn saved automatically from your agents |
+| Chunk | splitting rules to tune | one turn per entry, word for word |
+| Embed | an embedding API, paid per token | a local model, free |
+| Store | a vector database to run | one SQLite file |
+| Retrieve | search code to write | words, meaning and time, re-ranked by a small learned score |
+| Hand over | prompt-assembly code | a bounded evidence packet over MCP |
+| Answer | your LLM | your LLM (Claude, Codex, ...) |
+
+The same engine could serve a chatbot that remembers each of its users, a support bot that
+recalls past tickets, or a team's searchable decision log. Today it ships as a personal, local
+memory; a Python API and multi-user server mode are not built yet. Interested? Open an issue.
 
 ## Does it work?
 

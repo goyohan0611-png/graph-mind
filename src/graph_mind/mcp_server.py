@@ -31,7 +31,7 @@ SERVER_VERSION = __version__
 # hub over the network whether a newer revision exists, every time it loads. That made the first
 # save of a session take ~95 s and sent requests off the machine for no reason. Once the model is
 # on disk, stay offline.
-from graph_mind.local_embedder import model_on_disk  # noqa: E402
+from graph_mind.local_embedder import LOCAL_MODEL, model_on_disk  # noqa: E402
 
 if model_on_disk():
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -482,6 +482,9 @@ def fuse(*rankings, limit):
 RERANK = {"meaning": 1.637, "words": 0.816, "similarity": 0.536, "both": -0.225, "overlap": 1.016,
           "rare_overlap": 1.092, "prefix_overlap": 1.171, "session_hits": 0.515,
           "session_best": 0.76}
+# Weights of other embedding models, keyed like local_brain.FLOORS (research/model_pipeline.py);
+# a model left out uses RERANK.
+RERANKS = {}
 RERANK_POOL = 100           # per list: best at 56k turns (research/scale_10y.py), ~110 ms
 STOPWORDS = frozenset(
     "a an the of to in on at for and or but is are was were be been do does did what when where "
@@ -507,7 +510,7 @@ def rerank(query, meaning, words, *, limit, weights=None):
       session_best     the best meaning score among them
     A weight left out of `weights` is not used."""
     import math
-    weights = RERANK if weights is None else weights
+    weights = RERANKS.get(LOCAL_MODEL, RERANK) if weights is None else weights
     from graph_mind.conversation_memory import search_terms
     by_meaning = {t["turn_id"]: (rank, t.get("similarity", 0.0)) for rank, t in enumerate(meaning)}
     by_words = {t["turn_id"]: rank for rank, t in enumerate(words)}
@@ -642,15 +645,28 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
     return result
 
 
-def capture_warnings() -> list[str]:
-    """What the capture service last reported as wrong (a source that stopped yielding turns)."""
+CAPTURE_STALE = timedelta(minutes=15)    # the service writes its status every few seconds
+
+
+def capture_warnings(now=None) -> list[str]:
+    """What the capture service last reported as wrong (a source that stopped yielding turns),
+    and the service itself stopped: its last status is old, so nothing new is being saved."""
     try:
         from graph_mind.automatic_capture import default_service_state_dir
         status = json.loads((default_service_state_dir() / "status.json")
                             .read_text(encoding="utf-8"))
-        return list(status.get("warnings") or [])
     except Exception:
         return []
+    warnings = list(status.get("warnings") or [])
+    try:
+        last = datetime.fromisoformat(status["completed_at"])
+    except (KeyError, TypeError, ValueError):
+        return warnings
+    if (now or datetime.now()) - last > CAPTURE_STALE:
+        warnings.append(f"automatic capture has not run since {last:%Y-%m-%d %H:%M}: new "
+                        "conversations are not being saved. Restart the PC or run "
+                        "turnbook-install again")
+    return warnings
 
 
 PROACTIVE_NOTE = (

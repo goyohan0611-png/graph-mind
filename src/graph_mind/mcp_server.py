@@ -155,8 +155,10 @@ def shared_sync(database):
 # (product_recall_eval.py: evidence reaching the packet 48.5% -> 66.7% without it), and deciding
 # what a question is about is a language judgement this engine leaves to the model anyway.
 DEFAULT_CONTEXT_POLICY = "always"
-CONTEXT_LIMIT = 30          # brain_context defaults; bench/ measures with these
-CONTEXT_CHARS = 15000
+# brain_context defaults; bench/ measures with these. 30 / 15,000 (~3.4k tokens) answered 87.1%
+# of LongMemEval_S, 60 / 30,000 (~6.7k tokens) 90.1% (research/full500_mpnet.py c30k, 2026-10-29)
+CONTEXT_LIMIT = 60
+CONTEXT_CHARS = 30000
 
 
 # Retrieval over conversation turns, ported from the benchmark pipeline where it was measured:
@@ -584,8 +586,9 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
     since = local_time(since) if since else None
     span = window(around)
     with LocalBrainStore(database) as store:
+        # saved memories stop at 50; a bigger packet takes more conversation turns only
         result = store.recall(query, scopes=scopes, as_of=as_of, knowledge_cutoff=knowledge_cutoff,
-                              limit=limit, recent=recent, since=since,
+                              limit=min(limit, 50), recent=recent, since=since,
                               meaning=lambda q, texts: memory_meaning(
                                   embedder or embedder_for(database), q, texts))
     with ConversationMemoryStore(database) as conversations:
@@ -597,7 +600,7 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
                 turns = sorted((t for t in hits if not since or t["happened_at"] >= since),
                                key=lambda t: t["happened_at"], reverse=True)[:limit]
             else:          # "what was I doing": simply the latest turns
-                turns = conversations.latest(scopes=scopes, since=since, limit=limit,
+                turns = conversations.latest(scopes=scopes, since=since, limit=min(limit, 50),
                                              until=until)["turns"]
         else:
             words = [excerpt(t) for t in conversations.search(

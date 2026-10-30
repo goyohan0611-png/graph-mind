@@ -50,6 +50,8 @@ def arms():
             out[f"v2, {pool} per search"] = (v2, pool)
     if "--big" in sys.argv:
         out = {k: v for k, v in out.items() if k in ("fusion (0.9.45)", "v2, 100 per search")}
+    if "--shipped" in sys.argv:                 # the search model's own shipped weights
+        out = {"fusion (0.9.45)": (None, 50), "shipped": ("shipped", mcp_server.RERANK_POOL)}
     return out
 
 
@@ -124,7 +126,8 @@ def main() -> None:
                     mcp_server.rerank = lambda q, m, w, *, limit, weights=None: mcp_server.fuse(
                         m, w, limit=limit)
                 else:
-                    mcp_server.rerank = (lambda q, m, w, *, limit, weights=None, x=weights:
+                    x = None if weights == "shipped" else weights
+                    mcp_server.rerank = (lambda q, m, w, *, limit, weights=None, x=x:
                                          original(q, m, w, limit=limit, weights=x))
                 hits = {5: 0, 10: 0, 30: 0}
                 seconds, asked = [], 0
@@ -153,7 +156,9 @@ def main() -> None:
                     for k, v in row.items()), flush=True)
             mcp_server.rerank, mcp_server.RERANK_POOL = original, 50
             mcp_server._PIECES.pop(str(store), None)
-    (RUN / "scale_10y.json").write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+    slug = "" if "--shipped" not in sys.argv else "-" + LOCAL_MODEL.split("@")[0].rsplit("/")[-1]
+    (RUN / f"scale_10y{slug}.json").write_text(json.dumps(results, indent=1) + "\n",
+                                               encoding="utf-8")
 
 
 if __name__ == "__main__":

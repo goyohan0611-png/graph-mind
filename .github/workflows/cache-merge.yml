@@ -1,0 +1,92 @@
+name: cache-merge
+
+# Parallel bench runs each save the vectors they embedded under their own key. This joins up to
+# six of them (research/merge_caches.py), runs one research/ script on the result and saves it
+# as this run's cache, for later bench runs to restore with cache_from.
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Run ids whose caches to join, space separated (at most 6)"
+        required: true
+      research:
+        description: "Then run this research/ script (optional)"
+        required: false
+        default: ""
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: LongMemEval_S (pinned)
+        run: |
+          mkdir -p research/external/longmemeval
+          curl -fsSL -o research/external/longmemeval/longmemeval_s_cleaned.json \
+            https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json
+          echo "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442  research/external/longmemeval/longmemeval_s_cleaned.json" | sha256sum -c
+      - id: ids
+        env:
+          RUNS: ${{ inputs.runs }}
+        run: |
+          set -- $RUNS
+          for n in 1 2 3 4 5 6; do eval "echo r$n=\${$n:-}" >> "$GITHUB_OUTPUT"; done
+      # one restore per slot: each lands in bench/.cache and is moved aside before the next
+      - uses: actions/cache/restore@v4
+        if: steps.ids.outputs.r1
+        with: {path: bench/.cache, key: "bench2-${{ steps.ids.outputs.r1 }}"}
+      - run: mkdir -p parts && if [ -d bench/.cache ]; then mv bench/.cache parts/1; fi
+      - uses: actions/cache/restore@v4
+        if: steps.ids.outputs.r2
+        with: {path: bench/.cache, key: "bench2-${{ steps.ids.outputs.r2 }}"}
+      - run: if [ -d bench/.cache ]; then mv bench/.cache parts/2; fi
+      - uses: actions/cache/restore@v4
+        if: steps.ids.outputs.r3
+        with: {path: bench/.cache, key: "bench2-${{ steps.ids.outputs.r3 }}"}
+      - run: if [ -d bench/.cache ]; then mv bench/.cache parts/3; fi
+      - uses: actions/cache/restore@v4
+        if: steps.ids.outputs.r4
+        with: {path: bench/.cache, key: "bench2-${{ steps.ids.outputs.r4 }}"}
+      - run: if [ -d bench/.cache ]; then mv bench/.cache parts/4; fi
+      - uses: actions/cache/restore@v4
+        if: steps.ids.outputs.r5
+        with: {path: bench/.cache, key: "bench2-${{ steps.ids.outputs.r5 }}"}
+      - run: if [ -d bench/.cache ]; then mv bench/.cache parts/5; fi
+      - uses: actions/cache/restore@v4
+        if: steps.ids.outputs.r6
+        with: {path: bench/.cache, key: "bench2-${{ steps.ids.outputs.r6 }}"}
+      - run: if [ -d bench/.cache ]; then mv bench/.cache parts/6; fi
+      - name: Join
+        run: |
+          mkdir -p bench/.cache
+          cp -r parts/1/. bench/.cache/ 2>/dev/null || true      # the first one whole (datasets too)
+          python research/merge_caches.py parts/*
+          rm -rf parts
+      - name: Research
+        if: ${{ inputs.research }}
+        timeout-minutes: 330
+        env:
+          SCRIPT: ${{ inputs.research }}
+        run: python research/$SCRIPT | tee -a research.txt     # unquoted: script + arguments
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: bench/.cache
+          key: bench2-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench
+          path: |
+            *.txt
+            research/runs/graph-v9.20-learning/scale*.json

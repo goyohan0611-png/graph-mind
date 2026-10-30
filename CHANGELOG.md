@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.10.1 — 2026-10-30
+- **Memory added to each message, faster.** The capture service now answers the per-message hook
+  from its own loaded model and search index, so a message that asks about the past waits about
+  0.4 s for its memory instead of 1.5-2.5 s (measured on a real memory on Windows). Without a
+  running service, or with an older one, the hook searches by itself as before. The service lets
+  go of the index after 30 minutes without a request.
+- The hook no longer connects to a shared Postgres hub on every message; the memory servers
+  already bring in other devices' lines.
+
 ## 0.10.0 — 2026-10-30
 - **EmbeddingGemma for every memory.** 0.9.48 gave it to new installs; a memory from 0.9.47 or
   before now moves to it too. It keeps searching with mpnet while the capture service reads it

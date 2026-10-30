@@ -261,6 +261,21 @@ class HookTests(unittest.TestCase):
                            side_effect=AssertionError("hub synced per message")):
             inject.context("where did we leave off on the launch?")
 
+    def test_the_hook_asks_the_capture_service_first(self):
+        """Its index is warm: a fresh process per message took 1-2 s to import and read it.
+        An older service (no "context" in embedder.json) leaves the hook to search itself."""
+        from graph_mind import inject, local_embedder
+        lender = mock.Mock(model_name=local_embedder.LOCAL_MODEL)
+        message = "where did we leave off on the launch?"
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}):
+            local_embedder.serve(lender)
+            self.assertIsNone(inject.from_service(message))
+            local_embedder.serve(lender, context=lambda m: "SERVED " + m)
+            with mock.patch("graph_mind.mcp_server.gather",
+                            side_effect=AssertionError("searched in the hook's process")):
+                self.assertEqual(inject.context(message), "SERVED " + message)
+
     def test_installer_adds_the_memory_hooks(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)

@@ -455,8 +455,11 @@ def _replace_old_service(info, model) -> bool:
         return False
 
 
-def serve(embedder) -> None:
+def serve(embedder, context=None) -> None:
     """Lend this process's model to the memory servers on this PC (the capture service calls it).
+    `context(message) -> str`: also answer ("context", message) with the memory for it, from
+    this process's warm index (graph_mind.inject: the per-message hook, ~0.1 s instead of the
+    1-2 s a fresh process takes to import and read the index).
 
     Local only: 127.0.0.1, and a client must prove it read the key in the user's own
     ~/.graph-mind/embedder.json. Texts come in, vectors go out; nothing is stored here."""
@@ -476,7 +479,7 @@ def serve(embedder) -> None:
                    encoding="utf-8") as handle:
         handle.write(json.dumps({"port": listener.address[1], "key": key.hex(),
                                  "model": embedder.model_name, "pid": os.getpid(),
-                                 "asks": True}))
+                                 "asks": True, "context": context is not None}))
     os.replace(temporary, path)
 
     def answer(conn):
@@ -491,6 +494,15 @@ def serve(embedder) -> None:
                     texts = conn.recv()
                 except (EOFError, OSError):
                     return
+                if (context is not None and isinstance(texts, tuple) and len(texts) == 2
+                        and texts[0] == "context" and isinstance(texts[1], str)):
+                    try:
+                        conn.send(context(texts[1]))
+                    except (EOFError, OSError):
+                        return
+                    except Exception:              # the hook falls back to its own search
+                        conn.send(None)
+                    continue
                 ask = isinstance(texts, tuple) and len(texts) == 2 and texts[0] == "ask"
                 if ask:
                     texts = texts[1]

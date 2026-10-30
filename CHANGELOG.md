@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.10.4 — 2026-10-30
+- **The hook's memory is never stored again as the user's words.** Copilot CLI keeps a prompt its
+  hook extended as the user's message; read back, every packet would have come back as something
+  the user said. User text is now cut at Turnbook's own packet header, whatever the app.
+- **Other PCs' conversations reach the per-message memory within a minute.** Only a tool call
+  brought them in once the hook stopped waiting on the shared hub (0.10.2); the capture service
+  now syncs the shared folder or hub every 60 s (about 2% of a CPU core on a hub PC).
+- OpenCode gets the same 3 s memory deadline as the other agents (it could wait up to 15 s).
+- Project documents: a locked file, or a cloud file not downloaded yet, no longer stops every
+  document after it; a text file saved in the PC's own encoding (ANSI, e.g. CP949 on a Korean
+  Windows) keeps its letters instead of turning into replacement characters.
+
 ## 0.10.3 — 2026-10-30
 - **Memory added to every message, a little.** The per-message hook (Claude Code, Codex, Copilot
   CLI, Gemini CLI, OpenCode) used to search only when the message had a word like "remember" or

@@ -104,8 +104,8 @@ that answer the question.
 - **Made for orchestration.** When an orchestrator runs several agents at once, they all write
   to the same memory as they work, so what one agent decided is there for the next. Every
   memory keeps which app and session it came from.
-- **Holds up as memory piles up.** In a memory of 205,000 turns the answer is still among the
-  first 30 found for 79.7% of questions (82.8% at 6,000), and a search takes about 0.4 s.
+- **Holds up as memory piles up.** With 0.9.47's search model, in a memory of 205,000 turns the
+  answer is still among the first 30 found for 79.7% of questions (82.8% at 6,000), and a search takes about 0.4 s.
   [As the memory grows](#as-the-memory-grows)
 - **Any language, across languages.** The search model reads Korean almost as well as English:
   ask in Korean about something said in English, or the other way round. [In Korean](#in-korean)
@@ -220,6 +220,10 @@ held up to 15,000 characters; since 0.10.0 `brain_context` sends up to 30,000 by
 [research/runs/graph-v9.14-full500-mpnet8-gemma](research/runs/graph-v9.14-full500-mpnet8-gemma)
 
 ### As the memory grows
+
+The charts below were measured with 0.9.47 and its search model (mpnet). With 0.10's model, at
+6,000 turns the answer turn is among the first 30 found for 92.5% of questions (0.9.47: 82.8%);
+the larger memories are still being measured.
 
 Recall gets harder as memory piles up: more past conversations look like the one you mean. Since 0.9.46
 Turnbook orders what it finds with a small learned score instead of a fixed blend. On LoCoMo (1,536

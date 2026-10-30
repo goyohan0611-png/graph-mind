@@ -41,3 +41,42 @@ def test_edits_keep_the_old_text_marked(tmp_path, monkeypatch):
         assert item["title"].startswith("document section, replaced on 2026-10-")
         spec.unlink()
         assert capture.scan()["replaced_sections"] == 2           # deleted: all of it replaced
+
+
+def test_a_locked_file_does_not_stop_the_others(tmp_path, monkeypatch):
+    """One unreadable file (locked, or a cloud file not downloaded) stopped every document
+    after it, every minute; it is now tried again next time."""
+    monkeypatch.setattr(documents, "WALK_SECONDS", 0)
+    folder = tmp_path / "notes"
+    folder.mkdir()
+    for name in ("a.md", "b.md", "c.md"):
+        (folder / name).write_text(f"# {name}\ntext of {name}", encoding="utf-8")
+    real = type(folder).read_bytes
+
+    def locked(path):
+        if path.name == "b.md":
+            raise PermissionError("locked")
+        return real(path)
+    with ConversationMemoryStore(tmp_path / "m.sqlite") as store:
+        capture = documents.DocumentCapture([folder], store, state_path=tmp_path / "s.json",
+                                            now=lambda: "2026-10-30T09:00:00")
+        monkeypatch.setattr(type(folder), "read_bytes", locked)
+        assert capture.scan()["recorded_turns"] == 2
+        monkeypatch.setattr(type(folder), "read_bytes", real)
+        assert capture.scan()["recorded_turns"] == 1
+
+
+def test_a_file_in_the_pcs_own_encoding_keeps_its_letters(tmp_path, monkeypatch):
+    """Notepad's ANSI on a Korean Windows is CP949: read as UTF-8 every letter became U+FFFD."""
+    monkeypatch.setattr(documents, "WALK_SECONDS", 0)
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_: "cp949")
+    folder = tmp_path / "notes"
+    folder.mkdir()
+    (folder / "meeting.txt").write_bytes("# 회의\n점심은 파니니".encode("cp949"))
+    (folder / "plan.md").write_bytes("﻿# Plan\nship Friday".encode("utf-8"))
+    with ConversationMemoryStore(tmp_path / "m.sqlite") as store:
+        documents.DocumentCapture([folder], store, state_path=tmp_path / "s.json",
+                                  now=lambda: "2026-10-30T09:00:00").scan()
+        texts = sorted(t["content"] for t in store.latest(limit=10)["turns"])
+    assert texts == ["notes/meeting.txt > 회의\n\n점심은 파니니",
+                     "notes/plan.md > Plan\n\nship Friday"]

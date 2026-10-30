@@ -143,8 +143,13 @@ class DocumentCapture:
             stamp = [info.st_mtime_ns, info.st_size]
             if info.st_size > MAX_BYTES or state.get(key, {}).get("stamp") == stamp:
                 continue
+            try:
+                text = _decode(path.read_bytes())
+            except OSError:
+                # locked by another program, or a cloud file not on this PC yet: it stopped
+                # every document after it; tried again next minute
+                continue
             changed = True
-            text = path.read_bytes().decode("utf-8", "replace")
             name = path.relative_to(root.parent).as_posix()
             ids = []
             for ordinal, (heading, body) in enumerate(sections(text)):
@@ -199,6 +204,19 @@ class DocumentCapture:
                 "recorded_turns": len(recorded), "files": len(seen),
                 "redactions": redactions, "replaced_sections": len(replaced),
                 "record_results": recorded}
+
+
+def _decode(data: bytes) -> str:
+    """UTF-8, else this PC's own encoding (Notepad's ANSI on a Korean Windows is CP949: read as
+    UTF-8, every Korean letter became U+FFFD)."""
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        import locale
+        try:
+            return data.decode(locale.getpreferredencoding(False))
+        except (UnicodeDecodeError, LookupError):
+            return data.decode("utf-8", "replace")
 
 
 def _local(seconds):

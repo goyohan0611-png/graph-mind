@@ -276,6 +276,16 @@ class HookTests(unittest.TestCase):
                             side_effect=AssertionError("searched in the hook's process")):
                 self.assertEqual(inject.context(message), "SERVED " + message)
 
+    def test_every_message_is_searched_with_no_keyword_needed(self):
+        """Whether a message needs the past is the model's call: a keyword list missed
+        "오늘 점심 뭐 먹었지?". Only an empty message is skipped."""
+        from graph_mind import inject
+        asked = []
+        with mock.patch("graph_mind.inject.from_service", lambda q: asked.append(q) or "M"):
+            self.assertEqual(inject.context("오늘 점심 뭐 먹었지?"), "M")
+            self.assertEqual(inject.context("   "), "")
+        self.assertEqual(asked, ["오늘 점심 뭐 먹었지?"])
+
     def test_a_pasted_log_is_searched_by_its_two_ends(self):
         """The question sits at the start or end; the middle only slowed the search."""
         from graph_mind import inject

@@ -1528,8 +1528,8 @@ def terminal_command(argv):
     export.add_argument("file")
     export.add_argument("--project", help="only the conversations held in this folder")
     commands.add_parser("import", help="add a memory file to this memory").add_argument("file")
-    commands.add_parser("model", help="show or change the search model: english (small, "
-                                      "English only) or multilingual").add_argument(
+    commands.add_parser("model", help="show or change the search model: english "
+                                      "(EmbeddingGemma) or multilingual (mpnet)").add_argument(
         "name", nargs="?", help="english, multilingual, or repo@onnx/file.onnx")
     team = commands.add_parser("team", help="give a teammate access, or host projects here")
     team_actions = team.add_subparsers(dest="action", required=True)
@@ -1545,8 +1545,10 @@ def terminal_command(argv):
         from graph_mind import local_embedder
         if not args.name:
             print(f"Search model: {local_embedder.mode()} ({local_embedder.chosen_model()})\n"
-                  "  turnbook model english        English only, small and fast (default)\n"
-                  "  turnbook model multilingual   Korean, Japanese, Chinese, ... and English\n"
+                  "  turnbook model english        EmbeddingGemma: most accurate, English and "
+                  "Korean alike (default)\n"
+                  "  turnbook model multilingual   mpnet: what memories from 0.9.47 and before "
+                  "keep\n"
                   "  turnbook model REPO@FILE      any ONNX embedding model on Hugging Face")
             return
         local_embedder.model_file().parent.mkdir(parents=True, exist_ok=True)

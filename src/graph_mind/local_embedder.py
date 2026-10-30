@@ -16,10 +16,12 @@ import time
 
 from graph_mind.vector_cache import VectorCache, convert
 
-# "repo@file": the int8 export in the model's own repo. Two presets, chosen per install
+# "repo@file": an ONNX export on Hugging Face. Two presets
 # (research/runs/graph-v9.21-korean/embed_probe_cross.txt, meaning search, answer in the first 30):
-#   english       arctic-embed-s, 34 MB: English 84.4% (mpnet 75.6%); Korean 15.6%
-#   multilingual  mpnet int8, 279 MB: English 75.6%, Korean 67.5%, Korean asked of English 70.6%
+#   english       EmbeddingGemma q4, new installs: English 90.2%, Korean 86.9%, Korean asked of
+#                 English 87.8%; LongMemEval_S end to end 92.1% (graph-v9.14-full500-mpnet8-gemma)
+#   multilingual  mpnet int8, memories from 0.9.47 and before (nothing to read again): English
+#                 75.6%, Korean 67.5%, Korean asked of English 70.6%; LongMemEval_S 87.1%
 PRESETS = {"english": "onnx-community/embeddinggemma-300m-ONNX@onnx/model_q4.onnx",
            "multilingual": ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
                             "@onnx/model_quint8_avx2.onnx")}

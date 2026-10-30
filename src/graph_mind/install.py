@@ -506,9 +506,7 @@ def main(argv=None):
     step(capture_service(start=not args.no_start))
     if not args.skip_model:
         from graph_mind.local_embedder import mode
-        step(f"downloading the search model: {mode()}"
-             + (" (English only; for Korean and other languages: turnbook model multilingual)"
-                if mode() == "english" else ""))
+        step(f"downloading the search model: {mode()}")
         embedding_model()
     if args.join and args.join.strip().startswith("gmt1."):
         from graph_mind.project_brains import join_team

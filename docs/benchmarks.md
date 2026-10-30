@@ -10,13 +10,23 @@ The answer model is gpt-5-mini; the judge is the official gpt-4o-2024-08-06.
 
 | | accuracy | model tokens at write time | packet read per question |
 |---|---|---|---|
-| **All 500 questions** | **88.8%** (444/500) | **0** | 3.4k tokens |
-| The 380 never used for tuning | **87.6%** (333/380) | 0 | 3.4k tokens |
+| **0.9.48, all judged (499)** | **92.0%** (459/499) | **0** | 3.1k tokens |
+| 0.9.48, never used for tuning (379) | **91.3%** (346/379) | 0 | 3.1k tokens |
+| 0.9.10, all 500 | 88.8% (444/500) | 0 | 3.4k tokens |
+| 0.9.10, never used for tuning (380) | 87.6% (333/380) | 0 | 3.4k tokens |
 
-Measured on 0.9.10's embedding model, the int8 export of multilingual mpnet
-([`graph-v9.14-full500-mpnet8`](../research/runs/graph-v9.14-full500-mpnet8)). The earlier
-model (multilingual MiniLM) scored the same 444/500 and 330/380 on the untuned questions. One
-question gets no parsable answer (the reader runs out of output) and counts as wrong.
+0.9.48 ran its default search model, EmbeddingGemma (4-bit ONNX), with 15,000-character packets
+([`graph-v9.14-full500-mpnet8-gemma`](../research/runs/graph-v9.14-full500-mpnet8-gemma)); the
+judge timed out on one question every time, so it is left out. "Never used for tuning" means the
+question ids held back since v7.0; the re-ranker weights were trained on LoCoMo and LongMemEval
+together, so no LongMemEval score here is fully held out. 0.9.10 ran the int8 export of
+multilingual mpnet ([`graph-v9.14-full500-mpnet8`](../research/runs/graph-v9.14-full500-mpnet8));
+the model before it (multilingual MiniLM) scored the same 444/500. One question gets no parsable
+answer there (the reader runs out of output) and counts as wrong.
+
+Packet size against search model, same 500 questions, reader and judge (median tokens read):
+mpnet 3.4k 87.1%, 6.7k 90.1%, 13.2k 90.8%, 26.3k 92.0%; EmbeddingGemma 3.1k 92.0%. Against mpnet
+at the same size: 32 questions only EmbeddingGemma answers, 7 only mpnet (exact McNemar p = 0.0001).
 
 ## Head to head
 

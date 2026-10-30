@@ -276,6 +276,23 @@ class HookTests(unittest.TestCase):
                             side_effect=AssertionError("searched in the hook's process")):
                 self.assertEqual(inject.context(message), "SERVED " + message)
 
+    def test_opencodes_plugin_gets_the_same_deadline(self):
+        """python -m graph_mind.inject waited for the search however long it took (the plugin
+        gave it 15 s)."""
+        import time
+        from graph_mind import inject
+        out = io.StringIO()
+        with mock.patch.object(hook, "DEADLINE", 0.2), \
+                mock.patch.object(inject, "context", lambda text: time.sleep(2) or "late"), \
+                mock.patch("sys.stdin", io.StringIO("where were we?")), \
+                mock.patch("sys.stdout", out), mock.patch("os._exit") as leave:
+            began = time.monotonic()
+            inject.main()
+            self.assertLess(time.monotonic() - began, 1.0)
+        self.assertEqual(out.getvalue(), "")
+        leave.assert_called_once_with(0)
+        hook._abandoned.clear()
+
     def test_every_message_is_searched_with_no_keyword_needed(self):
         """Whether a message needs the past is the model's call: a keyword list missed
         "오늘 점심 뭐 먹었지?". Only an empty message is skipped."""

@@ -82,10 +82,15 @@ def from_service(query: str):
 
 
 def main() -> None:
+    """OpenCode's plugin: the same deadline as the other agents' hook (it waited up to 15 s)."""
+    from graph_mind.hook import DEADLINE, _abandoned, within
     try:
-        sys.stdout.write(context(sys.stdin.read()[:4000]))
+        sys.stdout.write(within(DEADLINE, context, sys.stdin.read()[:4000]) or "")
     except Exception:                         # never in the way of the message itself
         pass
+    if _abandoned:                            # a search still running: leave now
+        sys.stdout.flush()
+        os._exit(0)
 
 
 if __name__ == "__main__":

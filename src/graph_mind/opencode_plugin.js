@@ -14,7 +14,7 @@ import { execFile } from "node:child_process";
 
 const PYTHON = __PYTHON__;
 const TRANSCRIPTS = __TRANSCRIPTS__;
-const INJECT_TIMEOUT_MS = 15000;
+const INJECT_TIMEOUT_MS = 5000;     // the Python side stops itself after 3 s
 
 function write(sessionID, record) {
   try {

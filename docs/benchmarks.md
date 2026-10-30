@@ -31,7 +31,7 @@ at the same size: 33 questions only EmbeddingGemma answers, 7 only mpnet (exact 
 
 ## agentmemory, all 499 questions
 
-agentmemory publishes 95.2% on LongMemEval_S and states it is retrieval recall (recall_any@5),
+[rohitg00/agentmemory](https://github.com/rohitg00/agentmemory) (not the JordanMcCann project of the same name) publishes 95.2% on LongMemEval_S and states it is retrieval recall (recall_any@5),
 not answer accuracy; it also publishes the sessions its hybrid search returned for each question.
 Its first 5 sessions, every turn in full, went to the same answer model, prompt and official
 judge as the 88.8% run. Only the retrieval differs. Its results file is pinned by commit and

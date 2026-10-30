@@ -25,9 +25,8 @@
 |---|---|---|---|
 | **Turnbook 0.10** | **0** | **3.1k tokens** | **91.8%** |
 | Turnbook, previous search model | 0 | 26.3k tokens | 91.8% |
-| agentmemory | — | ~16.5k tokens | 80.4% |
 
-<sub>All 500 LongMemEval_S questions (agentmemory: 499), same answer model (gpt-5-mini), prompt and official gpt-4o judge; only the memory differs. Tools like claude-mem and Mem0 run an LLM over your conversations to save them; Turnbook stores them word for word. <a href="#does-it-work">Details</a></sub>
+<sub>All 500 LongMemEval_S questions, gpt-5-mini answering, official gpt-4o judge. Not the top score: memories that run an LLM over every conversation when saving it publish higher (Mastra's Observational Memory 94.9% with the same answer model). Turnbook stores conversations word for word and spends no model tokens saving them. <a href="#how-it-compares">How it compares</a></sub>
 
 **English** · [한국어](README.ko.md)
 
@@ -186,19 +185,30 @@ memory; a Python API and multi-user server mode are not built yet. Interested? O
 ## Does it work?
 
 [LongMemEval](https://github.com/xiaowu0162/LongMemEval) is the public benchmark for long-term
-chat memory: 500 questions over about 50 past sessions each. Every system below got the same
-answer model (gpt-5-mini), the same prompt and the official gpt-4o judge; only the memory differs.
+chat memory: 500 questions over about 50 past sessions each. Every Turnbook score here uses the
+same answer model (gpt-5-mini), the same prompt and the official gpt-4o judge, and a question the
+answer model leaves unanswered counts as wrong.
 
 | | accuracy | model tokens spent **saving** memory | text the answer model reads |
 |---|---|---|---|
 | **Turnbook 0.10.0** | **91.8%** (all 500) | **0** | **3.1k tokens** |
 | Turnbook 0.9.9 | 88.8% (all 500) | 0 | 3.4k tokens |
-| agentmemory | 80.4% (same 499) | — | ~16.5k tokens |
 
-agentmemory was measured against 0.9.9, which scored 89.0% on agentmemory's 499.
-Retrieval alone, on agentmemory's own measure (an answer session among the first 5 retrieved):
-Turnbook 0.9.9 98.5%, agentmemory 95.2%. A question the answer model leaves unanswered (it spends
-its whole output limit thinking) counts as wrong, as in every Turnbook score here.
+### How it compares
+
+Other memories publish their own LongMemEval scores, each with its own answer model, judge and
+setup, so they are not one ranking. The closest to like-for-like:
+[Mastra's Observational Memory](https://mastra.ai/research/observational-memory) reports 94.9%
+with the same answer model, gpt-5-mini, which reads about 30k tokens of observations that
+gemini-2.5-flash wrote while the conversations were saved. It and others (Mem0, Supermemory) run
+an LLM over every conversation when saving it, writing dated facts and replacing outdated ones; that is
+where Turnbook loses points: 33 of its 41 misses are questions that combine several sessions,
+reason about dates, or need the newest value of something that changed. Turnbook keeps the
+original words, spends no model tokens saving them, and runs on your own PC.
+
+On one rival we measured ourselves, with the same reader and judge:
+[rohitg00/agentmemory](https://github.com/rohitg00/agentmemory)'s published retrieval gave 80.4%
+(Turnbook 0.9.9: 89.0% on the same 499); [details](docs/benchmarks.md).
 
 ### Fewer tokens for the same accuracy
 

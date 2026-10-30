@@ -1,0 +1,11 @@
+{
+ "tasks": 200,
+ "reader": "gpt-5-mini",
+ "plain_correct": 193,
+ "memory_correct": 191,
+ "only_plain": 4,
+ "only_memory": 2,
+ "mcnemar_p": 0.6875,
+ "packets_nonempty": 200,
+ "packet_chars_median": 1389
+}

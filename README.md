@@ -231,6 +231,18 @@ held up to 15,000 characters; since 0.10.0 `brain_context` sends up to 30,000 by
 (answer turn among the first 10 found): 83.7%, mpnet 70.2%.
 [research/runs/graph-v9.14-full500-mpnet8-gemma](research/runs/graph-v9.14-full500-mpnet8-gemma)
 
+**Without the learned re-ranker** (plain rank fusion, no weight fitted on any benchmark): 87.0% of
+all 500, 86.8% of the 380 questions never used for tuning, where the shipped search scores 91.1%
+(19 questions only it answers, 3 only fusion). The re-ranker helps most where answers are spread
+over several sessions. [norerank](research/runs/graph-v9.14-full500-mpnet8-norerank)
+
+**The memory added to each message** (4 items, ~300 tokens) is a hint, not the full search: alone
+it answers 61.4% of the same 500; `brain_context`, which the model calls for more, answers 91.8%.
+It does not get in the way of unrelated work: on 200 GSM8K math problems with an unrelated
+person's memory attached, gpt-5-mini solved 191, against 193 without it (p = 0.69).
+[hook](research/runs/graph-v9.14-full500-mpnet8-hook) ·
+[interference](research/runs/graph-v9.23-hook-interference)
+
 ### As the memory grows
 
 The charts below were measured with 0.9.47 and its search model (mpnet). With 0.10's model, at

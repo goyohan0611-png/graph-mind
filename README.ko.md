@@ -221,6 +221,17 @@ LoCoMo와 LongMemEval을 함께 써서 학습했습니다. 이 측정의 묶음�
 보지 못한 대화로 잰 검색(답이 든 대화가 상위 10개 안): 83.7%, mpnet 70.2%.
 [research/runs/graph-v9.14-full500-mpnet8-gemma](research/runs/graph-v9.14-full500-mpnet8-gemma)
 
+**학습한 재정렬 없이**(단순 순위 결합, 어떤 벤치마크에도 맞춘 가중치 없음): 500문항 전체 87.0%,
+튜닝에 한 번도 쓰지 않은 380문항에서 86.8%. 같은 380문항에서 지금 검색은 91.1%입니다(이쪽만 맞힌 문항 19개,
+재정렬 없이만 맞힌 문항 3개). 재정렬은 답이 여러 세션에 흩어진 문제에서 가장 크게 돕습니다.
+[norerank](research/runs/graph-v9.14-full500-mpnet8-norerank)
+
+**메시지마다 넣는 기억**(4개, 약 300토큰)은 힌트이지 전체 검색이 아닙니다: 그것만으로는 같은 500문항의
+61.4%를 맞히고, 모델이 더 필요할 때 부르는 `brain_context`는 91.8%입니다. 관계없는 작업을 방해하지도
+않습니다: GSM8K 수학 문제 200개에 다른 사람의 기억을 붙였을 때 gpt-5-mini는 191개, 붙이지 않았을 때 193개를
+풀었습니다(p = 0.69). [hook](research/runs/graph-v9.14-full500-mpnet8-hook) ·
+[interference](research/runs/graph-v9.23-hook-interference)
+
 ### 기억이 쌓일수록
 
 아래 그래프는 0.9.47과 그 검색 모델(mpnet)로 잰 것입니다. 0.10의 모델로는 6천 턴에서 답이 든 대화가 상위 30개

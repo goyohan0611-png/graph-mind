@@ -275,9 +275,16 @@ class AutomaticCaptureService:
                         else:
                             if not getattr(self, "_deletions_checked", False):
                                 capture.drop_false_deletions()     # once per service start
-                            outcome = capture.scan(
-                                reason="Automatically observed workspace change; intent pending",
-                                related_tests=[])
+                            try:
+                                outcome = capture.scan(
+                                    reason="Automatically observed workspace change; "
+                                           "intent pending", related_tests=[])
+                            except ValueError as error:
+                                # another folder, file kinds or exclusions in the config: the
+                                # old manifest failed every 2 minutes and code capture stopped
+                                if str(error) != "CODING_MANIFEST_SCOPE_OR_VERSION_MISMATCH":
+                                    raise
+                                outcome = capture.initialize_baseline()
                         coding.append({"project_id": entry["project_id"], **outcome})
                     except Exception as error:  # keep other capture sources alive
                         errors.append({"source": "code",

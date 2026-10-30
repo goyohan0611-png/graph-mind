@@ -54,6 +54,28 @@ class AutomaticCaptureTests(unittest.TestCase):
             status = json.loads((state / "status.json").read_text(encoding="utf-8"))
             self.assertEqual(status["status"], "CAPTURE_OK")
 
+    def test_a_watched_folder_changed_in_the_config_starts_over_there(self):
+        """The old folder's manifest no longer matched: every pass failed and code capture
+        stopped for good."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old, new, sessions, state = (root / n for n in ("old", "new", "sessions", "state"))
+            for folder in (old, new, sessions):
+                folder.mkdir()
+            (new / "app.py").write_text("def value():\n    return 1\n")
+            config = make_config(workspace=old, project_id="project:test",
+                session_id="capture:test", sessions_root=sessions,
+                db_path=root / "brain.sqlite", poll_seconds=1)
+            config["code_workspaces"][0]["state_dir"] = str(state / "coding")
+            AutomaticCaptureService(config, state_dir=state).baseline()
+            config["code_workspaces"][0]["workspace"] = str(new)
+            service = AutomaticCaptureService(config, state_dir=state)
+            first = service.run_once()
+            (new / "app.py").write_text("def value():\n    return 2\n")
+            second = service.run_once()
+            self.assertEqual(first["status"], "CAPTURE_OK")
+            self.assertEqual(second["coding"][0]["change_count"], 1)
+
     def test_claude_code_is_captured_on_a_pc_without_codex(self):
         """A fresh PC with only Claude Code: a missing Codex folder used to stop every source."""
         with tempfile.TemporaryDirectory() as directory:

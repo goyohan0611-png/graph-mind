@@ -3,6 +3,15 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.10.2 — 2026-10-30
+- **A message never waits more than 3 s for its memory.** With the capture service down, a hook
+  that searched by itself loaded the model first and held the message 7-22 s; now the message
+  goes on without memory after 3 s. A hook no longer tries a service that has died (2 s each).
+- The capture service reads the search index when it starts and keeps it (about 170 MB on an
+  11k-turn memory), so a message right after a quiet half hour gets its memory in time too.
+- A long pasted message is searched by its first and last 500 characters, where the question
+  usually is: 4,000 characters took 2.2 s, now about 0.8 s.
+
 ## 0.10.1 — 2026-10-30
 - **Memory added to each message, faster.** The capture service now answers the per-message hook
   from its own loaded model and search index, so a message that asks about the past waits about

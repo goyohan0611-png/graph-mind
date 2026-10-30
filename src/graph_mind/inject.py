@@ -19,13 +19,18 @@ HEADER = ("Turnbook memory: what the user said or saved before that may bear on 
           "more, call brain_context.\n\n")
 
 
-SERVICE_WAIT = 5.0     # seconds for the capture service's answer before searching here
+ENDS = 500          # characters searched from each end of a long message
+SERVICE_WAIT = 2.5     # seconds for the capture service's answer before searching here
 
 
 def context(query: str, *, database=None, embedder=None) -> str:
     """`database`/`embedder` given: the capture service answering for a hook, from its own
     loaded model and warm index. Neither: a hook's own process, which asks the service first."""
     from graph_mind.context_packet import build_context_pack, decide_recall
+    if len(query) > 2 * ENDS:
+        # a pasted log or file: the question sits at its start or end, and the rest only slowed
+        # the search (4,000 characters took 2.2 s in the service, 1,000 0.8 s)
+        query = query[:ENDS] + "\n" + query[-ENDS:]
     if not query.strip() or decide_recall(query, "auto")["mode"] == "SKIP":
         return ""                             # before the heavy imports: most messages end here
     if database is None:
@@ -55,6 +60,9 @@ def from_service(query: str):
         info = json.loads(service_file().read_text(encoding="utf-8"))
         if not info.get("context") or info.get("model") != LOCAL_MODEL:
             return None
+        import psutil
+        if not psutil.pid_exists(int(info.get("pid", 0))):
+            return None     # a service that died left its file: connecting took 2 s to fail
         with Client(("127.0.0.1", info["port"]), authkey=bytes.fromhex(info["key"])) as conn:
             conn.send(("context", query))
             if not conn.poll(SERVICE_WAIT):

@@ -31,6 +31,29 @@ EVENTS = {
 INJECT_ONLY = {"claude-code": "UserPromptSubmit", "codex": "UserPromptSubmit",
                "copilot-cli": "userPromptTransformed"}
 
+# seconds a message may wait for its memory; then it goes without. With the capture service
+# down, a search in this process loaded the model first: 7-22 s measured on Windows.
+DEADLINE = 3.0
+_abandoned = []
+
+
+def within(seconds, work, *args):
+    """work(*args), or None if it takes longer than `seconds` (it is left running)."""
+    import threading
+    box = []
+
+    def run():
+        try:
+            box.append(work(*args))
+        except Exception:
+            box.append(None)
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(seconds)
+    if worker.is_alive():
+        _abandoned.append(worker)
+    return box[0] if box else None
+
 
 def hooks_root():
     from graph_mind.paths import graph_mind_home
@@ -101,7 +124,7 @@ def reply(agent: str, event_name: str, text: str | None, event: dict | None = No
                                                *INJECT_ONLY.items()}:
         return {}
     from graph_mind.inject import context
-    memory = context(text[:4000])
+    memory = within(DEADLINE, context, text[:4000])
     if not memory:
         return {}
     if agent == "copilot-cli":          # its only way in: the text the model receives, extended
@@ -123,6 +146,9 @@ def main(argv=None) -> None:
         answer = reply(agent, event_name, None)
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stdout.write(json.dumps(answer, ensure_ascii=False))
+    if _abandoned:                 # a search still running: leave now, not when it ends
+        sys.stdout.flush()
+        os._exit(0)
 
 
 if __name__ == "__main__":

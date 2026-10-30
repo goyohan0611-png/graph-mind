@@ -454,6 +454,11 @@ class AutomaticCaptureService:
                 self._embedder = default_embedder(self.db_path)
             self._embedder.embed(["warm up"])
             serve(self._embedder, context=self.answer_context)
+            # the index read now and kept (one copy, ~170 MB on an 11k-turn memory): a hook
+            # waits DEADLINE seconds at most, and a cold read took up to 4 s
+            import threading
+            threading.Thread(target=self.answer_context, args=("where did we leave off?",),
+                             daemon=True).start()
         except Exception:                       # no model on disk: the servers load their own
             pass
 
@@ -461,14 +466,6 @@ class AutomaticCaptureService:
         """The memory for one message, for the per-message hook (graph_mind.inject)."""
         from graph_mind.inject import context
         return context(message, database=self.db_path, embedder=self._embedder)
-
-    @staticmethod
-    def let_go_of_index():
-        """The index answer_context loaded: dropped after mcp_server.IDLE_TRIM quiet seconds,
-        as the memory servers drop theirs (the lent model stays)."""
-        server = sys.modules.get("graph_mind.mcp_server")
-        if server and server._PIECES and time.monotonic() - server._used[0] >= server.IDLE_TRIM:
-            server._PIECES.clear()
 
     def run_forever(self, *, max_iterations=None):
         if running_service(self.state_dir):
@@ -527,7 +524,6 @@ class AutomaticCaptureService:
                     break
                 if code_due:
                     last_code_scan = time.monotonic()
-                self.let_go_of_index()
                 iteration += 1
                 if max_iterations is None or iteration < max_iterations:
                     time.sleep(self.config["poll_seconds"])

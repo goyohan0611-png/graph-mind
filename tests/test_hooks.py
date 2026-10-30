@@ -276,6 +276,28 @@ class HookTests(unittest.TestCase):
                             side_effect=AssertionError("searched in the hook's process")):
                 self.assertEqual(inject.context(message), "SERVED " + message)
 
+    def test_a_pasted_log_is_searched_by_its_two_ends(self):
+        """The question sits at the start or end; the middle only slowed the search."""
+        from graph_mind import inject
+        asked = []
+        message = "where did we leave off? " + "Traceback line " * 400 + " same error as last time?"
+        with mock.patch("graph_mind.inject.from_service", lambda q: asked.append(q) or "M"):
+            self.assertEqual(inject.context(message), "M")
+        self.assertLessEqual(len(asked[0]), 2 * inject.ENDS + 1)
+        self.assertTrue(asked[0].startswith("where did we leave off?"))
+        self.assertTrue(asked[0].endswith("same error as last time?"))
+
+    def test_a_slow_search_never_holds_the_message(self):
+        """Service down, model still loading: the message goes on without memory after
+        DEADLINE seconds (it waited 7-22 s)."""
+        import time
+        with mock.patch.object(hook, "DEADLINE", 0.2), \
+                mock.patch("graph_mind.inject.context", lambda text: time.sleep(2) or "late"):
+            began = time.monotonic()
+            self.assertEqual(hook.reply("codex", "UserPromptSubmit", "where were we?"), {})
+            self.assertLess(time.monotonic() - began, 1.0)
+        hook._abandoned.clear()
+
     def test_installer_adds_the_memory_hooks(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)

@@ -7,7 +7,7 @@
 
 ### Your AI forgets everything when the session ends. This one remembers, and it never calls an LLM to do it.
 
-**92.0% on LongMemEval from 3.1k tokens of memory per question ([0.10.0](#does-it-work)). Zero model tokens spent saving memory. Runs on your own PC.**
+**91.8% on LongMemEval from 3.1k tokens of memory per question ([0.10.0](#does-it-work)). Zero model tokens spent saving memory. Runs on your own PC.**
 
 [![][license-shield]][license-link]
 [![][python-shield]][python-link]
@@ -172,14 +172,14 @@ answer model (gpt-5-mini), the same prompt and the official gpt-4o judge; only t
 
 | | accuracy | model tokens spent **saving** memory | text the answer model reads |
 |---|---|---|---|
-| **Turnbook 0.10.0** | **92.0%** (499 of 500 judged) | **0** | **3.1k tokens** |
+| **Turnbook 0.10.0** | **91.8%** (all 500) | **0** | **3.1k tokens** |
 | Turnbook 0.9.9 | 88.8% (all 500) | 0 | 3.4k tokens |
 | agentmemory | 80.4% (same 499) | — | ~16.5k tokens |
 
 agentmemory was measured against 0.9.9, which scored 89.0% on agentmemory's 499.
 Retrieval alone, on agentmemory's own measure (an answer session among the first 5 retrieved):
-Turnbook 0.9.9 98.5%, agentmemory 95.2%. One of the 500 is missing from 0.10.0's score because
-the judge timed out on it every time.
+Turnbook 0.9.9 98.5%, agentmemory 95.2%. A question the answer model leaves unanswered (it spends
+its whole output limit thinking) counts as wrong, as in every Turnbook score here.
 
 ### Fewer tokens for the same accuracy
 
@@ -188,14 +188,14 @@ questions, the same reader and judge; only the search model and the packet size 
 
 | search model | text the answer model reads (median) | accuracy |
 |---|---|---|
-| mpnet | 3.4k tokens | 87.1% |
-| mpnet | 6.7k tokens | 90.1% |
-| mpnet | 13.2k tokens | 90.8% |
-| mpnet | 26.3k tokens | 92.0% |
-| **EmbeddingGemma** | **3.1k tokens** | **92.0%** |
+| mpnet | 3.4k tokens | 86.6% |
+| mpnet | 6.7k tokens | 89.6% |
+| mpnet | 13.2k tokens | 90.4% |
+| mpnet | 26.3k tokens | 91.8% |
+| **EmbeddingGemma** | **3.1k tokens** | **91.8%** |
 
-Against mpnet at the same size, EmbeddingGemma answers 32 questions mpnet misses and misses 7 it
-answers (p = 0.0001). Questions that need several past sessions gain most: 74.2% → 88.4%. The
+Against mpnet at the same size, EmbeddingGemma answers 33 questions mpnet misses and misses 7 it
+answers (p = 0.00004). Questions that need several past sessions gain most: 73.6% → 88.4%. The
 re-ranker weights for each model were trained on LoCoMo and LongMemEval together. These packets
 held up to 15,000 characters; since 0.10.0 `brain_context` sends up to 30,000 by default
 (`max_chars` sets it). Its retrieval on LoCoMo, scored on conversations its weights never saw
@@ -292,7 +292,7 @@ Contributions are welcome. License: [Apache-2.0](LICENSE).
 [python-link]: https://www.python.org/
 [platform-shield]: https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-b0e8ff?style=flat-square
 [platform-link]: docs/benchmarks.md#known-limits
-[longmemeval-shield]: https://img.shields.io/badge/LongMemEval-92.0%25-2ea44f?style=flat-square
+[longmemeval-shield]: https://img.shields.io/badge/LongMemEval-91.8%25-2ea44f?style=flat-square
 [benchmarks-link]: docs/benchmarks.md
 [ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/turnbook/tests.yml?style=flat-square&label=tests
 [ci-link]: https://github.com/goyohan0611-png/turnbook/actions/workflows/tests.yml

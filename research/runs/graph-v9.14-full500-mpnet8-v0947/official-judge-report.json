@@ -3,9 +3,9 @@
   "note": "OFFICIAL LongMemEval protocol judge (comparable). Same 60 pilot answers as the custom-judge 87%.",
   "by_type": {
     "ALL": {
-      "correct": 432,
-      "n": 496,
-      "acc": 0.871
+      "correct": 433,
+      "n": 497,
+      "acc": 0.8712
     },
     "abstention": {
       "correct": 27,
@@ -13,9 +13,9 @@
       "acc": 0.9
     },
     "knowledge-update": {
-      "correct": 67,
-      "n": 71,
-      "acc": 0.9437
+      "correct": 68,
+      "n": 72,
+      "acc": 0.9444
     },
     "multi-session": {
       "correct": 89,

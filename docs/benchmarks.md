@@ -10,14 +10,14 @@ The answer model is gpt-5-mini; the judge is the official gpt-4o-2024-08-06.
 
 | | accuracy | model tokens at write time | packet read per question |
 |---|---|---|---|
-| **0.10.0, all judged (499)** | **92.0%** (459/499) | **0** | 3.1k tokens |
-| 0.10.0, never used for tuning (379) | **91.3%** (346/379) | 0 | 3.1k tokens |
+| **0.10.0, all 500 questions** | **91.8%** (459/500) | **0** | 3.1k tokens |
+| 0.10.0, never used for tuning (380) | **91.1%** (346/380) | 0 | 3.1k tokens |
 | 0.9.10, all 500 | 88.8% (444/500) | 0 | 3.4k tokens |
 | 0.9.10, never used for tuning (380) | 87.6% (333/380) | 0 | 3.4k tokens |
 
 0.10.0 ran its default search model, EmbeddingGemma (4-bit ONNX), with 15,000-character packets
-([`graph-v9.14-full500-mpnet8-gemma`](../research/runs/graph-v9.14-full500-mpnet8-gemma)); the
-judge timed out on one question every time, so it is left out. "Never used for tuning" means the
+([`graph-v9.14-full500-mpnet8-gemma`](../research/runs/graph-v9.14-full500-mpnet8-gemma)). One
+question gets no answer (the reader spends its 1,024 output tokens thinking) and counts as wrong. "Never used for tuning" means the
 question ids held back since v7.0; the re-ranker weights were trained on LoCoMo and LongMemEval
 together, so no LongMemEval score here is fully held out. 0.9.10 ran the int8 export of
 multilingual mpnet ([`graph-v9.14-full500-mpnet8`](../research/runs/graph-v9.14-full500-mpnet8));
@@ -25,8 +25,9 @@ the model before it (multilingual MiniLM) scored the same 444/500. One question 
 answer there (the reader runs out of output) and counts as wrong.
 
 Packet size against search model, same 500 questions, reader and judge (median tokens read):
-mpnet 3.4k 87.1%, 6.7k 90.1%, 13.2k 90.8%, 26.3k 92.0%; EmbeddingGemma 3.1k 92.0%. Against mpnet
-at the same size: 32 questions only EmbeddingGemma answers, 7 only mpnet (exact McNemar p = 0.0001).
+mpnet 3.4k 86.6%, 6.7k 89.6%, 13.2k 90.4%, 26.3k 91.8%; EmbeddingGemma 3.1k 91.8%. Unanswered
+questions count as wrong in every run. Against mpnet
+at the same size: 33 questions only EmbeddingGemma answers, 7 only mpnet (exact McNemar p = 0.00004).
 
 ## agentmemory, all 499 questions
 

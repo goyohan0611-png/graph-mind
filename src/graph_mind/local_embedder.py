@@ -19,9 +19,9 @@ from graph_mind.vector_cache import VectorCache, convert
 # "repo@file": an ONNX export on Hugging Face. Two presets
 # (research/runs/graph-v9.21-korean/embed_probe_cross.txt, meaning search, answer in the first 30):
 #   gemma         EmbeddingGemma q4, every install: English 90.2%, Korean 86.9%, Korean asked of
-#                 English 87.8%; LongMemEval_S end to end 92.0% (graph-v9.14-full500-mpnet8-gemma)
+#                 English 87.8%; LongMemEval_S end to end 91.8% (graph-v9.14-full500-mpnet8-gemma)
 #   multilingual  mpnet int8, what memories from 0.9.47 and before were read with: English
-#                 75.6%, Korean 67.5%, Korean asked of English 70.6%; LongMemEval_S 87.1%
+#                 75.6%, Korean 67.5%, Korean asked of English 70.6%; LongMemEval_S 86.6%
 # "english" is 0.9.48's name for gemma, kept for the model.txt files that hold it.
 GEMMA = "onnx-community/embeddinggemma-300m-ONNX@onnx/model_q4.onnx"
 PRESETS = {"gemma": GEMMA,

@@ -21,9 +21,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
 ## 0.9.48 — 2026-10-30
 - **A more accurate search model for new installs: EmbeddingGemma** (Google, 300M, 4-bit ONNX,
-  about 200 MB). On LongMemEval_S it answers 92.0% of questions (459 of 499 judged) from a
-  3.1k-token packet; the same packet with mpnet scored 87.1%, and mpnet needed 26.3k tokens to
-  reach 92.0%. On LoCoMo, scored on conversations the re-ranker never saw, the answer turn is among
+  about 200 MB). On LongMemEval_S it answers 91.8% of questions (459 of 500) from a
+  3.1k-token packet; the same packet with mpnet scored 86.6%, and mpnet needed 26.3k tokens to
+  reach 91.8%. On LoCoMo, scored on conversations the re-ranker never saw, the answer turn is among
   the first 10 found for 83.7% of questions (mpnet 70.2%). In Korean it finds the answer by
   meaning almost as well as in English (86.9% against 90.2% in the first 30; mpnet 67.5%).
   EmbeddingGemma is provided under the Gemma Terms of Use (https://ai.google.dev/gemma/terms).
@@ -34,7 +34,7 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 - An app's memory server holds about 250 MB less with EmbeddingGemma (525 MB against 772 MB); a
   search takes about 40 ms (26 ms with mpnet).
 - `brain_context` hands over up to 60 turns and 30,000 characters by default (was 30 and 15,000).
-  With mpnet that took LongMemEval_S from 87.1% to 90.1%; set `max_chars` for smaller packets.
+  With mpnet that took LongMemEval_S from 86.6% to 89.6%; set `max_chars` for smaller packets.
 - Memory tools now warn when automatic capture has not run for 15 minutes, so you learn when
   conversations stop being saved.
 

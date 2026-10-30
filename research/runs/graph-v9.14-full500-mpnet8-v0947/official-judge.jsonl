@@ -495,3 +495,4 @@
 {"question_id": "1de5cff2", "type": "single-session-assistant", "label": true, "judge_raw": "Yes"}
 {"question_id": "65240037", "type": "single-session-assistant", "label": true, "judge_raw": "Yes."}
 {"question_id": "778164c6", "type": "single-session-assistant", "label": true, "judge_raw": "Yes"}
+{"question_id": "5c40ec5b", "type": "knowledge-update", "label": true, "judge_raw": "yes"}

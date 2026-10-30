@@ -6,7 +6,7 @@
 
 ### AI는 세션이 끝나면 다 잊어버립니다. 이건 기억합니다. 그것도 LLM을 한 번도 부르지 않고요.
 
-**LongMemEval 92.0%, 질문당 기억 3.1천 토큰으로 ([0.10.0](#정말-되나요)). 기억을 저장하는 데 쓰는 모델 토큰 0. 내 PC에서 돌아갑니다.**
+**LongMemEval 91.8%, 질문당 기억 3.1천 토큰으로 ([0.10.0](#정말-되나요)). 기억을 저장하는 데 쓰는 모델 토큰 0. 내 PC에서 돌아갑니다.**
 
 [![][license-shield]][license-link]
 [![][python-shield]][python-link]
@@ -165,13 +165,13 @@ Turnbook의 속은 대화 기록 위의 RAG이고, 답을 쓰기 직전까지의
 
 | | 정확도 | 기억 **저장**에 쓴 모델 토큰 | 답변 모델이 읽는 분량 |
 |---|---|---|---|
-| **Turnbook 0.10.0** | **92.0%** (500문항 중 499문항 채점) | **0** | **3.1천 토큰** |
+| **Turnbook 0.10.0** | **91.8%** (500문항 전체) | **0** | **3.1천 토큰** |
 | Turnbook 0.9.9 | 88.8% (500문항 전체) | 0 | 3.4천 토큰 |
 | agentmemory | 80.4% (같은 499문항) | — | 약 1만 6.5천 토큰 |
 
 agentmemory와의 비교는 0.9.9로 쟀고, 같은 499문항에서 89.0%였습니다.
 검색만 놓고 agentmemory 자신의 기준(답이 든 세션이 상위 5개 안에 있는가)으로 재면 Turnbook 0.9.9 98.5%,
-agentmemory 95.2%. 0.10.0 점수에서 1문항은 채점기가 매번 시간 초과를 내서 빠졌습니다.
+agentmemory 95.2%. 답변 모델이 출력 한도를 생각하는 데 다 써서 답을 못 낸 문항은 틀린 것으로 셉니다(여기 모든 Turnbook 점수가 같습니다).
 
 ### 더 적은 토큰으로 같은 정확도
 
@@ -180,14 +180,14 @@ agentmemory 95.2%. 0.10.0 점수에서 1문항은 채점기가 매번 시간 초
 
 | 검색 모델 | 답변 모델이 읽는 분량 (중앙값) | 정확도 |
 |---|---|---|
-| mpnet | 3.4천 토큰 | 87.1% |
-| mpnet | 6.7천 토큰 | 90.1% |
-| mpnet | 1만 3.2천 토큰 | 90.8% |
-| mpnet | 2만 6.3천 토큰 | 92.0% |
-| **EmbeddingGemma** | **3.1천 토큰** | **92.0%** |
+| mpnet | 3.4천 토큰 | 86.6% |
+| mpnet | 6.7천 토큰 | 89.6% |
+| mpnet | 1만 3.2천 토큰 | 90.4% |
+| mpnet | 2만 6.3천 토큰 | 91.8% |
+| **EmbeddingGemma** | **3.1천 토큰** | **91.8%** |
 
-같은 크기의 mpnet과 비교하면 EmbeddingGemma만 맞힌 문항이 32개, mpnet만 맞힌 문항이 7개입니다(p = 0.0001).
-여러 과거 세션을 엮어야 하는 질문이 가장 많이 올랐습니다: 74.2% → 88.4%. 모델마다 재정렬 가중치는
+같은 크기의 mpnet과 비교하면 EmbeddingGemma만 맞힌 문항이 33개, mpnet만 맞힌 문항이 7개입니다(p = 0.00004).
+여러 과거 세션을 엮어야 하는 질문이 가장 많이 올랐습니다: 73.6% → 88.4%. 모델마다 재정렬 가중치는
 LoCoMo와 LongMemEval을 함께 써서 학습했습니다. 이 측정의 묶음은 최대 1만 5천 자였고, 0.10.0부터
 `brain_context`는 기본으로 최대 3만 자를 보냅니다(`max_chars`로 정할 수 있습니다). LoCoMo에서 가중치가
 보지 못한 대화로 잰 검색(답이 든 대화가 상위 10개 안): 83.7%, mpnet 70.2%.
@@ -277,7 +277,7 @@ Turnbook 자체 코드나 라이선스에 포함되지 않습니다.
 [python-link]: https://www.python.org/
 [platform-shield]: https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-b0e8ff?style=flat-square
 [platform-link]: docs/benchmarks.md#known-limits
-[longmemeval-shield]: https://img.shields.io/badge/LongMemEval-92.0%25-2ea44f?style=flat-square
+[longmemeval-shield]: https://img.shields.io/badge/LongMemEval-91.8%25-2ea44f?style=flat-square
 [benchmarks-link]: docs/benchmarks.md
 [ci-shield]: https://img.shields.io/github/actions/workflow/status/goyohan0611-png/turnbook/tests.yml?style=flat-square&label=tests
 [ci-link]: https://github.com/goyohan0611-png/turnbook/actions/workflows/tests.yml

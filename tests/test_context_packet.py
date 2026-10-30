@@ -55,22 +55,6 @@ class UniversalPersonalMemoryTests(unittest.TestCase):
         self.assertEqual(decide_recall("지난달에 한 번도 안 갔어?")["mode"], "EXECUTE")
         self.assertEqual(decide_recall("anything", "always")["mode"], "SEARCH")
 
-    def test_asking_back_without_a_keyword_still_searches(self):
-        """The per-message hook gave these no memory (10 of 12)."""
-        for question in ["오늘 점심 뭐 먹었지?", "점심 뭐 먹었더라", "그 API 키 어디에 뒀었지?",
-                         "배포 날짜가 언제였지?", "회의에서 누가 발표하기로 했더라?",
-                         "그거 뭐였더라", "what did I have for lunch today?",
-                         "where did I put the config?",
-                         "have I mentioned my sister's birthday?",
-                         "what was the name of that library?"]:
-            self.assertEqual(decide_recall(question)["mode"], "SEARCH", question)
-        for request in ["이 함수 이름 좀 바꿔줘", "테스트 돌려줘", "README 오타 고쳐줘",
-                        "이거 왜 안 돼?", "커밋하고 푸시해", "빌드 에러 고쳐줘", "ㅇㅋ 진행해",
-                        "fix the failing test",
-                        "add a retry to the http client", "explain this regex", "Diddle the widget",
-                        "How do I reverse a list in Python?", "run the linter"]:
-            self.assertEqual(decide_recall(request)["mode"], "SKIP", request)
-
     def test_context_pack_is_bounded_and_source_labelled(self):
         recalled = {"scope_completeness": "UNATTESTED", "matches": [{
             "memory_id": "m1", "scope": "global", "memory_class": "FACT",

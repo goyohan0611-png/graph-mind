@@ -47,8 +47,11 @@ def context(query: str, *, database=None, embedder=None) -> str:
     database = database or configured_db_path()
     recalled = gather(database, query, as_of=_now(), limit=LIMIT,
                       embedder=embedder or embedder_for(database), share=False)
-    packet = build_context_pack(recalled, max_chars=CHARS)
-    return HEADER + packet["context"] if packet["status"] == "KNOWN" else ""
+    packet = build_context_pack(recalled, max_chars=CHARS, short_sources=True)
+    if packet["status"] != "KNOWN":
+        return ""
+    # the lines are dated; "today" needs the date too, which not every model is told
+    return HEADER + "Now: " + _now()[:16].replace("T", " ") + "\n\n" + packet["context"]
 
 
 def from_service(query: str):

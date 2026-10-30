@@ -195,7 +195,7 @@ def _conversation_item(turn):
 NOTE_TURNS = 10      # other turns beside a note (phase 6 eval: research/consolidation_eval.py)
 
 
-def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
+def build_context_pack(recall_result, *, max_chars=6000, order="relevance", short_sources=False):
     """Create a bounded, source-labelled packet instead of replaying full history.
 
     order="time" lays memories and conversation turns out together, newest first. With the
@@ -231,11 +231,16 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
     sections, selected, used = [], [], 0
     for item in candidates:
         separator = 2 if sections else 0
+        # a saved fact's title is often its first words: printed twice, it took a tenth of a
+        # 1,200-character hook packet
+        title = "" if item["content"].startswith(item["title"]) else item["title"]
         header = (f"[{item['source_kind']} | {item['memory_class']} | {item['scope']} | "
-                  f"{item['effective_at']}] {item['title']}\n")
+                  f"{item['effective_at']}] {title}".rstrip() + "\n")
         source = item["provenance"]
-        footer = (f"\nSource: {source.get('source_type', 'unknown')} / "
-                  f"{source.get('source_ref', 'unknown')}")
+        reference = str(source.get("source_ref", "unknown"))
+        if short_sources:     # the file's name, not its path: ~100 characters an item in the hook
+            reference = reference.replace("\\", "/").rsplit("/", 1)[-1]
+        footer = f"\nSource: {source.get('source_type', 'unknown')} / {reference}"
         available = max_chars - used - separator
         if available <= len(header) + len(footer) + 16:
             continue

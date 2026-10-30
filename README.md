@@ -94,6 +94,8 @@ that answer the question.
   [As the memory grows](#as-the-memory-grows)
 - **Any language, across languages.** The search model reads Korean almost as well as English:
   ask in Korean about something said in English, or the other way round. [In Korean](#in-korean)
+- **Your project's documents too.** `turnbook docs add FOLDER` keeps its Markdown and text files
+  searchable beside the conversations, section by section, and up to date as they change.
 - **One memory across your PCs.** Run `turnbook folder share`, then `turnbook folder <code>` on
   the other PC (the AI tells you the command; it never moves your memory by itself, so a web page
   cannot either). Office network or [Tailscale](https://tailscale.com), over TLS, every line
@@ -112,10 +114,10 @@ The installer finds these and connects them; run it again after installing a new
 
 | app | conversations saved | how |
 |---|---|---|
-| Claude Code | every turn | reads its transcripts |
-| Codex CLI | every turn | reads its transcripts |
+| Claude Code | every turn | reads its transcripts; a hook adds relevant memory to each message |
+| Codex CLI | every turn | reads its transcripts; a hook adds relevant memory to each message (trust it once in `/hooks`) |
 | Cursor | every turn | reads its transcripts |
-| Copilot CLI | every turn | reads its transcripts |
+| Copilot CLI | every turn | reads its transcripts; a hook adds relevant memory to each message |
 | Claude Desktop (Cowork) | every turn | reads its session files |
 | Gemini CLI | every turn | hooks; also adds relevant memory before each answer |
 | OpenCode | every turn | plugin; also adds relevant memory before each answer, for any model |
@@ -241,14 +243,16 @@ how to rerun it: [docs/benchmarks.md](docs/benchmarks.md).
 **Will it slow my PC down?** The background service uses about 2% of one CPU core when nothing new
 is coming in. An app's memory server holds about 525 MB with EmbeddingGemma (772 MB with mpnet).
 A memory search takes about 40 ms (46 ms at the 95th percentile on a GitHub runner; mpnet 26 ms);
-the first one after an app starts, about 1.4 s. Each new turn takes about 0.1 s to embed, at
-the lowest CPU priority; on a first install, the conversations already on the PC are read in
-the background while word search answers at once.
+the first one after an app starts, about 1.4 s. Each new turn takes about 0.1 s to embed; the
+service runs below normal CPU priority and embeds backlogs at half pace. On a first install, the
+conversations already on the PC are read in the background while word search answers at once.
 
-**Which search model?** New installs use [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m)
-(about 200 MB, downloaded from Hugging Face on first use). Memories from 0.9.47 and before keep
-mpnet, so an update reads nothing again; `turnbook model english` moves one to EmbeddingGemma
-(read again once, in the background, at half pace). EmbeddingGemma is provided under the
+**Which search model?** [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m)
+(about 200 MB, downloaded from Hugging Face on first use). A memory from 0.9.47 or before keeps
+searching with its old model (mpnet) while the background service reads it again with
+EmbeddingGemma, a few pieces at a time when nothing else is due; then it moves over by itself.
+`turnbook model` shows which model is in use; `turnbook model multilingual` keeps mpnet for good.
+EmbeddingGemma is provided under the
 [Gemma Terms of Use](https://ai.google.dev/gemma/terms); it is not part of Turnbook's own code
 or license.
 

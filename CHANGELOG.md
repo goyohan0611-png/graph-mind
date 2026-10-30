@@ -3,6 +3,22 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.10.0 — 2026-10-30
+- **EmbeddingGemma for every memory.** 0.9.48 gave it to new installs; a memory from 0.9.47 or
+  before now moves to it too. It keeps searching with mpnet while the capture service reads it
+  again with EmbeddingGemma, 64 pieces at a time when nothing else is due, then switches by
+  itself, so search never gets worse on the way. `turnbook model multilingual` keeps mpnet.
+- The model preset is called `gemma` (`english`, its name in 0.9.48, still works).
+- **Project documents.** `turnbook docs add FOLDER` keeps the folder's Markdown and text files
+  searchable beside your conversations, split at headings and updated as they change; a replaced
+  section is marked with the date it was replaced. `turnbook docs remove FOLDER` stops it.
+- **Memory added to each message** in Claude Code, Codex and Copilot CLI: a hook looks up what
+  the message needs from the past and adds it before the model sees it, as Gemini CLI and
+  OpenCode already did. Codex asks you to trust the hook once in `/hooks`.
+- The capture service runs below normal CPU priority.
+- Benchmarks: the 40-question comparisons with MemPalace and Mem0 are removed; 40 questions are
+  too few to rank systems.
+
 ## 0.9.48 — 2026-10-30
 - **A more accurate search model for new installs: EmbeddingGemma** (Google, 300M, 4-bit ONNX,
   about 200 MB). On LongMemEval_S it answers 92.0% of questions (459 of 499 judged) from a

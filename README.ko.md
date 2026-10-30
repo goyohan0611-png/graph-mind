@@ -89,6 +89,8 @@ Claude Code: `claude mcp add turnbook -- python -m graph_mind.mcp_server`. 이�
 - **언어가 달라도.** 검색 모델이 한국어도 영어만큼 거의 잘 읽어서, 영어로 말한 걸 한국어로 물어도,
   그 반대도 찾습니다.
   [한국어에서는](#한국어에서는)
+- **프로젝트 문서도.** `turnbook docs add 폴더`를 하면 그 폴더의 Markdown·텍스트 파일을 제목 단위로 나눠
+  대화와 함께 검색되게 하고, 파일이 바뀌면 따라 갱신합니다.
 - **여러 PC에서 같은 기억.** `turnbook folder share`를 실행하고, 다른 PC에서
   `turnbook folder <코드>`. (AI는 명령어를 알려줄 뿐 기억을 스스로 옮기지 않습니다. 그래서 웹페이지가
   AI를 속여도 못 옮깁니다.) 사무실 네트워크나 [Tailscale](https://tailscale.com), TLS, PC를 떠나기
@@ -106,10 +108,10 @@ Claude Code: `claude mcp add turnbook -- python -m graph_mind.mcp_server`. 이�
 
 | 앱 | 대화 저장 | 방식 |
 |---|---|---|
-| Claude Code | 모든 대화 | 대화 기록 파일을 읽음 |
-| Codex CLI | 모든 대화 | 대화 기록 파일을 읽음 |
+| Claude Code | 모든 대화 | 대화 기록 파일을 읽음. 훅이 메시지마다 관련 기억을 넣어줌 |
+| Codex CLI | 모든 대화 | 대화 기록 파일을 읽음. 훅이 메시지마다 관련 기억을 넣어줌 (`/hooks`에서 한 번 허용) |
 | Cursor | 모든 대화 | 대화 기록 파일을 읽음 |
-| Copilot CLI | 모든 대화 | 대화 기록 파일을 읽음 |
+| Copilot CLI | 모든 대화 | 대화 기록 파일을 읽음. 훅이 메시지마다 관련 기억을 넣어줌 |
 | Claude Desktop (Cowork) | 모든 대화 | 세션 파일을 읽음 |
 | Gemini CLI | 모든 대화 | 훅. 답하기 전에 관련 기억도 넣어줌 |
 | OpenCode | 모든 대화 | 플러그인. 답하기 전에 관련 기억도 넣어줌 (어떤 모델이든) |
@@ -230,14 +232,15 @@ mpnet으로 검색 전체(단어, 의미, 재정렬)를 쓴 0.9.47에서는 한�
 
 **PC가 느려지지 않나요?** 백그라운드 서비스는 새 대화가 없을 때 CPU 코어 하나의 약 2%를 씁니다. 앱마다
 뜨는 기억 서버는 EmbeddingGemma로 약 525MB(mpnet은 772MB)입니다. 기억 검색은 약 40ms(GitHub 서버에서
-95번째 백분위 46ms, mpnet은 26ms), 앱을 켜고 첫 검색은 약 1.4초. 새 대화 한 턴을 임베딩하는 데 약 0.1초,
-가장 낮은 CPU 우선순위로 합니다. 처음 설치하면 PC에 있던 대화를 백그라운드에서 읽고, 그동안은 단어
-검색이 바로 답합니다.
+95번째 백분위 46ms, mpnet은 26ms), 앱을 켜고 첫 검색은 약 1.4초. 새 대화 한 턴을 임베딩하는 데 약 0.1초이고,
+서비스는 보통보다 낮은 CPU 우선순위로 돌며 밀린 임베딩은 절반 속도로 합니다. 처음 설치하면 PC에 있던 대화를
+백그라운드에서 읽고, 그동안은 단어 검색이 바로 답합니다.
 
-**검색 모델은 뭔가요?** 새로 설치하면 [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m)를
-씁니다(약 200MB, 처음 쓸 때 Hugging Face에서 내려받음). 0.9.47 이전부터 쓰던 기억은 mpnet을 그대로 써서
-업데이트해도 다시 읽을 게 없습니다. `turnbook model english`로 EmbeddingGemma로 바꿀 수 있습니다(백그라운드에서
-절반 속도로 한 번 다시 읽음). EmbeddingGemma는 [Gemma 이용 약관](https://ai.google.dev/gemma/terms)을 따르며,
+**검색 모델은 뭔가요?** [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m)입니다(약 200MB,
+처음 쓸 때 Hugging Face에서 내려받음). 0.9.47 이전부터 쓰던 기억은 예전 모델(mpnet)로 계속 검색하는 동안,
+백그라운드 서비스가 할 일이 없을 때 조금씩 EmbeddingGemma로 다시 읽고, 다 읽으면 알아서 넘어갑니다.
+`turnbook model`로 지금 모델을 볼 수 있고, `turnbook model multilingual`이면 mpnet을 계속 씁니다.
+EmbeddingGemma는 [Gemma 이용 약관](https://ai.google.dev/gemma/terms)을 따르며,
 Turnbook 자체 코드나 라이선스에 포함되지 않습니다.
 
 **돈이 드나요?** 아니요. API 키도 필요 없고 자체적으로 모델을 부르지 않습니다. 과거가 필요한 질문이

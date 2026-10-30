@@ -21,12 +21,17 @@
 
 *Decide something with one agent on Monday. Ask another on Wednesday. It knows.*
 
-| | tokens spent **saving** memory | text the answer model reads per question | LongMemEval |
-|---|---|---|---|
-| **Turnbook 0.10** | **0** | **3.1k tokens** | **91.8%** |
-| Turnbook, previous search model | 0 | 26.3k tokens | 91.8% |
+| | Typical memory layers (Mem0, Mastra, Supermemory, ...) | **Turnbook** |
+|---|---|---|
+| How a conversation is saved | an LLM rewrites it into facts or notes | **word for word** |
+| What saving costs | LLM API calls for every conversation, for as long as you use it | **nothing** |
+| API key or cloud plan | needed | **none** |
+| Where your conversations go | to the LLM provider, and their cloud if hosted | **stay on your PC** |
+| What gets saved | what the model or your code chooses to add | **every turn, automatically** |
+| Which apps share it | the app you build it into | **Claude Code, Codex, Cursor, Copilot CLI, Gemini CLI and OpenCode, as they are** |
+| LongMemEval, gpt-5-mini answering | up to 94.9% (Mastra) | 91.8% from 3.1k tokens |
 
-<sub>All 500 LongMemEval_S questions, gpt-5-mini answering, official gpt-4o judge. Not the top score: memories that run an LLM over every conversation when saving it publish higher (Mastra's Observational Memory 94.9% with the same answer model). Turnbook stores conversations word for word and spends no model tokens saving them. <a href="#how-it-compares">How it compares</a></sub>
+<sub>All 500 LongMemEval_S questions, official gpt-4o judge. Rewriting every conversation with an LLM buys a few points on questions that combine sessions or dates; Turnbook keeps the original words instead and spends nothing to save them. <a href="#how-it-compares">How it compares</a></sub>
 
 **English** · [한국어](README.ko.md)
 

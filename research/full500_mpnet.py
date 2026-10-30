@@ -5,6 +5,7 @@ continues where it stopped. Then answers and judging run locally:
 
     gh workflow run bench -f research=full500_mpnet.py         # until it prints "500 packets"
     gh workflow run bench --ref exp/x -f research="full500_mpnet.py x"   # an experiment arm
+    gh workflow run bench -f research="full500_mpnet.py c60k --limit 120 --chars 60000"  # bigger
     cd research && OPENAI_API_KEY=... python product_answer_eval.py answer \
         --out runs/graph-v9.14-full500-mpnet8 --ids runs/graph-v7.0-full500-30/ids.json
 """
@@ -25,8 +26,8 @@ from graph_mind.local_embedder import LOCAL_MODEL  # noqa: E402
 
 slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")   # bench/evidence.py's cache for it
 sys.argv = [sys.argv[0], "spans", "--out", str(WORK), "--writable",
-            "--ids", sys.argv[2] if len(sys.argv) > 2 else "runs/graph-v7.0-full500-30/ids.json",
-            "--cache", str(CACHE / f"embed-{slug}.json")]
+            "--ids", "runs/graph-v7.0-full500-30/ids.json",
+            "--cache", str(CACHE / f"embed-{slug}.json"), *sys.argv[2:]]
 import product_answer_eval  # noqa: E402
 
 try:

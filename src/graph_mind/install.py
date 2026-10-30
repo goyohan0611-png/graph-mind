@@ -197,6 +197,24 @@ def _hook_command(agent: str, event: str) -> str:
     return f"{shlex.quote(sys.executable)} {shlex.join(arguments)}"
 
 
+def _plain_command(agent: str, event: str) -> str:
+    """A command line every shell runs the same (cmd, PowerShell, bash): Claude Code's and
+    Codex's hooks do not say which shell they use on Windows. No quotes, so no spaces: the
+    short 8.3 form of a path that has them."""
+    python = sys.executable
+    if os.name == "nt" and " " in python:
+        import ctypes
+        buffer = ctypes.create_unicode_buffer(1024)
+        if ctypes.windll.kernel32.GetShortPathNameW(python, buffer, 1024):
+            python = buffer.value
+    # -P: not the user's project folder first (PYTHONSAFEPATH; these hooks pass no env).
+    # ponytail: 3.10 has no -P, so a graph_mind/ in the project could shadow ours there
+    arguments = ["-P"] * (sys.version_info >= (3, 11)) + ["-m", "graph_mind.hook"]
+    if os.name == "nt":
+        return " ".join([python.replace("\\", "/"), *arguments, agent, event])
+    return shlex.join([python, *arguments, agent, event])
+
+
 def _ours(entry) -> bool:
     return "graph_mind.hook" in json.dumps(entry)
 
@@ -209,12 +227,29 @@ def _hook_files(home: Path) -> list:
         # AfterTool only for brain_forget: the conversation about deleting is not kept
         for event, matcher in (("BeforeAgent", "*"), ("AfterAgent", "*"),
                                ("AfterTool", "brain_forget"))}
-    return [("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", gemini)]
+    # the others' conversations are read from their transcripts: these hooks only add the
+    # memory for each message (graph_mind.hook.INJECT_ONLY)
+    def prompt(agent):
+        return {"UserPromptSubmit": {"hooks": [{
+            "type": "command", "timeout": 20,
+            "command": _plain_command(agent, "UserPromptSubmit")}]}}
+    shell = "powershell" if os.name == "nt" else "bash"
+    copilot = {"userPromptTransformed": {
+        "type": "command", "timeoutSec": 20, "env": ENV,
+        shell: _hook_command("copilot-cli", "userPromptTransformed")}}
+    copilot_home = Path(os.environ.get("COPILOT_HOME") or home / ".copilot")
+    return [("Gemini CLI", home / ".gemini", home / ".gemini" / "settings.json", gemini),
+            ("Claude Code", home / ".claude", home / ".claude" / "settings.json",
+             prompt("claude-code")),
+            ("Codex", home / ".codex", home / ".codex" / "hooks.json", prompt("codex")),
+            ("Copilot CLI", copilot_home, copilot_home / "hooks" / "turnbook.json", copilot)]
 
 
 def _write_hooks(path: Path, entries: dict) -> None:
     """Our entry for each event, in place of an older one of ours; everyone else's kept."""
     settings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if path.parent.name == "hooks":     # Copilot CLI's own hooks file: it wants a version
+        settings.setdefault("version", 1)
     hooks = settings.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise ValueError("hooks is not an object")
@@ -498,7 +533,10 @@ def main(argv=None):
     step("memory connected to: " + (", ".join(apps) if apps else
                                      "no AI app found yet; install one and run this again"))
     if hooked:
-        step("conversations saved through hooks: " + ", ".join(hooked))
+        step("memory added to each message in: " + ", ".join(hooked))
+    if "Codex" in hooked:
+        step("Codex asks once before it runs a new hook: type /hooks in Codex and trust "
+             "Turnbook's")
     if args.name:
         from graph_mind.sharing import _save
         _save({"user_name": " ".join(args.name.split())[:40]})

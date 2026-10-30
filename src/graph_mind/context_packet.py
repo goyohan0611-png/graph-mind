@@ -174,10 +174,15 @@ def _memory_item(memory):
 
 
 def _conversation_item(turn):
+    if turn["role"] == "document":     # a section of a project document (documents.py)
+        title = ("document section, replaced on " + turn["replaced_at"][:10] + " by a newer text"
+                 if turn.get("replaced_at") else "document section")
+    else:
+        title = turn["role"] + " conversation turn"
     return {
         "id": turn["turn_id"], "source_kind": "CONVERSATION_TURN",
         "memory_class": "EPISODE", "modality": "CONVERSATION",
-        "scope": turn["scope"], "title": turn["role"] + " conversation turn",
+        "scope": turn["scope"], "title": title,
         "content": turn["content"], "effective_at": turn["happened_at"],
         "known_at": turn["happened_at"],
         "provenance": {"source_type": turn["client"],
@@ -196,7 +201,7 @@ def build_context_pack(recall_result, *, max_chars=6000, order="relevance"):
     order="time" lays memories and conversation turns out together, newest first. With the
     default, curated memories go first and can use up the budget before any recent turn fits,
     which is exactly wrong for "what was I just doing"."""
-    if type(max_chars) is not int or not 256 <= max_chars <= 30000:
+    if type(max_chars) is not int or not 256 <= max_chars <= 200000:
         raise ValueError("INVALID_CONTEXT_CHAR_BUDGET")
     memories = [_memory_item(item) for item in recall_result.get("matches", [])]
     # A note the model wrote after answering from old turns cites them: the note stands in for

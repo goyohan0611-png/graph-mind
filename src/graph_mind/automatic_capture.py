@@ -215,6 +215,11 @@ class AutomaticCaptureService:
             cursor = self.state_dir / "cursor-session-cursor.json"
             sources.append(("cursor", CursorConversationCapture(
                 cursor_projects, store, state_path=cursor, **hooks), cursor))
+        from graph_mind.documents import DocumentCapture, folders
+        if folders():                           # turnbook docs add <folder>
+            cursor = self.state_dir / "documents-state.json"
+            sources.append(("documents", DocumentCapture(folders(), store, state_path=cursor,
+                                                         **hooks), cursor))
         from graph_mind.hook import hooks_root
         agents = Path(self.config.get("hooks_root") or hooks_root())
         for agent_dir in sorted(agents.iterdir()) if agents.is_dir() else []:

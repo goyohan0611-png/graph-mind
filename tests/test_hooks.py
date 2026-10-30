@@ -166,7 +166,7 @@ class HookTests(unittest.TestCase):
             broken["hooks"] = ["not", "an", "object"]
             settings.write_text(json.dumps(broken), encoding="utf-8")
             with mock.patch.dict(os.environ, environment):
-                self.assertEqual(install.agent_hooks(home), [])
+                self.assertNotIn("Gemini CLI", install.agent_hooks(home))
                 install.other_apps(home)
             self.assertNotIn("GRAPH_MIND_CAPTURED", env(".gemini", "settings.json"))
 
@@ -231,6 +231,52 @@ class HookTests(unittest.TestCase):
                           gemini["hooks"]["AfterAgent"][0]["hooks"][0]["command"])
             install.agent_hooks(home, remove=True)
             self.assertEqual(read()["hooks"], {"BeforeAgent": [theirs], "enabled": True})
+
+    def test_agents_with_transcripts_get_only_the_memory(self):
+        """Claude Code, Codex, Copilot CLI: their hook adds the memory for the message in each
+        one's shape, and saves nothing (their transcripts are read already)."""
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
+                mock.patch("graph_mind.inject.context", lambda text: "MEMORY for " + text):
+            prompt = {"session_id": "c1", "prompt": "where did we leave off?"}
+            for agent in ("claude-code", "codex"):
+                self.assertEqual(run(agent, "UserPromptSubmit", prompt), {"hookSpecificOutput": {
+                    "hookEventName": "UserPromptSubmit",
+                    "additionalContext": "MEMORY for where did we leave off?"}})
+            self.assertEqual(run("copilot-cli", "userPromptTransformed",
+                                 {**prompt, "transformedPrompt": "<date/> where?"}),
+                             {"modifiedTransformedPrompt":
+                              "<date/> where?\n\nMEMORY for where did we leave off?"})
+            self.assertFalse(hook.hooks_root().exists())                # nothing saved
+        with mock.patch("graph_mind.inject.context", lambda text: ""):
+            self.assertEqual(run("codex", "UserPromptSubmit", {"prompt": "hi"}), {})
+
+    def test_installer_adds_the_memory_hooks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            for name in (".claude", ".codex", ".copilot"):
+                (home / name).mkdir()
+            theirs = {"hooks": [{"type": "command", "command": "C:/their/hook.exe"}]}
+            (home / ".claude" / "settings.json").write_text(json.dumps(
+                {"model": "opus", "hooks": {"UserPromptSubmit": [theirs]}}), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"COPILOT_HOME": ""}):
+                self.assertEqual(sorted(install.agent_hooks(home)),
+                                 ["Claude Code", "Codex", "Copilot CLI"])
+            claude = json.loads((home / ".claude" / "settings.json").read_text(encoding="utf-8"))
+            self.assertEqual(claude["model"], "opus")
+            self.assertEqual(claude["hooks"]["UserPromptSubmit"][0], theirs)
+            self.assertIn("graph_mind.hook claude-code UserPromptSubmit",
+                          claude["hooks"]["UserPromptSubmit"][1]["hooks"][0]["command"])
+            codex = json.loads((home / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+            self.assertIn("graph_mind.hook codex UserPromptSubmit",
+                          codex["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"])
+            copilot = json.loads((home / ".copilot" / "hooks" / "turnbook.json")
+                                 .read_text(encoding="utf-8"))
+            self.assertEqual(copilot["version"], 1)
+            self.assertIn("copilot-cli", json.dumps(copilot["hooks"]["userPromptTransformed"]))
+            install.agent_hooks(home, remove=True)
+            claude = json.loads((home / ".claude" / "settings.json").read_text(encoding="utf-8"))
+            self.assertEqual(claude["hooks"], {"UserPromptSubmit": [theirs]})
 
 
 if __name__ == "__main__":

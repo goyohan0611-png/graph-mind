@@ -334,9 +334,10 @@ class PieceIndex:
                     "FROM conversation_turns ORDER BY revision").fetchall()
         for revision, turn_id, role, scope, happened_at, plain, packed in new:
             for start, piece in turn_pieces(unpack(plain, packed)):
-                self.pending.append(_Piece(revision, turn_id, start, role == "user", scope,
-                                           happened_at, embedder._key(piece.strip()[:2000]),
-                                           piece))
+                # documents are searched as the user's own words are (documents.py)
+                searched = role in ("user", "document")
+                self.pending.append(_Piece(revision, turn_id, start, searched, scope, happened_at,
+                                           embedder._key(piece.strip()[:2000]), piece))
         if new:
             self.last = new[-1][0]
             self.turns += len(new)
@@ -643,6 +644,12 @@ def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=
                      if t["role"] == "assistant" else t for t in turns]
     turns = [{k: v for k, v in t.items() if k != "full"} for t in turns
              if not until or t["happened_at"] <= until]
+    if any(t["turn_id"].startswith("document-") for t in turns):
+        from graph_mind.documents import replaced_at
+        with ConversationMemoryStore(database) as conversations:
+            old = replaced_at(conversations.db, [t["turn_id"] for t in turns])
+        turns = [{**t, "replaced_at": old[t["turn_id"]]} if t["turn_id"] in old else t
+                 for t in turns]
     result["conversation_turns"] = turns
     if result["status"] == "UNKNOWN" and turns:
         result["status"] = "KNOWN"
@@ -1510,6 +1517,7 @@ def terminal_command(argv):
     turnbook model [english|multilingual]
     turnbook team invite NAME --role viewer|editor|owner --project P [--project P2]
     turnbook team host
+    turnbook docs [add FOLDER | remove FOLDER]
 
     What brain_folder and brain_checkpoint leave to the user: where the memory lives, sharing
     it with their other PCs, moving it to or from a file, and giving a teammate access."""
@@ -1531,6 +1539,9 @@ def terminal_command(argv):
     commands.add_parser("model", help="show or change the search model: english "
                                       "(EmbeddingGemma) or multilingual (mpnet)").add_argument(
         "name", nargs="?", help="english, multilingual, or repo@onnx/file.onnx")
+    docs = commands.add_parser("docs", help="project documents (Markdown, text) to remember")
+    docs.add_argument("action", nargs="?", choices=["add", "remove"])
+    docs.add_argument("folder", nargs="?")
     team = commands.add_parser("team", help="give a teammate access, or host projects here")
     team_actions = team.add_subparsers(dest="action", required=True)
     team_actions.add_parser("host", help="make this PC the team's project hub")
@@ -1566,6 +1577,27 @@ def terminal_command(argv):
                 ensure_service()
         except Exception:
             pass
+        return
+    if args.command == "docs":
+        from graph_mind import documents
+        listed = documents.folders()
+        if args.action and not args.folder:
+            parser.error("docs add/remove needs a FOLDER")
+        if args.action == "add":
+            folder = str(Path(args.folder).expanduser().resolve())
+            if not Path(folder).is_dir():
+                print(f"Not a folder: {folder}")
+                return 1
+            documents.set_folders(listed + [folder])
+            print(f"Added {folder}. Its Markdown and text files are stored within a minute "
+                  "and kept up to date while automatic capture runs.")
+        elif args.action == "remove":
+            folder = str(Path(args.folder).expanduser().resolve())
+            documents.set_folders([f for f in listed if f != folder])
+            print(f"Removed {folder}. What was stored stays; turnbook-forget deletes it.")
+        else:
+            print(chr(10).join(listed) if listed else "No document folders. Add one: "
+                  "turnbook docs add FOLDER")
         return
     if args.command == "compact":
         import sqlite3

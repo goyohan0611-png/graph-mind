@@ -204,6 +204,31 @@ class HookTests(unittest.TestCase):
                          [("copilot-cli", "s1", "user", "my sister is Mina"),
                           ("copilot-cli", "s1", "assistant", "Nice to know about Mina.")])
 
+    def test_the_memory_a_hook_added_is_not_stored_as_the_users_words(self):
+        """Copilot CLI keeps the prompt our hook extended as the user's message: stored again,
+        each packet would come back as something the user said."""
+        from graph_mind.inject import HEADER
+        with tempfile.TemporaryDirectory() as directory:
+            session = Path(directory) / "state" / "s1"
+            session.mkdir(parents=True)
+            at = "2026-10-30T05:38:11.000Z"
+            records = [
+                {"type": "session.start", "id": "e0", "timestamp": at,
+                 "data": {"sessionId": "s1", "context": {"cwd": directory}}},
+                {"type": "user.message", "id": "e1", "timestamp": at,
+                 "data": {"content": "what did I eat?\n\n" + HEADER + "Now: 2026-10-30 14:38\n\n"
+                                     "[CONVERSATION_TURN | ...] I had a panini"}}]
+            (session / "events.jsonl").write_text(
+                "".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+            with ConversationMemoryStore(Path(directory) / "m.sqlite") as store:
+                capture = CopilotConversationCapture(Path(directory) / "state", store,
+                                                     state_path=Path(directory) / "c.json")
+                capture._write_state({})
+                capture.scan()
+                rows = store.db.execute("SELECT content_redacted FROM conversation_turns"
+                                        ).fetchall()
+        self.assertEqual([r[0] for r in rows], ["what did I eat?"])
+
     def test_gemini_gets_the_memory_before_it_answers(self):
         with mock.patch("graph_mind.inject.context", return_value="Turnbook memory: Kongi"):
             answer = run("gemini-cli", "BeforeAgent", {"session_id": "g2", "prompt": "my dog?"})

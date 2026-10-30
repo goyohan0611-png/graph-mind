@@ -18,6 +18,8 @@ from graph_mind.packing import COMPRESS_FROM, pack, unpack
 from graph_mind.paths import use_wal
 
 CAPTURE_VERSION = "codex-conversation-capture-v0.1"
+# the start of the memory packet the per-message hook adds (inject.HEADER)
+INJECTED = "Turnbook memory: what the user said or saved before"
 # what follows "password:" in code is often its type, not a value
 TYPE_NAME = r"(?!(?:str|int|bytes|bool|None|Optional|SecretStr|Any|string|number)\b)"
 CREDENTIAL_NAME = re.compile(r"(?i)[\w-]*(?:password|passwd|pwd|secret|token|api[_ -]?key|"
@@ -620,6 +622,10 @@ class CodexConversationCapture:
                     if message is None:
                         continue
                     role, raw = message
+                    if role == "user" and isinstance(raw, str) and INJECTED in raw:
+                        # the memory our hook added (Copilot CLI keeps the extended prompt as
+                        # the user's message): stored again, it would come back as their words
+                        raw = raw[:raw.index(INJECTED)].rstrip()
                     if not isinstance(raw, str) or not raw.strip():
                         continue
                     # a lone surrogate ("\\ud800" in the JSON) cannot be encoded: it stopped every

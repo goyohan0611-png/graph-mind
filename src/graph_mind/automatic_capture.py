@@ -89,6 +89,7 @@ def ensure_service() -> bool:
 EMBED_BATCH = 512               # pieces embedded per pass
 MIGRATE_BATCH = 64              # pieces read again with gemma per quiet pass (~15 s at half pace)
 EMBED_RECHECK_SECONDS = 600     # look for unembedded turns at least this often
+PULL_SECONDS = 60               # other PCs' lines brought in this often
 
 
 def _now():
@@ -157,6 +158,29 @@ class AutomaticCaptureService:
             state_dir=entry.get("state_dir") or default_coding_state_dir(
                 entry["project_id"]), now=self.now)
 
+    def _shared(self):
+        """The shared folder or Postgres URL, if any: config, GRAPH_MIND_FOLDER, or the one
+        chosen in conversation; the service's own wins."""
+        from graph_mind.sharing import folder
+        shared = folder()
+        if self.config.get("memory_folder"):
+            from graph_mind.sharing import is_database
+            chosen = self.config["memory_folder"]
+            shared = chosen if is_database(chosen) else Path(chosen).expanduser()
+        return shared
+
+    def pull_shared(self):
+        """Other PCs' new lines into this PC's store. Only the memory servers did it, on a tool
+        call; the per-message hook, which no longer waits on a hub, would miss them meanwhile.
+        A size check per log file when nothing changed."""
+        try:
+            shared = self._shared()
+            if shared:
+                from graph_mind.sharing import sync
+                sync(shared, self.db_path)
+        except Exception:                       # the hub PC is off: next time
+            pass
+
     def _conversation_captures(self, store):
         """Every conversation source on this machine, each with its own read cursor.
 
@@ -167,13 +191,7 @@ class AutomaticCaptureService:
         scopes = self.config.get("workspace_scopes", {})
         # With a shared folder, every captured turn also goes into the shared log, so a
         # conversation held on this PC can be recalled on any other (sharing.py).
-        from graph_mind.sharing import folder
-        # config, GRAPH_MIND_FOLDER, or the one chosen in conversation; the service's own wins
-        shared = folder()
-        if self.config.get("memory_folder"):
-            from graph_mind.sharing import is_database
-            chosen = self.config["memory_folder"]
-            shared = chosen if is_database(chosen) else Path(chosen).expanduser()
+        shared = self._shared()
         publish = None
         if shared:
             from graph_mind.sharing import append
@@ -499,6 +517,7 @@ class AutomaticCaptureService:
         iteration, restart = 0, False
         last_code_scan = None
         pending, packing, last_embed = True, max_iterations is None, time.monotonic()
+        last_pull = 0.0
         self._packed_upto, self._packed_all = 0, False
         try:
             while max_iterations is None or iteration < max_iterations:
@@ -531,6 +550,9 @@ class AutomaticCaptureService:
                     break
                 if code_due:
                     last_code_scan = time.monotonic()
+                if time.monotonic() - last_pull >= PULL_SECONDS:
+                    self.pull_shared()
+                    last_pull = time.monotonic()
                 iteration += 1
                 if max_iterations is None or iteration < max_iterations:
                     time.sleep(self.config["poll_seconds"])

@@ -76,6 +76,33 @@ class AutomaticCaptureTests(unittest.TestCase):
             self.assertEqual(first["status"], "CAPTURE_OK")
             self.assertEqual(second["coding"][0]["change_count"], 1)
 
+    def test_the_service_brings_in_other_pcs_lines(self):
+        """Only the memory servers pulled them, on a tool call; the per-message hook no longer
+        does, so the always-running service has to."""
+        import os
+        from unittest import mock
+        from graph_mind import sharing
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shared, sessions, state = root / "shared", root / "sessions", root / "state"
+            sessions.mkdir()
+            config = make_config(workspace=root, project_id="project:test",
+                session_id="capture:test", sessions_root=sessions,
+                db_path=root / "brain.sqlite", poll_seconds=1)
+            config["code_workspaces"], config["memory_folder"] = [], str(shared)
+            with mock.patch.dict(os.environ, {"GRAPH_MIND_DEVICE": "laptop"}):
+                sharing.append(shared, "turn", {
+                    "turn_id": "t1", "client": "codex", "client_session_id": "s",
+                    "scope": "global", "role": "user", "content_redacted": "lunch was a panini",
+                    "raw_sha256": "t1", "source_path": "p", "source_ordinal": 1,
+                    "happened_at": "2026-10-30T12:00:00", "known_at": "2026-10-30T12:00:00",
+                    "redaction_count": 0, "cwd": None})
+            with mock.patch.dict(os.environ, {"GRAPH_MIND_DEVICE": "desk"}):
+                AutomaticCaptureService(config, state_dir=state).pull_shared()
+            with ConversationMemoryStore(root / "brain.sqlite") as store:
+                found = store.search("panini")["turns"]
+            self.assertEqual([t["turn_id"] for t in found], ["t1"])
+
     def test_claude_code_is_captured_on_a_pc_without_codex(self):
         """A fresh PC with only Claude Code: a missing Codex folder used to stop every source."""
         with tempfile.TemporaryDirectory() as directory:

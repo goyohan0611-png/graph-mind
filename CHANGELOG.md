@@ -3,6 +3,20 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## 0.10.3 — 2026-10-30
+- **Memory added to every message, a little.** The per-message hook (Claude Code, Codex, Copilot
+  CLI, Gemini CLI, OpenCode) used to search only when the message had a word like "remember" or
+  "last time", and missed questions such as "what did I have for lunch today?". Whether a message
+  needs the past is now left to the model: every message gets a small packet (4 items, 1,200
+  characters, about 300 tokens), and brain_context gives more. About 0.85 s per message with the
+  capture service running.
+- The packet starts with the current date and time, so "today" can be told from the dated lines;
+  a saved fact is no longer printed twice (title and text), and the hook's sources show a file
+  name instead of a full path: six items fit where four did.
+- **Code capture no longer stops when the watched folder changes.** Changing the folder, the file
+  kinds or the exclusions left the old manifest in place, every pass failed and nothing more was
+  recorded; it now starts over from the folder as it is.
+
 ## 0.10.2 — 2026-10-30
 - **A message never waits more than 3 s for its memory.** With the capture service down, a hook
   that searched by itself loaded the model first and held the message 7-22 s; now the message

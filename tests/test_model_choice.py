@@ -1,5 +1,6 @@
-"""Which search model an install uses: new memories English, existing ones multilingual,
-an explicit choice (turnbook model, GRAPH_MIND_MODEL) always wins."""
+"""Which search model an install uses: new memories gemma, existing ones mpnet until the capture
+service has read them again with gemma; an explicit choice (turnbook model, GRAPH_MIND_MODEL)
+always wins."""
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
 import os
@@ -7,7 +8,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from graph_mind.local_embedder import PRESETS, chosen_model
+from graph_mind.local_embedder import PRESETS, chosen_model, migrating
 
 
 class ModelChoiceTests(unittest.TestCase):
@@ -16,13 +17,35 @@ class ModelChoiceTests(unittest.TestCase):
             home = Path(directory)
             env = {"GRAPH_MIND_HOME": directory, "GRAPH_MIND_MODEL": ""}
             with mock.patch.dict(os.environ, env):
-                self.assertEqual(chosen_model(), PRESETS["english"])
+                self.assertEqual(chosen_model(), PRESETS["gemma"])
+                self.assertFalse(migrating())
                 (home / "development.semantic-embed-mpnet8.vec").mkdir()
                 self.assertEqual(chosen_model(), PRESETS["multilingual"])
-                (home / "model.txt").write_text("english\n", encoding="utf-8")
-                self.assertEqual(chosen_model(), PRESETS["english"])
+                self.assertTrue(migrating())
+                (home / "model.txt").write_text("english\n", encoding="utf-8")   # 0.9.48's name
+                self.assertEqual(chosen_model(), PRESETS["gemma"])
+                self.assertFalse(migrating())
                 with mock.patch.dict(os.environ, {"GRAPH_MIND_MODEL": "multilingual"}):
                     self.assertEqual(chosen_model(), PRESETS["multilingual"])
+
+    def test_migration_ends_with_gemma(self):
+        from graph_mind.automatic_capture import AutomaticCaptureService
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            (home / "development.semantic-embed-mpnet8.vec").mkdir()
+            service = AutomaticCaptureService.__new__(AutomaticCaptureService)
+            service.db_path = home / "development.sqlite"
+            left = iter([64, 3, 0])             # pieces read per pass, then none left
+            with mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory,
+                                              "GRAPH_MIND_MODEL": ""}), \
+                    mock.patch("graph_mind.local_embedder.default_embedder"), \
+                    mock.patch("graph_mind.warmup.warm_turns", lambda *a, **k: next(left)):
+                self.assertFalse(service.migrate_some())
+                self.assertFalse(service.migrate_some())
+                self.assertEqual(chosen_model(), PRESETS["multilingual"])   # mpnet meanwhile
+                self.assertTrue(service.migrate_some())
+                self.assertEqual(chosen_model(), PRESETS["gemma"])
+                self.assertFalse(migrating())
 
 
 if __name__ == "__main__":

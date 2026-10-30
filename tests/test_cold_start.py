@@ -14,20 +14,13 @@ import unittest
 from graph_mind import mcp_server as server
 from graph_mind.conversation_memory import ConversationMemoryStore
 from graph_mind.warmup import warm_turns
-from graph_mind.local_embedder import LOCAL_MODEL, PRESETS, default_embedder
+from graph_mind.local_embedder import default_embedder
 
 FILLER = ["오늘 회의에서 분기 예산 이야기를 길게 했다", "점심 메뉴 고르느라 시간이 걸렸다",
           "빌드가 깨져서 의존성 버전을 다시 맞췄다", "주말에 읽을 책 목록을 정리했다",
           "운동 루틴을 바꿔볼까 고민 중이다", "프린터가 또 용지 걸림을 일으켰다"]
 TARGET = "우리 강아지 콩이는 파도 소리만 들어도 벌벌 떨면서 바닷가에 안 가려고 해"
 QUESTION = "반려견이 무서워하는 장소가 어디였지?"           # shares no word with the turn
-if LOCAL_MODEL == PRESETS["english"]:                     # the English model reads no Korean
-    FILLER = ["The meeting spent a long time on the quarterly budget",
-              "Picking a place for lunch took forever", "The build broke, so I pinned versions",
-              "I listed the books to read this weekend", "Thinking about changing my workout",
-              "The printer jammed again"]
-    TARGET = "Our puppy Kongi trembles at the sound of waves and refuses to go near the beach"
-    QUESTION = "Which place is my pet afraid of?"
 
 
 def turn(i, text):

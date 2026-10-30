@@ -18,13 +18,16 @@ from graph_mind.vector_cache import VectorCache, convert
 
 # "repo@file": an ONNX export on Hugging Face. Two presets
 # (research/runs/graph-v9.21-korean/embed_probe_cross.txt, meaning search, answer in the first 30):
-#   english       EmbeddingGemma q4, new installs: English 90.2%, Korean 86.9%, Korean asked of
-#                 English 87.8%; LongMemEval_S end to end 92.1% (graph-v9.14-full500-mpnet8-gemma)
-#   multilingual  mpnet int8, memories from 0.9.47 and before (nothing to read again): English
+#   gemma         EmbeddingGemma q4, every install: English 90.2%, Korean 86.9%, Korean asked of
+#                 English 87.8%; LongMemEval_S end to end 92.0% (graph-v9.14-full500-mpnet8-gemma)
+#   multilingual  mpnet int8, what memories from 0.9.47 and before were read with: English
 #                 75.6%, Korean 67.5%, Korean asked of English 70.6%; LongMemEval_S 87.1%
-PRESETS = {"english": "onnx-community/embeddinggemma-300m-ONNX@onnx/model_q4.onnx",
+# "english" is 0.9.48's name for gemma, kept for the model.txt files that hold it.
+GEMMA = "onnx-community/embeddinggemma-300m-ONNX@onnx/model_q4.onnx"
+PRESETS = {"gemma": GEMMA,
            "multilingual": ("sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-                            "@onnx/model_quint8_avx2.onnx")}
+                            "@onnx/model_quint8_avx2.onnx"),
+           "english": GEMMA}
 # Models trained with a marker before each text: (question, stored text). Others: none.
 PREFIXES = {"intfloat/multilingual-e5": ("query: ", "passage: "),
             "onnx-community/embeddinggemma": ("task: search result | query: ",
@@ -45,20 +48,29 @@ def model_file() -> Path:
 
 def chosen_model() -> str:
     """GRAPH_MIND_MODEL, else ~/.graph-mind/model.txt (`turnbook model`), else: an install that
-    already holds the multilingual model's vectors keeps it (nothing to read again), a new one
-    gets English. A preset name or "repo@onnx/file.onnx"."""
+    already holds the multilingual model's vectors keeps it until the capture service has read
+    the memory again with gemma (migrating()), a new one gets gemma. A preset name or
+    "repo@onnx/file.onnx"."""
     name = os.environ.get("GRAPH_MIND_MODEL", "").strip()
     if not name:
         try:
             name = model_file().read_text(encoding="utf-8").strip()
         except OSError:
-            name = "multilingual" if existing_memory() else "english"
+            name = "multilingual" if existing_memory() else "gemma"
     return PRESETS.get(name, name)
 
 
+def migrating() -> bool:
+    """A memory from 0.9.47 or before that nobody pinned to a model: it searches with mpnet
+    while the capture service reads it again with gemma, then moves to gemma."""
+    if os.environ.get("GRAPH_MIND_MODEL", "").strip() or model_file().exists():
+        return False
+    return existing_memory()
+
+
 def existing_memory() -> bool:
-    """A memory from before the presets (0.9.47 and earlier): it keeps the multilingual model,
-    whatever the PC's language, so an update reads nothing again and Korean stays searchable."""
+    """A memory from before the presets (0.9.47 and earlier): it keeps the multilingual model
+    until it is read again with gemma, so the update searches as well as before meanwhile."""
     from graph_mind.paths import graph_mind_home
     home = graph_mind_home()
     try:
@@ -69,7 +81,7 @@ def existing_memory() -> bool:
 
 
 def mode() -> str:
-    """The preset in use ("english", "multilingual") or the model itself when custom."""
+    """The preset in use ("gemma", "multilingual") or the model itself when custom."""
     return next((name for name, model in PRESETS.items() if model == chosen_model()),
                 chosen_model())
 
@@ -507,11 +519,13 @@ def cosine(a, b):
     return dot / (na * nb) if na and nb else 0.0
 
 
-def default_embedder(db_path):
+def default_embedder(db_path, model=None):
     """Local, on-device embedder with a cache persisted beside the memory DB."""
+    model = model or LOCAL_MODEL
     # a new name per model: the old cache holds another model's vectors (384 dims, not 768),
     # and servers of the old version still running write to it
     db_path = Path(db_path)
-    name = ("mpnet8" if LOCAL_MODEL == PRESETS["multilingual"]
-            else LOCAL_MODEL.split("@")[0].rsplit("/", 1)[-1])
-    return LocalEmbedder(db_path.with_name(f"{db_path.stem}.semantic-embed-{name}.json"))
+    name = ("mpnet8" if model == PRESETS["multilingual"]
+            else model.split("@")[0].rsplit("/", 1)[-1])
+    return LocalEmbedder(db_path.with_name(f"{db_path.stem}.semantic-embed-{name}.json"),
+                         model=model)

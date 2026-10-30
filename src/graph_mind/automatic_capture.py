@@ -87,6 +87,7 @@ def ensure_service() -> bool:
 
 
 EMBED_BATCH = 512               # pieces embedded per pass
+MIGRATE_BATCH = 64              # pieces read again with gemma per quiet pass (~15 s at half pace)
 EMBED_RECHECK_SECONDS = 600     # look for unembedded turns at least this often
 
 
@@ -401,6 +402,25 @@ class AutomaticCaptureService:
         except Exception:                       # capture must go on if embedding cannot
             return 0
 
+    def migrate_some(self):
+        """A memory from 0.9.47 or before (local_embedder.migrating): read a few more pieces with
+        gemma while nothing else is due. Search keeps mpnet meanwhile; once every piece has a
+        gemma vector, model.txt names gemma and the service starts again with it. True when
+        that moment came."""
+        try:
+            from graph_mind.local_embedder import GEMMA, default_embedder, model_file
+            from graph_mind.warmup import warm_turns
+            if getattr(self, "_gemma", None) is None:
+                self._gemma = default_embedder(self.db_path, model=GEMMA)
+            if warm_turns(self.db_path, limit=MIGRATE_BATCH, embedder=self._gemma):
+                return False
+            self._gemma.flush()
+            model_file().parent.mkdir(parents=True, exist_ok=True)
+            model_file().write_text("gemma\n", encoding="utf-8")
+            return True
+        except Exception:                       # capture must go on if the new model cannot
+            return False
+
     def compress_stored(self, limit=2000):
         """True while there is more to look at; resumes after the last turn looked at. Turns
         added meanwhile are packed as they are stored (one written by a process still on older
@@ -447,11 +467,19 @@ class AutomaticCaptureService:
         if not alone.acquire(blocking=False):
             return
         self.pid_path.write_text(str(os.getpid()) + "\n", encoding="ascii")
+        migrate = False
         if max_iterations is None:
-            from graph_mind.local_embedder import LocalEmbedder
+            from graph_mind.local_embedder import LocalEmbedder, migrating
             LocalEmbedder.PACE = True       # it runs beside the user's work: backlogs at half pace
+            try:                            # and below the user's own programs
+                import psutil
+                psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS
+                                      if sys.platform == "win32" else 10)
+            except Exception:
+                pass
             self.lend_model()
-        iteration = 0
+            migrate = migrating()
+        iteration, restart = 0, False
         last_code_scan = None
         pending, packing, last_embed = True, max_iterations is None, time.monotonic()
         self._packed_upto, self._packed_all = 0, False
@@ -481,6 +509,9 @@ class AutomaticCaptureService:
                     # turns stored before 0.9.27, or by an app still on older code: one round
                     # over the store after each start, 2,000 turns a pass (~20 ms)
                     packing = self.compress_stored()
+                elif migrate and not pending and not recorded and self.migrate_some():
+                    restart = True              # the new model loads in a new service
+                    break
                 if code_due:
                     last_code_scan = time.monotonic()
                 iteration += 1
@@ -493,4 +524,6 @@ class AutomaticCaptureService:
             except (FileNotFoundError, OSError):
                 pass
             alone.release()
+        if restart:
+            ensure_service()
 

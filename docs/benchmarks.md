@@ -10,12 +10,12 @@ The answer model is gpt-5-mini; the judge is the official gpt-4o-2024-08-06.
 
 | | accuracy | model tokens at write time | packet read per question |
 |---|---|---|---|
-| **0.9.48, all judged (499)** | **92.0%** (459/499) | **0** | 3.1k tokens |
-| 0.9.48, never used for tuning (379) | **91.3%** (346/379) | 0 | 3.1k tokens |
+| **0.10.0, all judged (499)** | **92.0%** (459/499) | **0** | 3.1k tokens |
+| 0.10.0, never used for tuning (379) | **91.3%** (346/379) | 0 | 3.1k tokens |
 | 0.9.10, all 500 | 88.8% (444/500) | 0 | 3.4k tokens |
 | 0.9.10, never used for tuning (380) | 87.6% (333/380) | 0 | 3.4k tokens |
 
-0.9.48 ran its default search model, EmbeddingGemma (4-bit ONNX), with 15,000-character packets
+0.10.0 ran its default search model, EmbeddingGemma (4-bit ONNX), with 15,000-character packets
 ([`graph-v9.14-full500-mpnet8-gemma`](../research/runs/graph-v9.14-full500-mpnet8-gemma)); the
 judge timed out on one question every time, so it is left out. "Never used for tuning" means the
 question ids held back since v7.0; the re-ranker weights were trained on LoCoMo and LongMemEval
@@ -27,21 +27,6 @@ answer there (the reader runs out of output) and counts as wrong.
 Packet size against search model, same 500 questions, reader and judge (median tokens read):
 mpnet 3.4k 87.1%, 6.7k 90.1%, 13.2k 90.8%, 26.3k 92.0%; EmbeddingGemma 3.1k 92.0%. Against mpnet
 at the same size: 32 questions only EmbeddingGemma answers, 7 only mpnet (exact McNemar p = 0.0001).
-
-## Head to head
-
-Same 40 questions, same answer model, same prompt, same official judge, pre-registered with code
-hashes before anyone looked; nobody had tuned on those questions.
-
-| | accuracy | model tokens spent saving memory, per question |
-|---|---|---|
-| **Turnbook** | **85.0%** | **0** |
-| MemPalace 3.10.0 | 57.5% | 0 |
-| Mem0 2.2.1 (open source, default fact extraction) | 52.5% | ~640,000 |
-
-Turnbook ran its shipped path with the earlier 20-item packet; Mem0 2.2.1 was the latest
-open-source release on PyPI. The lead over both is significant (exact McNemar p = 0.002 and
-0.003); with 40 questions each score has an interval of about ±14 points.
 
 ## agentmemory, all 499 questions
 
@@ -82,8 +67,7 @@ They measure different things, so they do not compare directly:
 
 - **MemPalace's 96.6% and agentmemory's 95.2%** are retrieval recall (R@5): is the right session
   among the five returned? This page measures whether the final answer is correct.
-- **Mem0's 94.4%** is its managed cloud platform, with proprietary components; the open-source
-  package tested here is a different system.
+- **Mem0's 94.4%** is its managed cloud platform, with proprietary components.
 - **Mastra (94.87%), Emergence (86%), Supermemory (85.2%) and Zep (71.2%)** report their own
   setups and answer models; they were not reproduced here.
 

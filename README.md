@@ -7,7 +7,7 @@
 
 ### Your AI forgets everything when the session ends. This one remembers, and it never calls an LLM to do it.
 
-**92.0% on LongMemEval from 3.1k tokens of memory per question ([0.9.48](#does-it-work)). Zero model tokens spent saving memory. Runs on your own PC.**
+**92.0% on LongMemEval from 3.1k tokens of memory per question ([0.10.0](#does-it-work)). Zero model tokens spent saving memory. Runs on your own PC.**
 
 [![][license-shield]][license-link]
 [![][python-shield]][python-link]
@@ -170,20 +170,18 @@ answer model (gpt-5-mini), the same prompt and the official gpt-4o judge; only t
 
 | | accuracy | model tokens spent **saving** memory | text the answer model reads |
 |---|---|---|---|
-| **Turnbook 0.9.48** | **92.0%** (499 of 500 judged) | **0** | **3.1k tokens** |
+| **Turnbook 0.10.0** | **92.0%** (499 of 500 judged) | **0** | **3.1k tokens** |
 | Turnbook 0.9.9 | 88.8% (all 500) | 0 | 3.4k tokens |
 | agentmemory | 80.4% (same 499) | — | ~16.5k tokens |
-| MemPalace 3.10.0 | 57.5% (40 questions) | 0 | — |
-| Mem0 2.2.1 (open source, default fact extraction) | 52.5% (40 questions) | ~640,000 per question | — |
 
-The rivals were measured against 0.9.9: on agentmemory's 499 it scored 89.0%, on the 40, 85.0%.
+agentmemory was measured against 0.9.9, which scored 89.0% on agentmemory's 499.
 Retrieval alone, on agentmemory's own measure (an answer session among the first 5 retrieved):
-Turnbook 0.9.9 98.5%, agentmemory 95.2%. One of the 500 is missing from 0.9.48's score because
+Turnbook 0.9.9 98.5%, agentmemory 95.2%. One of the 500 is missing from 0.10.0's score because
 the judge timed out on it every time.
 
 ### Fewer tokens for the same accuracy
 
-0.9.48 changes the search model for new installs from mpnet to EmbeddingGemma. The same 500
+0.10.0 changes the search model for new installs from mpnet to EmbeddingGemma. The same 500
 questions, the same reader and judge; only the search model and the packet size differ:
 
 | search model | text the answer model reads (median) | accuracy |
@@ -197,7 +195,7 @@ questions, the same reader and judge; only the search model and the packet size 
 Against mpnet at the same size, EmbeddingGemma answers 32 questions mpnet misses and misses 7 it
 answers (p = 0.0001). Questions that need several past sessions gain most: 74.2% → 88.4%. The
 re-ranker weights for each model were trained on LoCoMo and LongMemEval together. These packets
-held up to 15,000 characters; since 0.9.48 `brain_context` sends up to 30,000 by default
+held up to 15,000 characters; since 0.10.0 `brain_context` sends up to 30,000 by default
 (`max_chars` sets it). Its retrieval on LoCoMo, scored on conversations its weights never saw
 (answer turn among the first 10 found): 83.7%, mpnet 70.2%.
 [research/runs/graph-v9.14-full500-mpnet8-gemma](research/runs/graph-v9.14-full500-mpnet8-gemma)
@@ -229,7 +227,7 @@ of questions whose answer turn is among the first 30 found:
 | search model | English | Korean | Korean question, English memory |
 |---|---|---|---|
 | mpnet | 75.6% | 67.5% | 70.6% |
-| **EmbeddingGemma** (0.9.48 default) | **90.2%** | **86.9%** | **87.8%** |
+| **EmbeddingGemma** (0.10.0 default) | **90.2%** | **86.9%** | **87.8%** |
 
 With all of search (words, meaning, re-ranker) on mpnet, 0.9.47 found the answer turn among the
 first 30 for 77.5% of Korean questions (84.7% in English); word search finds "콩이" in "콩이를"

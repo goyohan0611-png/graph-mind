@@ -31,6 +31,8 @@
 
 <sub>한 PC에서 실제로 녹화: Claude Code(Opus 5.5, effort high)와 Codex(GPT-6.1-Sol, effort high)가 Turnbook 기억 하나를 같이 씁니다. 모델이 생각하는 시간은 빨리 감았습니다.</sub>
 
+토큰이나 같은 설명을 반복하는 수고를 덜었다면, ⭐ 하나가 다른 사람이 Turnbook을 찾는 데 도움이 됩니다.
+
 </div>
 
 ## 설치

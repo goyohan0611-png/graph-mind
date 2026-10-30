@@ -35,6 +35,8 @@
 
 <sub>Recorded live on one PC: Claude Code (Opus 5.5, effort high) and Codex (GPT-6.1-Sol, effort high) sharing one Turnbook memory. Model thinking time is fast-forwarded.</sub>
 
+If Turnbook saves you tokens or repeated explanations, a ⭐ helps other people find it.
+
 </div>
 
 ## Install

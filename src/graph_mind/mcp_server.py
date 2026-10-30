@@ -581,11 +581,14 @@ def window(around):
 
 def gather(database, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=8,
            recent=False, since=None, embedder=None, about_assistant=False, around=None,
-           until=None):
+           until=None, share=True):
     """Curated memories and conversation turns for one request, as recall and context share it.
     `until`: the caller asked about a past moment (as_of / knowledge_cutoff); conversation turns
-    after it are left out, as curated memories already were."""
-    shared_sync(database)
+    after it are left out, as curated memories already were.
+    `share=False`: skip pulling other devices' lines (the per-message hook: the memory servers
+    pull them, and a hub connection per message added 0.8-5 s)."""
+    if share:
+        shared_sync(database)
     since = local_time(since) if since else None
     span = window(around)
     with LocalBrainStore(database) as store:

@@ -251,6 +251,16 @@ class HookTests(unittest.TestCase):
         with mock.patch("graph_mind.inject.context", lambda text: ""):
             self.assertEqual(run("codex", "UserPromptSubmit", {"prompt": "hi"}), {})
 
+    def test_the_message_hook_does_not_wait_on_the_shared_hub(self):
+        """The memory servers pull other devices' lines; a hub connection per message added
+        0.8-5 s before every answer."""
+        from graph_mind import inject
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
+                mock.patch("graph_mind.mcp_server.shared_sync",
+                           side_effect=AssertionError("hub synced per message")):
+            inject.context("where did we leave off on the launch?")
+
     def test_installer_adds_the_memory_hooks(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)

@@ -29,7 +29,7 @@ def context(query: str) -> str:
     LocalEmbedder.WAIT_FOR_MODEL = 2.0
     database = configured_db_path()
     recalled = gather(database, query, as_of=_now(), limit=LIMIT,
-                      embedder=embedder_for(database))
+                      embedder=embedder_for(database), share=False)
     packet = build_context_pack(recalled, max_chars=CHARS)
     return HEADER + packet["context"] if packet["status"] == "KNOWN" else ""
 

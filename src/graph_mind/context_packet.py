@@ -134,7 +134,11 @@ _EXECUTE_CUES = re.compile(
 _SEARCH_CUES = re.compile(
     r"(?:기억|전에|예전에|어제|지난|이전|아까|저번|우리|내가|내\s|나의|"
     r"했던|하던|수정|작성|결정|취향|약속|대화|세션|프로젝트|문서|파일|작업|"
-    r"remember|previous|earlier|yesterday|last\s|my\s|we\s|our\s|resume)",
+    r"remember|previous|earlier|yesterday|last\s|my\s|we\s|our\s|resume|"
+    # asking back what was said or done, with no keyword above ("오늘 점심 뭐 먹었지?", "그거
+    # 뭐였더라", "what did I have for lunch?"): 10 of 12 such questions got no memory
+    r"[었았였했]지|더라|던가|\bdid\s+I\b|\bhave\s+I\b|\bI\s+(?:told|said|mentioned)\b|"
+    r"\bwhat\s+was\s+(?:the|that)\b)",
     re.IGNORECASE,
 )
 

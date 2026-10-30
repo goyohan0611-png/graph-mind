@@ -7,7 +7,7 @@
 
 ### Your AI forgets everything when the session ends. This one remembers, and it never calls an LLM to do it.
 
-**91.8% on LongMemEval from 3.1k tokens of memory per question ([0.10.0](#does-it-work)). Zero model tokens spent saving memory. Runs on your own PC.**
+**No AI summaries: every conversation is kept word for word, so nothing is lost or made up on the way in, and saving costs zero model tokens. 91.8% on LongMemEval from 3.1k tokens of memory per question ([0.10.0](#does-it-work)). Runs on your own PC.**
 
 [![][license-shield]][license-link]
 [![][python-shield]][python-link]

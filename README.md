@@ -222,6 +222,7 @@ questions, the same reader and judge; only the search model and the packet size 
 | mpnet | 13.2k tokens | 90.4% |
 | mpnet | 26.3k tokens | 91.8% |
 | **EmbeddingGemma** | **3.1k tokens** | **91.8%** |
+| EmbeddingGemma | 25k tokens | 93.0% |
 
 Against mpnet at the same size, EmbeddingGemma answers 33 questions mpnet misses and misses 7 it
 answers (p = 0.00004). Questions that need several past sessions gain most: 73.6% → 88.4%. The

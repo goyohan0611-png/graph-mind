@@ -17,6 +17,14 @@
 
 *월요일에 한 에이전트와 정한 걸, 수요일에 다른 에이전트한테 물어보세요. 알고 있습니다.*
 
+| | 기억 **저장**에 쓰는 토큰 | 질문마다 답변 모델이 읽는 분량 | LongMemEval |
+|---|---|---|---|
+| **Turnbook 0.10** | **0** | **3.1천 토큰** | **91.8%** |
+| Turnbook, 이전 검색 모델 | 0 | 2만 6.3천 토큰 | 91.8% |
+| agentmemory | — | 약 1만 6.5천 토큰 | 80.4% |
+
+<sub>LongMemEval_S 500문항 전체(agentmemory는 499문항), 같은 답변 모델(gpt-5-mini)·프롬프트·공식 gpt-4o 채점기, 기억 시스템만 다릅니다. claude-mem이나 Mem0 같은 도구는 저장할 때 LLM으로 대화를 가공하고, Turnbook은 원문 그대로 저장합니다. <a href="#정말-되나요">자세히</a></sub>
+
 [English](README.md) · **한국어**
 
 <img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/demo.gif" alt="실제 녹화: Claude Code가 Turnbook에 저장한 결정을 다른 앱인 Codex가 기억하는 장면" width="900">
@@ -77,13 +85,21 @@ Claude Code: `claude mcp add turnbook -- python -m graph_mind.mcp_server`. 이�
 
 ## 하는 일
 
-- **터미널의 모든 에이전트가 쓰는 하나의 기억.** 어떤 코딩 에이전트나 모델을 쓰든 같은 기억을 읽고
-  씁니다. 에이전트나 모델을 바꿔도 기억은 그대로입니다.
+- **모든 에이전트가 하나의 기억으로.** Claude Code, Codex, Cursor, Copilot CLI, Gemini CLI, OpenCode와
+  모든 MCP 앱이 같은 기억을 읽고 씁니다. 한 에이전트와 정하고 다른 에이전트에게 물어보세요. 모델을
+  바꿔도 기억은 그대로입니다.
+- **메시지마다 필요한 기억이 알아서.** Claude Code, Codex, Copilot CLI, Gemini CLI, OpenCode에서는
+  메시지를 보내면 Turnbook이 과거에서 필요한 걸 찾아 모델이 답하기 전에 넣어 줍니다. 따로 물어볼
+  필요가 없습니다.
+- **저장은 공짜, 내 PC에서.** 모든 대화를 SQLite 파일 하나에 원문 그대로 저장합니다. 모델 호출도,
+  토큰도, 계정도, 클라우드도 없습니다.
+
+<details>
+<summary>그 밖의 기능</summary>
+
 - **오케스트레이션에도 맞습니다.** 오케스트레이터가 에이전트 여러 개를 동시에 돌려도 모두 같은 기억에
   쓰고 읽어서, 한 에이전트가 정한 걸 다음 에이전트가 압니다. 기억마다 어느 앱·세션에서 나왔는지
   남습니다.
-- **대화를 토씨 하나 안 바꾸고 기억합니다.** 내 PC에. 저장은 DB에 쓰는 것뿐이라 모델 호출도, 토큰도
-  들지 않습니다. 과거가 필요한 질문이 오면 답이 되는 수천 토큰만 돌려줍니다.
 - **기억이 쌓여도 버팁니다.** 기억이 20만 5천 턴이 돼도 질문의 79.7%는 답이 찾은 것 중 상위 30개 안에
   있고(6천 턴에서 82.8%), 검색 한 번은 약 0.4초입니다. [기억이 쌓일수록](#기억이-쌓일수록)
 - **언어가 달라도.** 검색 모델이 한국어도 영어만큼 거의 잘 읽어서, 영어로 말한 걸 한국어로 물어도,
@@ -101,6 +117,8 @@ Claude Code: `claude mcp add turnbook -- python -m graph_mind.mcp_server`. 이�
   가려지고, *"아까 친 비밀번호 지워줘"* 하면 모든 곳에서 지워집니다. [docs/privacy.md](docs/privacy.md)
 - **원하면 팀으로.** 프로젝트의 결정과 진행 상황을 팀원의 AI와 공유합니다. 개인 기억은 절대
   공유하지 않습니다. [docs/teams.md](docs/teams.md)
+
+</details>
 
 ## 지원하는 앱
 

@@ -21,6 +21,14 @@
 
 *Decide something with one agent on Monday. Ask another on Wednesday. It knows.*
 
+| | tokens spent **saving** memory | text the answer model reads per question | LongMemEval |
+|---|---|---|---|
+| **Turnbook 0.10** | **0** | **3.1k tokens** | **91.8%** |
+| Turnbook, previous search model | 0 | 26.3k tokens | 91.8% |
+| agentmemory | — | ~16.5k tokens | 80.4% |
+
+<sub>All 500 LongMemEval_S questions (agentmemory: 499), same answer model (gpt-5-mini), prompt and official gpt-4o judge; only the memory differs. Tools like claude-mem and Mem0 run an LLM over your conversations to save them; Turnbook stores them word for word. <a href="#does-it-work">Details</a></sub>
+
 **English** · [한국어](README.ko.md)
 
 <img src="https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/demo/demo.gif" alt="Recorded live: Claude Code saves a decision to Turnbook, and Codex, a different app, recalls it" width="900">
@@ -81,14 +89,21 @@ that answer the question.
 
 ## What it does
 
-- **One shared brain for every agent in your terminal.** Whichever coding agent or model you
-  run, they all read and write the same memory. Switch agents or models; the memory stays.
+- **Every agent, one memory.** Claude Code, Codex, Cursor, Copilot CLI, Gemini CLI, OpenCode and
+  any MCP app read and write the same memory. Decide with one, ask another; switch models, the
+  memory stays.
+- **The right memory in every message.** In Claude Code, Codex, Copilot CLI, Gemini CLI and
+  OpenCode, Turnbook looks up what your message needs from the past and adds it before the model
+  answers. Nothing to ask for.
+- **Free to save, on your PC.** Every turn is stored word for word in one SQLite file: no model
+  call, no tokens, no account, no cloud.
+
+<details>
+<summary>Everything else</summary>
+
 - **Made for orchestration.** When an orchestrator runs several agents at once, they all write
   to the same memory as they work, so what one agent decided is there for the next. Every
   memory keeps which app and session it came from.
-- **Remembers conversations word for word**, on your own PC. Saving is a database write: no model
-  call, no tokens. When a question depends on the past, the agent gets back the few thousand
-  tokens that answer it.
 - **Holds up as memory piles up.** In a memory of 205,000 turns the answer is still among the
   first 30 found for 79.7% of questions (82.8% at 6,000), and a search takes about 0.4 s.
   [As the memory grows](#as-the-memory-grows)
@@ -107,6 +122,8 @@ that answer the question.
   stored, and *"delete the password I typed earlier"* deletes it everywhere. [docs/privacy.md](docs/privacy.md)
 - **Teams, if you want them.** Share a project's decisions and progress with teammates' AIs, never
   your personal memory; files stay in Slack and GitHub. [docs/teams.md](docs/teams.md)
+
+</details>
 
 ## Works with
 

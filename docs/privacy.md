@@ -53,9 +53,10 @@ Encryption on Windows, FileVault on macOS).
 
 ## Sharing between your PCs
 
-With `turnbook folder share` (below) everything is encrypted. If you instead point the memory at
-a folder OneDrive, Google Drive or Dropbox syncs, the log files there are plain text, readable by
-that cloud service like any file you put in it; use `turnbook folder share` if that matters.
+A folder that OneDrive, Google Drive or Dropbox syncs (`turnbook folder <folder>`) holds every line
+encrypted the same way, so the cloud service sees only ciphertext. The first PC makes a password
+and shows it in its terminal; each other PC types it once when it chooses the folder and keeps it
+in its own config, never in the folder. A PC without it neither reads nor writes there.
 
 The memory lives in a Postgres server on one of your PCs, which Turnbook sets up itself. Your
 other PCs log in with a generated password, as a role that can reach only the memory database,

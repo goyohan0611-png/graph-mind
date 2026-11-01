@@ -3,6 +3,18 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **A synced folder holds only ciphertext.** A memory kept in a OneDrive, Google Drive or Dropbox
+  folder was written there as plain text; its lines are now sealed like a hub's. The first PC
+  makes a password and shows it in its terminal; each other PC types it once at
+  `turnbook folder <folder>` (kept in its own config, never in the folder). Lines a PC wrote
+  before are sealed when it next chooses the folder; a PC without the password neither reads nor
+  writes there, and its turns wait on that PC. Found by an outside review (WearyMonk8).
+- **The installer asks first.** At a terminal, `turnbook-install` lists the settings it will
+  change (every AI app's memory server, the per-message hook, the login item) and waits for a
+  yes; `--yes` skips it, and scripts without a terminal are not asked.
+- Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
+
 ## 0.10.4 — 2026-10-30
 - **The hook's memory is never stored again as the user's words.** Copilot CLI keeps a prompt its
   hook extended as the user's message; read back, every packet would have come back as something

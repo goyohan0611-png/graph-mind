@@ -667,10 +667,13 @@ def _save(changes: dict, keep: bool = False) -> None:
             Path(temporary).unlink(missing_ok=True)
 
 
-def set_folder(path) -> Path:
+def set_folder(path, password=None) -> Path:
     """Choose the brain folder for this machine. A synced folder (OneDrive, Google Drive, Dropbox)
     makes the same brain available on every PC that chooses it too. "local" is this PC's own
-    Postgres; a connection code (from `share` on another PC) joins that PC's."""
+    Postgres; a connection code (from `share` on another PC) joins that PC's.
+
+    A folder's lines are sealed: the first PC makes a password (lock_folder), the others need
+    it (`password`), and a wrong or missing one raises ValueError before anything changes."""
     path = str(path).strip()
     if path == "local" or is_database(path):
         chosen = path
@@ -680,6 +683,7 @@ def set_folder(path) -> Path:
     else:
         chosen = Path(path).expanduser().resolve()
         (chosen / "log").mkdir(parents=True, exist_ok=True)
+        lock_folder(chosen, password)
     if str(chosen) != str(_config().get("memory_folder")):
         # the queue was for the old hub and would go to the new one; everything in it is in this
         # PC's store, which `share_existing` sends on purpose
@@ -728,6 +732,10 @@ def append_many(shared: Path, items) -> int:
 
 
 def _folder_append(shared, lines) -> int:
+    if _marker(shared).exists() and _line_key(shared) is None:
+        # a sealed folder this PC has no password for: queued here, never written in clear
+        raise PermissionError("FOLDER_PASSWORD_NEEDED")
+    lines = _seal(shared, lines)
     log = Path(shared).expanduser() / "log" / f"{log_name()}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
     torn = False
@@ -753,8 +761,10 @@ def _shared_ids(shared) -> set:
             lines = [line for line in (_unseal(shared, row[0]) for row in
                      connection.execute("SELECT line FROM sharing")) if line is not None]
     else:
-        lines = [line for log in (Path(shared) / "log").glob("*.jsonl")
-                 for line in log.read_text(encoding="utf-8", errors="replace").splitlines()]
+        lines = [line for line in (
+            _unseal(shared, line) for log in (Path(shared) / "log").glob("*.jsonl")
+            for line in log.read_text(encoding="utf-8", errors="replace").splitlines())
+            if line is not None]
     ids = set()
     for line in lines:
         try:
@@ -961,10 +971,18 @@ def _line_key(url):
     joined holds and nobody else does.
     A joined PC finds the password in its URL; the hub PC in its own config."""
     import urllib.parse
-    password = urllib.parse.urlsplit(url).password
-    password = urllib.parse.unquote(password) if password else _config().get("share_password")
+    if not is_database(url):                      # a synced folder: its password, from lock_folder
+        password = (_config().get("folder_keys") or {}).get(_folder_id(url))
+    else:
+        password = urllib.parse.urlsplit(url).password
+        password = (urllib.parse.unquote(password) if password
+                    else _config().get("share_password"))
     if not password:
         return None                               # a hub never shared: nothing leaves this PC
+    return _fernet(password)
+
+
+def _fernet(password):
     if password not in _KEYS:
         from cryptography.fernet import Fernet
         from cryptography.hazmat.primitives import hashes
@@ -986,7 +1004,10 @@ def _unseal(url, line):
     to write the hub's rows could otherwise add memories or forget notices without the key."""
     key = _line_key(url)
     if not line.startswith(SEALED):
-        return line if key is None else None      # a hub never shared: nothing was sealed
+        # a hub never shared: nothing was sealed. A folder may still hold lines from before it
+        # was sealed (a PC that has not joined with the password yet): only the user's own
+        # cloud can write there, so those are read
+        return line if key is None or not is_database(url) else None
     if key is None:
         return None
     from cryptography.fernet import InvalidToken
@@ -994,6 +1015,75 @@ def _unseal(url, line):
         return key.decrypt(line[len(SEALED):].encode()).decode()
     except InvalidToken:
         return None
+
+
+def _folder_id(path) -> str:
+    return str(Path(path).expanduser().resolve())
+
+
+def _marker(shared) -> Path:
+    """In a sealed folder: a check value that tells a PC whether its password is the right one."""
+    return Path(shared).expanduser() / "sealed.json"
+
+
+def lock_folder(shared, password=None):
+    """Seal this synced folder's lines (Fernet, as a hub's) so the cloud service holding the
+    folder sees only ciphertext. The first PC makes the password; every other PC must give it,
+    and keeps it in its own config, never in the folder. Returns the password when it was made
+    just now (to show the user once), otherwise None. ValueError: FOLDER_PASSWORD_NEEDED or
+    FOLDER_PASSWORD_WRONG."""
+    import secrets
+
+    from cryptography.fernet import InvalidToken
+    marker, made = _marker(shared), None
+    keys = dict(_config().get("folder_keys") or {})
+    if marker.exists():
+        password = password or keys.get(_folder_id(shared))
+        if not password:
+            raise ValueError("FOLDER_PASSWORD_NEEDED")
+        try:
+            _fernet(password).decrypt(json.loads(marker.read_text("utf-8"))["check"].encode())
+        except (InvalidToken, ValueError, KeyError):
+            raise ValueError("FOLDER_PASSWORD_WRONG") from None
+    else:
+        password = made = password or secrets.token_urlsafe(12)
+    keys[_folder_id(shared)] = password
+    _save({"folder_keys": keys})
+    if made:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({"check": _fernet(password).encrypt(b"turnbook").decode()}),
+                          encoding="utf-8")
+    _seal_own_log(shared)
+    return made
+
+
+def folder_password(shared):
+    """This PC's password for a sealed folder (for the user's own terminal only), or None."""
+    if shared is None or is_database(shared):
+        return None
+    return (_config().get("folder_keys") or {}).get(_folder_id(shared))
+
+
+def _seal_own_log(shared) -> int:
+    """Seal the lines this PC wrote to the folder before it was sealed. Only this PC writes its
+    log, and appends take the same lock, so nothing appended meanwhile is lost."""
+    import fasteners
+    log = Path(shared).expanduser() / "log" / f"{log_name()}.jsonl"
+    outbox = _outbox()
+    outbox.parent.mkdir(parents=True, exist_ok=True)
+    with fasteners.InterProcessLock(str(outbox.with_suffix(".lock"))):
+        if not log.exists():
+            return 0
+        lines = log.read_text(encoding="utf-8").splitlines()
+        plain = [line for line in lines if line.strip() and not line.startswith(SEALED)]
+        if not plain:
+            return 0
+        sealed = [line if line.startswith(SEALED) else _seal(shared, [line])[0]
+                  for line in lines if line.strip()]
+        temporary = log.with_suffix(".sealing")
+        temporary.write_text("\n".join(sealed) + "\n", encoding="utf-8")
+        os.replace(temporary, log)
+    return len(plain)
 
 
 def _seal_existing(url) -> int:
@@ -1142,6 +1232,8 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], 
         opened = [_unseal(shared, line) for _, line in rows]
         return [line for line in opened if line is not None], cursors, len(rows) == BATCH_ROWS
     lines, budget, more = [], BATCH_BYTES, False
+    if _marker(shared).exists() and _line_key(shared) is None:
+        return [], [], False            # sealed and no password yet: read nothing, move no cursor
     for log in sorted((Path(shared) / "log").glob("*.jsonl")):
         if budget <= 0:
             more = True
@@ -1167,8 +1259,9 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], 
             budget -= len(complete)
             if complete:
                 cursors.append((log.name, end, _mark(handle, end)))
-        lines += [line for line in complete.decode("utf-8", "replace").splitlines()
-                  if line.strip()]
+        lines += [line for line in (_unseal(shared, line.strip()) for line in
+                                    complete.decode("utf-8", "replace").splitlines()
+                                    if line.strip()) if line is not None]
     return lines, cursors, more
 
 

@@ -497,6 +497,16 @@ def remove_old_models():
             pass
 
 
+CHANGES = """Turnbook will change these settings on this PC (turnbook-uninstall undoes them):
+  - add its memory server to each AI app it finds: Claude Code, Claude Desktop, Codex, Cursor,
+    Windsurf, OpenCode, Gemini CLI, Copilot CLI, VS Code, Cline, LM Studio
+  - add a hook that puts related memory into each message you send (Claude Code, Codex,
+    Gemini CLI, Copilot CLI) and a plugin for OpenCode
+  - start its capture service at login (it reads those apps' conversation files on this PC)
+  - download the search model (about 290 MB, once)
+Nothing is sent anywhere; the memory stays in ~/.graph-mind."""
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Install Turnbook on this PC.")
     parser.add_argument("--join", metavar="CODE",
@@ -505,6 +515,7 @@ def main(argv=None):
     parser.add_argument("--skip-packages", action="store_true")
     parser.add_argument("--skip-model", action="store_true")
     parser.add_argument("--no-start", action="store_true", help="register, but start nothing now")
+    parser.add_argument("--yes", action="store_true", help="do not ask before changing settings")
     args = parser.parse_args(argv)
     if sys.version_info < (3, 10):
         sys.exit("Turnbook needs Python 3.10 or newer.")
@@ -515,6 +526,11 @@ def main(argv=None):
         else:
             from graph_mind.sharing import _decode
             _decode(args.join)
+    if not args.yes and sys.stdin is not None and sys.stdin.isatty():
+        print(CHANGES)
+        if input("Go ahead? [Y/n] ").strip().lower() not in ("", "y", "yes"):
+            print("Nothing was changed.")
+            return 0
     if not args.skip_packages and (CHECKOUT / "pyproject.toml").exists():   # pip: already done
         step("installing packages (the first time takes a few minutes)")
         packages()

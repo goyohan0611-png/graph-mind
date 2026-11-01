@@ -167,8 +167,10 @@ def scrub_shared(shared, ids: dict) -> int:
                 connection.execute("DELETE FROM sharing WHERE seq = ANY(%s)", (doomed,))
             connection.commit()
         return len(doomed)
+    from graph_mind.sharing import _unseal
     def doomed(line):
-        text = line.decode("utf-8", "replace")
+        text = line.decode("utf-8", "replace").strip()
+        text = _unseal(shared, text) or text           # a sealed folder: open the line to look
         return any(key in text for key in keys) and '"kind": "forget"' not in text
     return sum(_blank(log, doomed, strict=True)
                for log in (Path(shared) / "log").glob("*.jsonl"))

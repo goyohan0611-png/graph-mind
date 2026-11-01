@@ -217,10 +217,23 @@ class SharedBrainTests(unittest.IsolatedAsyncioTestCase):
                         "path": str(shared), "share_existing": True})
                     self.assertEqual(again.structured_content["existing_memories_shared"]
                                      ["lines_written"], 0, "sharing twice uploads nothing twice")
+                    password = chosen.structured_content["folder_password"]
+                    status = await desktop.call_tool("brain_folder", {})
+                    self.assertEqual(status.structured_content["folder_password"], password)
+                logs = "".join(p.read_text(encoding="utf-8") for p in shared.rglob("*.jsonl"))
+                self.assertIn("gme1:", logs)
+                self.assertNotIn("서울", logs, "the cloud service sees only ciphertext")
 
                 os.environ["GRAPH_MIND_DEVICE"] = "laptop"
                 os.environ["GRAPH_MIND_CONFIG"] = str(root / "laptop-config.json")
                 async with Client(serve(root / "laptop-index.sqlite")) as laptop:
+                    refused = await laptop.call_tool("brain_folder", {"path": str(shared)})
+                    self.assertEqual(refused.structured_content["status"],
+                                     "FOLDER_PASSWORD_NEEDED")
+                    from graph_mind import sharing
+                    with self.assertRaises(ValueError):
+                        sharing.set_folder(shared, "wrong-password")
+                    sharing.set_folder(shared, password)     # what the terminal prompt does
                     joined = await laptop.call_tool("brain_folder", {"path": str(shared)})
                     self.assertEqual(joined.structured_content["imported_from_other_devices"], 1)
                     seen = await laptop.call_tool("brain_recall", {"query": "사는 곳"})
@@ -359,10 +372,11 @@ class SameNameTests(unittest.TestCase):
                 unittest.mock.patch.object(sharing.platform, "node", return_value="USER-PC"):
             os.environ.pop("GRAPH_MIND_DEVICE", None)
             shared = Path(directory) / "shared"
-            names = []
+            names, password = [], None
             for pc in ("first", "second"):       # both chose the folder before either one wrote
                 os.environ["GRAPH_MIND_CONFIG"] = str(Path(directory) / pc / "config.json")
-                sharing.set_folder(shared)
+                sharing.set_folder(shared, password)
+                password = sharing.folder_password(shared)
             for pc in ("first", "second"):
                 os.environ["GRAPH_MIND_CONFIG"] = str(Path(directory) / pc / "config.json")
                 sharing.append(shared, "forget", {"memory_ids": [pc]})
@@ -392,6 +406,30 @@ class SealTests(unittest.TestCase):
         self.assertIsNone(sharing._unseal(stranger, sealed), "another key opens nothing")
         # a hub with a key refuses plain lines (sharing seals the old ones): forged otherwise
         self.assertIsNone(sharing._unseal(stranger, line), "a plain line on a keyed hub")
+
+    def test_a_synced_folder_holds_only_ciphertext(self):
+        from graph_mind import sharing
+        from graph_mind.forget import scrub_shared
+        with tempfile.TemporaryDirectory() as directory, \
+                unittest.mock.patch.dict(os.environ, {"GRAPH_MIND_DEVICE": "desktop"}):
+            shared = Path(directory) / "OneDrive" / "Turnbook"
+            os.environ["GRAPH_MIND_CONFIG"] = str(Path(directory) / "desktop.json")
+            (shared / "log").mkdir(parents=True)
+            turn = {"turn_id": "t1", "content_redacted": "회의실 와이파이는 7층"}
+            sharing._folder_append(shared, sharing._lines([("turn", turn)]))   # from before
+            sharing.set_folder(shared)
+            log = shared / "log" / "desktop.jsonl"
+            self.assertNotIn("와이파이", log.read_text(encoding="utf-8"),
+                             "what was written before sealing is sealed too")
+            self.assertIn(("turn", "t1"), sharing._shared_ids(shared))
+            self.assertEqual(scrub_shared(shared, {"turn_ids": ["t1"]}), 1,
+                             "forgetting finds a sealed line")
+
+            os.environ["GRAPH_MIND_DEVICE"] = "laptop"
+            os.environ["GRAPH_MIND_CONFIG"] = str(Path(directory) / "laptop.json")
+            with self.assertRaises(PermissionError):         # queued by append, never in clear
+                sharing._folder_append(shared, sharing._lines([("turn", turn)]))
+            self.assertFalse((shared / "log" / "laptop.jsonl").exists())
 
 
 class OutboxTests(unittest.TestCase):

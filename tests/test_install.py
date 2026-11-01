@@ -14,6 +14,15 @@ from graph_mind import install
 
 
 class InstallTests(unittest.TestCase):
+    def test_at_a_terminal_it_asks_before_changing_anything(self):
+        with mock.patch.object(install.sys, "stdin") as stdin, \
+                mock.patch("builtins.input", return_value="n"), \
+                mock.patch.object(install, "agent_hooks") as hooks, \
+                mock.patch("builtins.print"):
+            stdin.isatty.return_value = True
+            self.assertEqual(install.main(["--skip-packages"]), 0)
+        hooks.assert_not_called()
+
     def test_registers_every_app_once_and_joins(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
@@ -36,7 +45,7 @@ class InstallTests(unittest.TestCase):
             with mock.patch.dict(os.environ, environment), \
                     mock.patch("graph_mind.install.shutil.which", return_value=None):
                 for _ in range(2):
-                    install.main(["--skip-packages", "--skip-model", "--no-start",
+                    install.main(["--skip-packages", "--skip-model", "--no-start", "--yes",
                                   "--join", code])
             toml = (home / ".codex" / "config.toml").read_text(encoding="utf-8")
             self.assertEqual(toml.count("[mcp_servers.graph-mind-memory]"), 1)

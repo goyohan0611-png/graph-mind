@@ -1066,9 +1066,9 @@ def build_server(db_path=None, terminal=False):
         Call it with `path` when the user names a folder for their memory, e.g. "use my Google
         Drive's Turnbook folder as my brain". A folder that OneDrive, Google Drive or Dropbox
         syncs makes the same memory available on every PC where the user chooses it too; nothing
-        else is needed. Tell the user the files there are not encrypted (the cloud service can
-        read them); `path="share"` below is encrypted. Without `path` it reports the current
-        folder and the devices writing to it.
+        else is needed but the password: lines there are encrypted, and the first PC's terminal
+        shows a password the user types on each other PC (the terminal asks for it). Without
+        `path` it reports the current folder and the devices writing to it.
         `path="local"` keeps the brain in this PC's own Postgres instead, shared the instant it is
         written (no sync delay).
 
@@ -1145,15 +1145,29 @@ def build_server(db_path=None, terminal=False):
         if path == "share":
             shared_out = share()
         elif path:
-            set_folder(path)
+            try:
+                set_folder(path)
+            except ValueError as error:          # a sealed folder: the CLI asks for it first
+                if not str(error).startswith("FOLDER_PASSWORD"):
+                    raise
+                return {"status": str(error),
+                        "note": "This folder is sealed with the password the first PC showed. "
+                                "Run `turnbook folder <the folder>` in a terminal: it asks for "
+                                "the password there."}
         shared = folder()
         if not shared:
             return {"folder": None, "this_device": device_name(),
                     "note": "No brain folder yet: memory stays on this PC. Ask the user which "
                             "folder to use (a synced one shares it across PCs)."}
+        from graph_mind.sharing import _line_key, _marker, folder_password, is_database
+        if not is_database(shared) and _marker(shared).exists() and _line_key(shared) is None:
+            return {"folder": str(shared), "this_device": device_name(),
+                    "status": "FOLDER_PASSWORD_NEEDED",
+                    "note": "The folder is sealed and this PC has no password for it, so it "
+                            "neither reads nor writes there (turns wait on this PC). Ask the "
+                            f"user to run `turnbook folder \"{shared}\"` in a terminal."}
         imported = sync(shared, database)            # bring in what other PCs already wrote
         exported = export_history(shared, database) if share_existing else None
-        from graph_mind.sharing import is_database
         if not is_database(shared):
             where = str(shared)
         elif "@127.0.0.1:" in shared:
@@ -1163,6 +1177,10 @@ def build_server(db_path=None, terminal=False):
         result = {} if shared_out is None else {
             "connection_code": shared_out["connection_code"],
             "reachable_at": shared_out["addresses"], "firewall": shared_out["firewall"]}
+        if terminal and folder_password(shared):       # the user's own terminal, never a chat
+            result["folder_password"] = folder_password(shared)
+            result["other_pcs"] = ("Lines in this folder are encrypted. On each other PC run "
+                                   "`turnbook folder <this folder>` and type this password.")
         warnings = capture_warnings()
         if warnings:
             result["capture_warnings"] = warnings
@@ -1636,6 +1654,21 @@ def terminal_command(argv):
         if args.action == "instructions" and "status" not in result.structured_content:
             pending.unlink(missing_ok=True)
         return
+    if args.command == "folder" and args.path and args.path not in ("share", "local"):
+        from graph_mind import sharing
+        place = Path(args.path).expanduser()
+        if (not sharing.is_database(args.path) and not args.path.startswith("gm")
+                and sharing._marker(place).exists()
+                and not (sharing._config().get("folder_keys") or {}).get(
+                    sharing._folder_id(place))):
+            import getpass
+            try:
+                sharing.set_folder(args.path, getpass.getpass(
+                    "This folder is encrypted. Password (shown on the first PC by "
+                    "`turnbook folder`): ").strip())
+            except ValueError as error:
+                print(f"Not changed: {error}")
+                return 1
     call = ({"path": args.path, "share_existing": args.share_existing}
             if args.command == "folder" else
             {"export_to" if args.command == "export" else "import_from": args.file})

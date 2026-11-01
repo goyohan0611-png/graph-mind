@@ -45,8 +45,9 @@ If you would rather not pipe a script into a shell:
 
    Every release is on [PyPI](https://pypi.org/project/turnbook/#history) and in
    [CHANGELOG.md](../CHANGELOG.md).
-3. `turnbook-install` changes the app settings listed under
-   [What the installer does](#what-the-installer-does). Back up `~/.claude.json` and
+3. `turnbook-install` lists the settings it will change (see
+   [What the installer does](#what-the-installer-does)) and asks before touching any; `--yes`
+   skips the question. Back up `~/.claude.json` and
    `~/.claude/settings.json` first if you want to compare. `turnbook-uninstall` removes what it
    added (`--purge` also deletes the memory).
 

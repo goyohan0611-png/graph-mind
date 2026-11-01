@@ -153,13 +153,13 @@ def scrub_shared(shared, ids: dict) -> int:
     if not keys:
         return 0
     if is_database(shared):
-        from graph_mind.sharing import _unseal
+        from graph_mind.sharing import _opener
         with _pg(shared) as connection:          # lines are sealed: open each to find targets
-            doomed = []
+            doomed, opened = [], _opener(shared)
             rows = connection.cursor(name="graph_mind_scrub")   # streamed, not all in memory
             rows.execute("SELECT seq, line FROM sharing")
             for seq, line in rows:
-                text = _unseal(shared, line) or line         # a refused plain line goes too
+                text = opened(line) or line         # a refused plain line goes too
                 if any(key in text for key in keys) and '"kind": "forget"' not in text:
                     doomed.append(seq)
             rows.close()
@@ -167,10 +167,12 @@ def scrub_shared(shared, ids: dict) -> int:
                 connection.execute("DELETE FROM sharing WHERE seq = ANY(%s)", (doomed,))
             connection.commit()
         return len(doomed)
-    from graph_mind.sharing import _unseal
+    from graph_mind.sharing import _opener
+    opened = _opener(shared)
+
     def doomed(line):
         text = line.decode("utf-8", "replace").strip()
-        text = _unseal(shared, text) or text           # a sealed folder: open the line to look
+        text = opened(text) or text           # a sealed folder: open the line to look
         return any(key in text for key in keys) and '"kind": "forget"' not in text
     return sum(_blank(log, doomed, strict=True)
                for log in (Path(shared) / "log").glob("*.jsonl"))

@@ -756,13 +756,14 @@ def _folder_append(shared, lines) -> int:
 
 def _shared_ids(shared) -> set:
     """(kind, id) of every turn and memory the shared log holds, forgotten ones included."""
+    opened = _opener(shared)
     if is_database(shared):
         with _pg(shared) as connection:
-            lines = [line for line in (_unseal(shared, row[0]) for row in
+            lines = [line for line in (opened(row[0]) for row in
                      connection.execute("SELECT line FROM sharing")) if line is not None]
     else:
         lines = [line for line in (
-            _unseal(shared, line) for log in (Path(shared) / "log").glob("*.jsonl")
+            opened(line) for log in (Path(shared) / "log").glob("*.jsonl")
             for line in log.read_text(encoding="utf-8", errors="replace").splitlines())
             if line is not None]
     ids = set()
@@ -999,22 +1000,32 @@ def _seal(url, lines):
 
 
 def _unseal(url, line):
-    """The plain line, or None when it cannot be opened with this hub's key. On a hub with a key
-    an unsealed line is refused: sharing seals the lines from before (share), and anyone able
-    to write the hub's rows could otherwise add memories or forget notices without the key."""
-    key = _line_key(url)
-    if not line.startswith(SEALED):
-        # a hub never shared: nothing was sealed. A folder may still hold lines from before it
-        # was sealed (a PC that has not joined with the password yet): only the user's own
-        # cloud can write there, so those are read
-        return line if key is None or not is_database(url) else None
-    if key is None:
-        return None
+    return _opener(url)(line)
+
+
+def _opener(url):
+    """line -> the plain line, or None when it cannot be opened with this hub's key. On a hub
+    with a key an unsealed line is refused: sharing seals the lines from before (share), and
+    anyone able to write the hub's rows could otherwise add memories or forget notices without
+    the key. The key is looked up once: per line, it read the config file each time (20,000
+    lines of a folder took 10 s)."""
     from cryptography.fernet import InvalidToken
-    try:
-        return key.decrypt(line[len(SEALED):].encode()).decode()
-    except InvalidToken:
-        return None
+    key = _line_key(url)
+    # a hub never shared: nothing was sealed. A folder may still hold lines from before it was
+    # sealed (a PC that has not joined with the password yet): only the user's own cloud can
+    # write there, so those are read
+    plain_ok = key is None or not is_database(url)
+
+    def opened(line):
+        if not line.startswith(SEALED):
+            return line if plain_ok else None
+        if key is None:
+            return None
+        try:
+            return key.decrypt(line[len(SEALED):].encode()).decode()
+        except InvalidToken:
+            return None
+    return opened
 
 
 def _folder_id(path) -> str:
@@ -1045,11 +1056,15 @@ def lock_folder(shared, password=None):
             _fernet(password).decrypt(json.loads(marker.read_text("utf-8"))["check"].encode())
         except (InvalidToken, ValueError, KeyError):
             raise ValueError("FOLDER_PASSWORD_WRONG") from None
+    elif keys.get(_folder_id(shared)) and not password:
+        # the marker is gone (a sync conflict, a cleanup) but this PC knows the password: keep
+        # it, or every line sealed so far would become unreadable everywhere
+        password = keys[_folder_id(shared)]
     else:
         password = made = password or secrets.token_urlsafe(12)
     keys[_folder_id(shared)] = password
     _save({"folder_keys": keys})
-    if made:
+    if not marker.exists():
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(json.dumps({"check": _fernet(password).encrypt(b"turnbook").decode()}),
                           encoding="utf-8")
@@ -1078,7 +1093,8 @@ def _seal_own_log(shared) -> int:
         plain = [line for line in lines if line.strip() and not line.startswith(SEALED)]
         if not plain:
             return 0
-        sealed = [line if line.startswith(SEALED) else _seal(shared, [line])[0]
+        seal = iter(_seal(shared, plain))           # one key lookup, not one per line
+        sealed = [line if line.startswith(SEALED) else next(seal)
                   for line in lines if line.strip()]
         temporary = log.with_suffix(".sealing")
         temporary.write_text("\n".join(sealed) + "\n", encoding="utf-8")
@@ -1229,9 +1245,11 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], 
                           "LIMIT %s", (row[0] if row else 0, BATCH_ROWS))
         if rows:
             cursors.append((source, rows[-1][0], None))
-        opened = [_unseal(shared, line) for _, line in rows]
+        opener = _opener(shared)
+        opened = [opener(line) for _, line in rows]
         return [line for line in opened if line is not None], cursors, len(rows) == BATCH_ROWS
     lines, budget, more = [], BATCH_BYTES, False
+    opener = _opener(shared)
     if _marker(shared).exists() and _line_key(shared) is None:
         return [], [], False            # sealed and no password yet: read nothing, move no cursor
     for log in sorted((Path(shared) / "log").glob("*.jsonl")):
@@ -1259,7 +1277,7 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], 
             budget -= len(complete)
             if complete:
                 cursors.append((log.name, end, _mark(handle, end)))
-        lines += [line for line in (_unseal(shared, line.strip()) for line in
+        lines += [line for line in (opener(line.strip()) for line in
                                     complete.decode("utf-8", "replace").splitlines()
                                     if line.strip()) if line is not None]
     return lines, cursors, more

@@ -1667,7 +1667,10 @@ def terminal_command(argv):
                     "This folder is encrypted. Password (shown on the first PC by "
                     "`turnbook folder`): ").strip())
             except ValueError as error:
-                print(f"Not changed: {error}")
+                print({"FOLDER_PASSWORD_WRONG": "That is not this folder's password.",
+                       "FOLDER_PASSWORD_NEEDED": "No password given."}.get(str(error), str(error))
+                      + " Nothing was changed. On a PC already using this folder, `turnbook "
+                        "folder` shows the password.")
                 return 1
     call = ({"path": args.path, "share_existing": args.share_existing}
             if args.command == "folder" else

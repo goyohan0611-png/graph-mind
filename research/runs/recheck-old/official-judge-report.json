@@ -1,0 +1,41 @@
+{
+  "judge": "gpt-4o-2024-08-06",
+  "note": "OFFICIAL LongMemEval protocol judge (comparable).",
+  "by_type": {
+    "ALL": {
+      "correct": 20,
+      "n": 29,
+      "acc": 0.6897
+    },
+    "abstention": {
+      "correct": 0,
+      "n": 1,
+      "acc": 0.0
+    },
+    "knowledge-update": {
+      "correct": 1,
+      "n": 1,
+      "acc": 1.0
+    },
+    "multi-session": {
+      "correct": 8,
+      "n": 10,
+      "acc": 0.8
+    },
+    "single-session-assistant": {
+      "correct": 1,
+      "n": 1,
+      "acc": 1.0
+    },
+    "single-session-preference": {
+      "correct": 3,
+      "n": 6,
+      "acc": 0.5
+    },
+    "temporal-reasoning": {
+      "correct": 7,
+      "n": 10,
+      "acc": 0.7
+    }
+  }
+}

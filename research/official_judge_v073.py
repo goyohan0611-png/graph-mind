@@ -102,8 +102,7 @@ def run():
         if "label" in r:
             agg[r["type"]][0] += int(r["label"]); agg[r["type"]][1] += 1
             agg["ALL"][0] += int(r["label"]); agg["ALL"][1] += 1
-    report = {"judge": JUDGE_MODEL, "note": "OFFICIAL LongMemEval protocol judge (comparable). "
-              "Same 60 pilot answers as the custom-judge 87%.",
+    report = {"judge": JUDGE_MODEL, "note": "OFFICIAL LongMemEval protocol judge (comparable).",
               "by_type": {k: {"correct": v[0], "n": v[1], "acc": round(v[0]/v[1], 4) if v[1] else 0}
                           for k, v in sorted(agg.items())}}
     (SRC / "official-judge-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2),

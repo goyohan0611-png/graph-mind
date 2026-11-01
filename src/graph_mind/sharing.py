@@ -1062,8 +1062,11 @@ def lock_folder(shared, password=None):
         password = keys[_folder_id(shared)]
     else:
         password = made = password or secrets.token_urlsafe(12)
+    changes = {}
+    if keys.get(_folder_id(shared)) != password:          # new to this PC: read it all again
+        changes["folder_reread"] = _folder_id(shared)
     keys[_folder_id(shared)] = password
-    _save({"folder_keys": keys})
+    _save({"folder_keys": keys, **changes})
     if not marker.exists():
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(json.dumps({"check": _fernet(password).encrypt(b"turnbook").decode()}),
@@ -1252,6 +1255,12 @@ def _new_lines(db: sqlite3.Connection, shared) -> tuple[list[str], list[tuple], 
     opener = _opener(shared)
     if _marker(shared).exists() and _line_key(shared) is None:
         return [], [], False            # sealed and no password yet: read nothing, move no cursor
+    if _config().get("folder_reread") == _folder_id(shared):
+        # this PC just got the folder's password: an older version had read past the sealed
+        # lines as corrupt ones, so read every log again (imports skip what is already here)
+        db.execute("DELETE FROM brain_log_cursor WHERE source NOT LIKE 'postgres%'")
+        db.commit()
+        _save({"folder_reread": None})
     for log in sorted((Path(shared) / "log").glob("*.jsonl")):
         if budget <= 0:
             more = True

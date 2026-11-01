@@ -431,6 +431,33 @@ class SealTests(unittest.TestCase):
                 sharing._folder_append(shared, sharing._lines([("turn", turn)]))
             self.assertFalse((shared / "log" / "laptop.jsonl").exists())
 
+    def test_a_pc_that_read_past_sealed_lines_reads_them_once_it_has_the_password(self):
+        from graph_mind import sharing
+        with tempfile.TemporaryDirectory() as directory, \
+                unittest.mock.patch.dict(os.environ, {"GRAPH_MIND_DEVICE": "desktop"}):
+            root = Path(directory)
+            shared = root / "OneDrive" / "Turnbook"
+            os.environ["GRAPH_MIND_CONFIG"] = str(root / "desktop.json")
+            sharing.set_folder(shared)
+            password = sharing.folder_password(shared)
+            sharing.append(shared, "turn", {
+                "turn_id": "t9", "client": "codex", "client_session_id": "s", "scope": "global",
+                "role": "user", "content_redacted": "주차는 B2", "raw_sha256": "t9",
+                "source_path": "p", "happened_at": "2026-11-01T09:00:00",
+                "known_at": "2026-11-01T09:00:00", "source_ordinal": 1})
+            os.environ["GRAPH_MIND_DEVICE"] = "laptop"
+            os.environ["GRAPH_MIND_CONFIG"] = str(root / "laptop.json")
+            index = root / "laptop.sqlite"
+            db = sharing._cursor_db(index)                  # an older version skipped them all
+            log = shared / "log" / "desktop.jsonl"
+            db.execute("INSERT INTO brain_log_cursor(source, offset, mark) VALUES(?,?,?)",
+                       (log.name, log.stat().st_size, None))
+            db.commit()
+            db.close()
+            sharing.set_folder(shared, password)
+            self.assertEqual(sharing.sync(shared, index)["imported"], 1)
+            self.assertEqual(sharing.sync(shared, index)["imported"], 0, "and only once")
+
 
 class OutboxTests(unittest.TestCase):
     def test_a_line_cut_off_in_the_outbox_does_not_swallow_the_next(self):

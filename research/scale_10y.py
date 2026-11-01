@@ -66,7 +66,45 @@ def distractors():
                 yield sid, iso(date), turns
 
 
+def shard(part: int, parts: int) -> None:
+    """Only embed (into the cache) every parts-th session of the 150k-400k tier, so several CI
+    jobs can share that tier's embedding; merge their caches (cache-merge) and run the script."""
+    slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")
+    embedder = LocalEmbedder(CACHE / f"embed-{slug}.json", model=LOCAL_MODEL)
+    with tempfile.TemporaryDirectory() as directory:
+        store = Path(directory) / "shard.sqlite"
+        added = mine = 0
+        with ConversationMemoryStore(store) as memory:
+            for number, (sid, at, turns) in enumerate(distractors()):
+                if added >= SIZES[-1]:
+                    break
+                take = added >= 150_000 and number % parts == part
+                for index, turn in enumerate(turns):
+                    if not turn["content"].strip():
+                        continue
+                    added += 1
+                    if take:
+                        memory.record({"turn_id": f"lme/{sid}/{index}", "client": "longmemeval",
+                                       "client_session_id": f"lme/{sid}", "scope": "global",
+                                       "role": turn["role"], "content_redacted": turn["content"],
+                                       "raw_sha256": f"{sid}/{index}", "source_path": sid,
+                                       "happened_at": at, "known_at": at,
+                                       "source_ordinal": mine})
+                        mine += 1
+        print(f"shard {part}/{parts}: {mine} turns", flush=True)
+        began, batches = time.perf_counter(), 0
+        while warm_turns(store, limit=4096, embedder=embedder):
+            batches += 1
+            print(f"  embedded {batches * 4096} in {time.perf_counter() - began:.0f} s", flush=True)
+            if batches % 5 == 0:
+                embedder.cache.flush()
+        embedder.cache.flush()
+
+
 def main() -> None:
+    for arg in sys.argv:
+        if arg.startswith("--shard="):                  # --shard=2/6
+            return shard(*map(int, arg[8:].split("/")))
     fetch()
     samples = json.loads(DATA.read_text(encoding="utf-8"))
     slug = LOCAL_MODEL.replace("/", "_").replace("@", "_")

@@ -28,6 +28,30 @@ pip install turnbook
 turnbook-install
 ```
 
+## Careful install: read first, pin a version
+
+The one-step commands run a script straight from GitHub, and that script runs uv's own installer.
+If you would rather not pipe a script into a shell:
+
+1. Read [scripts/install.ps1](../scripts/install.ps1) or [install.sh](../scripts/install.sh)
+   first, or skip them and install uv yourself from
+   [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/).
+2. Install one exact version, so nothing changes until you choose to upgrade:
+
+   ```bash
+   uv tool install --python 3.12 turnbook==0.10.4
+   turnbook-install
+   ```
+
+   Every release is on [PyPI](https://pypi.org/project/turnbook/#history) and in
+   [CHANGELOG.md](../CHANGELOG.md).
+3. `turnbook-install` changes the app settings listed under
+   [What the installer does](#what-the-installer-does). Back up `~/.claude.json` and
+   `~/.claude/settings.json` first if you want to compare. `turnbook-uninstall` removes what it
+   added (`--purge` also deletes the memory).
+
+To try it without touching your own setup, run it in Windows Sandbox or a virtual machine first.
+
 Or from source:
 
 ```bash

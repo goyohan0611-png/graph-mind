@@ -59,7 +59,8 @@ curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scrip
 ```
 
 No Python needed; nothing else to set up. Restart your AI apps afterwards. Already have Python?
-`pip install turnbook && turnbook-install`. More: [docs/install.md](docs/install.md).
+`pip install turnbook && turnbook-install`. Rather read the script and pin a version first?
+[Careful install](docs/install.md#careful-install-read-first-pin-a-version).
 
 <details>
 <summary>Connecting an MCP client by hand</summary>

@@ -1066,7 +1066,8 @@ def build_server(db_path=None, terminal=False):
         Call it with `path` when the user names a folder for their memory, e.g. "use my Google
         Drive's Turnbook folder as my brain". A folder that OneDrive, Google Drive or Dropbox
         syncs makes the same memory available on every PC where the user chooses it too; nothing
-        else is needed. Without `path` it reports the current folder and the devices writing to it.
+        else is needed. Tell the user the files there are not encrypted (the cloud service can
+        read them); `path="share"` below is encrypted. Without `path` it reports the current folder and the devices writing to it.
         `path="local"` keeps the brain in this PC's own Postgres instead, shared the instant it is
         written (no sync delay).
 

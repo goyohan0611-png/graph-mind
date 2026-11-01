@@ -55,7 +55,8 @@ curl -LsSf https://raw.githubusercontent.com/goyohan0611-png/turnbook/main/scrip
 ```
 
 Python이 없어도 되고, 따로 설정할 것도 없습니다. 설치 후 AI 앱을 한 번 껐다 켜세요. Python이 이미
-있다면 `pip install turnbook && turnbook-install`. 자세히: [docs/install.md](docs/install.md)
+있다면 `pip install turnbook && turnbook-install`. 스크립트를 먼저 읽어 보고 버전을 고정해서
+설치하고 싶다면: [신중한 설치](docs/install.md#careful-install-read-first-pin-a-version)
 
 <details>
 <summary>MCP 클라이언트에 직접 연결하기</summary>

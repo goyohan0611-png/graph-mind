@@ -25,6 +25,7 @@ TYPE_NAME = r"(?!(?:str|int|bytes|bool|None|Optional|SecretStr|Any|string|number
 CREDENTIAL_NAME = re.compile(r"(?i)[\w-]*(?:password|passwd|pwd|secret|token|api[_ -]?key|"
                              r"access[_ -]?key|private[_ -]?key|authorization)")
 SECRET_PATTERNS = (
+    (re.compile(r"\bsk-ant-[A-Za-z0-9_-]{16,}\b"), "[REDACTED_ANTHROPIC_KEY]"),
     (re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b"), "[REDACTED_OPENAI_KEY]"),
     (re.compile(r"\bkey_[A-Za-z0-9_-]{10,}\b"), "[REDACTED_API_KEY]"),
     (re.compile(r"(?i)(authorization\s*[:=]\s*(?:bearer\s+)?)[^\s]+"), r"\1[REDACTED]"),

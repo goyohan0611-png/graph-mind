@@ -230,26 +230,37 @@ document.getElementById("spin").onclick = e => {
 
 
 LIBRARY = "https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"
+# The page holds the whole memory, so the library must be exactly the one checked (same bytes
+# from unpkg and jsDelivr): a CDN serving anything else could read every memory in the page.
+LIBRARY_SHA256 = "19b3be27040fc894e56d684d53c5f62526c25e5d27f37e8fe91fafff605e4ef4"
+LIBRARY_SRI = "sha384-SIcVySj+Cd1g+cwoLNCdr/osXU15HLXCxfaSzFNkZICYeKS7I2YxhyggCijT8JHA"
 
 
 def _library_tag(inline: bool) -> str:
     """The 3D library inside the page, fetched once by Python and kept in ~/.graph-mind/vendor.
     Loaded from the CDN by the browser instead, a page opened from disk stayed black on a PC
-    whose browser would not fetch it."""
-    fallback = f'<script src="{LIBRARY}"></script>'
+    whose browser would not fetch it. Either way only the pinned bytes run."""
+    fallback = (f'<script src="{LIBRARY}" integrity="{LIBRARY_SRI}" '
+                'crossorigin="anonymous"></script>')
     if not inline:
         return fallback
+    import hashlib
+
     from graph_mind.paths import graph_mind_home
     cached = graph_mind_home() / "vendor" / LIBRARY.rsplit("/", 1)[-1].replace(
         ".min.js", "-1.73.3.min.js")
+    if cached.exists() and hashlib.sha256(cached.read_bytes()).hexdigest() != LIBRARY_SHA256:
+        cached.unlink()                      # kept by a version that did not check it
     if not cached.exists():
         import urllib.request
         try:
             code = urllib.request.urlopen(LIBRARY, timeout=60).read()
-            cached.parent.mkdir(parents=True, exist_ok=True)
-            cached.write_bytes(code)
         except OSError:
             return fallback                  # offline now: the browser may still fetch it
+        if hashlib.sha256(code).hexdigest() != LIBRARY_SHA256:
+            return fallback                  # not the checked file: the browser refuses it too
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_bytes(code)
     code = cached.read_text(encoding="utf-8")
     return "<script>" + code.replace("</script", "<\\/script") + "</script>"
 

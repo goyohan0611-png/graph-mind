@@ -65,11 +65,12 @@ class SyncTests(unittest.TestCase):
         from cryptography.fernet import Fernet
         key = Fernet(Fernet.generate_key())
         sealed = sharing.SEALED + key.encrypt(b"line").decode()
+        hub = "postgresql://graphmind:pw@192.0.2.1:54329/graphmind"
         with mock.patch.object(sharing, "_line_key", return_value=key):
-            self.assertIsNone(sharing._unseal("u", '{"kind": "forget"}'))
-            self.assertEqual(sharing._unseal("u", sealed), "line")
+            self.assertIsNone(sharing._unseal(hub, '{"kind": "forget"}'))
+            self.assertEqual(sharing._unseal(hub, sealed), "line")
         with mock.patch.object(sharing, "_line_key", return_value=None):
-            self.assertEqual(sharing._unseal("u", "plain"), "plain")
+            self.assertEqual(sharing._unseal(hub, "plain"), "plain")
 
 
 if __name__ == "__main__":

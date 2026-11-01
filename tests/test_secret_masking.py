@@ -12,6 +12,7 @@ from graph_mind.mcp_server import build_server, wait_for_index
 
 KEYS = {
     "sk-proj-" + "a" * 40: "[REDACTED_OPENAI_KEY]",
+    "sk-ant-api03-" + "e" * 40: "[REDACTED_ANTHROPIC_KEY]",
     "ghp_" + "b" * 36: "[REDACTED_GITHUB_TOKEN]",
     "AKIA" + "C" * 16: "[REDACTED_AWS_KEY]",
     "AIza" + "d" * 35: "[REDACTED_GOOGLE_KEY]",

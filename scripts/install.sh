@@ -20,4 +20,9 @@ SPEC="turnbook${GRAPH_MIND_VERSION:+==$GRAPH_MIND_VERSION}"
 uv tool list 2>/dev/null | grep -q "^graph-mind-memory " && uv tool uninstall graph-mind-memory >/dev/null
 echo "Turnbook: installing $SPEC..."
 uv tool install --python 3.12 --upgrade "$SPEC"
-"$(uv tool dir --bin)/turnbook-install" "$@"
+# piped into sh, stdin is this script: ask the terminal instead, so the installer can ask first
+if [ -t 1 ] && { : </dev/tty; } 2>/dev/null; then
+    "$(uv tool dir --bin)/turnbook-install" "$@" </dev/tty
+else
+    "$(uv tool dir --bin)/turnbook-install" "$@"
+fi

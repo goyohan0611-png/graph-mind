@@ -12,7 +12,16 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   writes there, and its turns wait on that PC. Found by an outside review (WearyMonk8).
 - **The installer asks first.** At a terminal, `turnbook-install` lists the settings it will
   change (every AI app's memory server, the per-message hook, the login item) and waits for a
-  yes; `--yes` skips it, and scripts without a terminal are not asked.
+  yes; `--yes` skips it, and scripts without a terminal are not asked. `curl ... | sh` asks too
+  (through the terminal, as stdin is the script).
+- **`turnbook-view` runs only the 3D library it was checked against.** The page holds the whole
+  memory, and the library came from a CDN unchecked: a CDN serving other code could have read
+  every memory in it. The download is now pinned by SHA-256, and the browser fallback carries an
+  integrity hash.
+- **The per-message memory says it is a record, not instructions,** so a model does not act on a
+  request that happens to sit in an old conversation or a shared memory.
+- Anthropic keys (`sk-ant-…`) are masked as `[REDACTED_ANTHROPIC_KEY]` (they were masked before,
+  under the OpenAI label).
 - Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
 
 ## 0.10.4 — 2026-10-30

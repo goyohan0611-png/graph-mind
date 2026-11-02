@@ -3,7 +3,7 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
-## Unreleased
+## 0.10.5 — 2026-11-02
 - **A synced folder holds only ciphertext.** A memory kept in a OneDrive, Google Drive or Dropbox
   folder was written there as plain text; its lines are now sealed like a hub's. The first PC
   makes a password and shows it in its terminal; each other PC types it once at
@@ -60,6 +60,7 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   nothing) with every message. Text equality only; every message is still searched.
 - `turnbook-uninstall` also deletes the two files that are Turnbook's by name and were left
   empty: Copilot CLI's `hooks/turnbook.json` and OpenCode's `graph-mind.md`.
+- A hub's Postgres log no longer gets a line per checkpoint (two thirds of it, ~60 KB a day).
 - Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
 
 ## 0.10.4 — 2026-10-30

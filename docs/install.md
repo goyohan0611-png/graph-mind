@@ -39,7 +39,7 @@ If you would rather not pipe a script into a shell:
 2. Install one exact version, so nothing changes until you choose to upgrade:
 
    ```bash
-   uv tool install --python 3.12 turnbook==0.10.4
+   uv tool install --python 3.12 turnbook==0.10.5
    turnbook-install
    ```
 

@@ -587,14 +587,14 @@ class CodexConversationCapture:
         if value.get("capture_version") != CAPTURE_VERSION:
             raise ValueError("CONVERSATION_CAPTURE_VERSION_MISMATCH")
         self._forget_sessions = value.get("forget_sessions", {})
-        self._summaries_purged = value.get("summaries_purged", False)
+        self._summaries_purged = value.get("compact_summaries_erased", False)
         return value.get("offsets", {})
 
     def _write_state(self, offsets):
         value = {"capture_version": CAPTURE_VERSION,
                  "sessions_root": str(self.sessions_root), "offsets": offsets,
                  "forget_sessions": getattr(self, "_forget_sessions", {}),
-                 "summaries_purged": getattr(self, "_summaries_purged", True)}
+                 "compact_summaries_erased": getattr(self, "_summaries_purged", True)}
         temporary = self.state_path.with_suffix(".tmp")
         temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n",
                              encoding="utf-8")
@@ -752,7 +752,7 @@ class ClaudeCodeConversationCapture(CodexConversationCapture):
     def _purge_summaries(self):
         """Erase the compaction summaries older versions stored as user turns, by the ids they
         were stored under (same file, same record), never by their wording."""
-        ids = []
+        ids, hashes = [], set()
         for path in self._files():
             session_id = None
             try:
@@ -776,11 +776,20 @@ class ClaudeCodeConversationCapture(CodexConversationCapture):
                         ordinal = item.get("ordinal")
                         ordinal = int(ordinal) if ordinal is not None else line_start
                         ids.append(self._turn_id(session_id, item, ordinal, raw))
+                        hashes.add(hashlib.sha256(raw.encode("utf-8")).hexdigest())
             except OSError:
                 continue
+        # versions before 0.9.2 named turns differently (by line, not by the record's uuid): the
+        # hash of the text they stored, which every version recorded the same way, finds those
+        hashes = sorted(hashes)
+        for start in range(0, len(hashes), 500):
+            chunk = hashes[start:start + 500]
+            ids += [row[0] for row in self.store.db.execute(
+                "SELECT turn_id FROM conversation_turns WHERE client=? AND role='user' AND "
+                f"raw_sha256 IN ({','.join('?' * len(chunk))})", (self.CLIENT, *chunk))]
         if ids:
-            erase(self.store.path, {"turn_ids": ids})
-        return len(ids)
+            erase(self.store.path, {"turn_ids": sorted(set(ids))})
+        return len(set(ids))
 
     def _said(self, item):
         queued = item.get("attachment") if item.get("type") == "attachment" else None

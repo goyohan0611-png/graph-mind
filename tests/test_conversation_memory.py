@@ -1,5 +1,6 @@
 import _isolate  # noqa: F401  (first: never touch the real ~/.graph-mind)
 from pathlib import Path
+import hashlib
 import json
 import tempfile
 import unittest
@@ -138,11 +139,19 @@ class ConversationMemoryTests(unittest.TestCase):
                                        ClaudeCodeConversationCapture._said):    # 0.10.4 and before
                     capture.scan()
                 self.assertEqual(len(store.search("Summary")["turns"]), 1)
+                summary = "This session is being continued. Summary: ..."
+                store.record({"turn_id": "claude-code-turn-before-0.9.2", "client": "claude-code",
+                              "client_session_id": "cc:1", "scope": "global", "role": "user",
+                              "content_redacted": summary, "source_path": "p",
+                              "raw_sha256": hashlib.sha256(summary.encode()).hexdigest(),
+                              "happened_at": "2026-09-16T10:00:00",
+                              "known_at": "2026-09-16T10:00:00", "source_ordinal": 0})
+                self.assertEqual(len(store.search("Summary")["turns"]), 2)
                 state = json.loads((root / "cursor.json").read_text(encoding="utf-8"))
-                state["summaries_purged"] = False                    # a cursor from then
+                state["compact_summaries_erased"] = False                    # a cursor from then
                 (root / "cursor.json").write_text(json.dumps(state), encoding="utf-8")
                 capture.scan()
-                self.assertEqual(store.search("Summary")["turns"], [])
+                self.assertEqual(store.search("Summary")["turns"], [], "both id schemes erased")
                 self.assertEqual(len(store.search("배포는 금요일로")["turns"]), 1)
                 with source.open("a", encoding="utf-8") as handle:
                     handle.write(json.dumps(line("s2", "Another Summary text",

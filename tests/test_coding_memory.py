@@ -142,6 +142,26 @@ class CodingMemoryTests(unittest.TestCase):
                 self.assertEqual(capture.scan(reason="r")["record_results"][0]["disposition"],
                                  "RECORDED")
 
+    def test_only_the_current_version_of_each_file_is_kept_as_a_blob(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            (workspace / "app.py").write_text("a = 1\n")
+            clock = iter(f"2026-09-15T10:00:0{i}" for i in range(10))
+            with CodingMemoryStore(root / "brain.sqlite") as store:
+                capture = CodingMemoryCapture(workspace, store, project_id="project:demo",
+                                              session_id="session:1", state_dir=root / "state",
+                                              now=lambda: next(clock))
+                capture.initialize_baseline()
+                for value in ("a = 22\n", "a = 333\n", "a = 4444\n"):
+                    (workspace / "app.py").write_text(value)
+                    last = capture.scan(reason="r")
+                self.assertEqual(len(list((root / "state" / "blobs").glob("*/*.blob"))), 1)
+                patch = Path(last["changes"][0]["diff_ref"]).read_text(encoding="utf-8")
+                self.assertIn("-a = 333", patch)                # the history is in the patches
+                self.assertIn("+a = 4444", patch)
+
     def test_false_deletions_of_files_still_there_are_dropped(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

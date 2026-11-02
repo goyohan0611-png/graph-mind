@@ -401,9 +401,21 @@ class CodingMemoryCapture:
                              + "\n", encoding="utf-8")
         os.replace(temporary, self.manifest_path)
 
+    def _drop_old_blobs(self, files):
+        """A blob is read only as the "before" of the next change, so only the current version
+        of each file is needed; the patch keeps the history. Every past version was kept (169 MB
+        for a 182-file project in three weeks). Called once the manifest naming them is
+        written: a scan whose manifest failed still finds its blobs."""
+        keep = {Path(entry["blob_ref"]).name for entry in files.values()
+                if entry.get("blob_ref")}
+        for blob in self.blob_dir.glob("*/*.blob"):
+            if blob.name not in keep:
+                blob.unlink(missing_ok=True)
+
     def initialize_baseline(self):
         files = self.snapshot()
         self._write_manifest(files)
+        self._drop_old_blobs(files)
         return {"status": "BASELINE_CREATED", "file_count": len(files),
                 "manifest": str(self.manifest_path)}
 
@@ -507,6 +519,7 @@ class CodingMemoryCapture:
                             "diff_ref": str(diff_path)})
         if current != previous:
             self._write_manifest(current)
+            self._drop_old_blobs(current)
         return {"status": "CHANGES_RECORDED" if changes else "NO_CHANGES",
                 "change_count": len(changes), "changes": changes,
                 "record_results": recorded}

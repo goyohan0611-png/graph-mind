@@ -28,6 +28,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   connection (no measurable cost), the word index drops a forgotten word at once, and the
   write-ahead log is emptied after forgetting. Run `turnbook compact` once to clear leftovers
   from before.
+- **Code capture keeps only the current version of each file.** Every past version was kept
+  as a snapshot (169 MB for a 182-file project in three weeks), though only the latest is
+  read; the patches keep the history. Old ones go at the next change.
 - Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
 
 ## 0.10.4 — 2026-10-30

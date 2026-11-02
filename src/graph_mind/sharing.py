@@ -339,7 +339,9 @@ def _start(data: Path, port: int) -> None:
     sync met the log the server was writing ("sharing violation") and waited 30 s more."""
     def start():
         if not _current(_server_exe(data)):                # a failed try may have started it
-            _pg_tool("pg_ctl", ["-D", data, "-w", "-t", "300", "-o", f"-p {port}",
+            # no line per checkpoint: two thirds of a log that only ever grew (60 KB a day)
+            _pg_tool("pg_ctl", ["-D", data, "-w", "-t", "300",
+                                "-o", f"-p {port} -c log_checkpoints=off",
                                 "-l", data.parent / "postgres.log", "start"], timeout=330)
     _retry(start, attempts=10)
     _wait_accepting(port, seconds=300, data=data)

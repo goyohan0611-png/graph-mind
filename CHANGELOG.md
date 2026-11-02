@@ -29,6 +29,11 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   the ones stored before are erased once (by id, or by the text's hash for turns stored before
   0.9.2). Codex automations' heartbeats and its apps' page state, also sent as "user"
   messages, are kept out the same way (150 were stored on one PC).
+- **Copies of the same turn stored before 0.9.2 are dropped once.** Back then a turn's id came
+  from its row number in one read, so a transcript read again stored every turn a second
+  time; two of a hook packet's four slots could be the same sentence. The same app,
+  conversation, speaker, time and text is one turn; the first stays. A copy a memory was
+  promoted from is kept, so no memory goes with it.
 - **Forgotten text leaves the file, not just the tables.** SQLite only marks a deleted row's space
   free, and the word index kept a deleted word until a merge: after `turnbook-forget`, the phrase
   was still in the memory file's bytes (8 copies in a test). Freed space is now zeroed on every

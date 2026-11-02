@@ -520,6 +520,11 @@ class AutomaticCaptureService:
 
                 from graph_mind.install import remove_old_models
                 threading.Thread(target=remove_old_models, daemon=True).start()
+            try:                        # once per store: copies stored before 0.9.2
+                with ConversationMemoryStore(self.db_path) as store:
+                    store.drop_duplicates()
+            except Exception:
+                pass                    # tried again at the next start
         iteration, restart = 0, False
         last_code_scan = None
         pending, packing, last_embed = True, max_iterations is None, time.monotonic()

@@ -306,6 +306,29 @@ class ConversationMemoryStore:
         with self.db:
             self.db.execute("INSERT OR REPLACE INTO store_flags VALUES('packing','on')")
 
+    def drop_duplicates(self) -> int:
+        """Once per store: before 0.9.2 a turn's id came from its row number in one read, so a
+        transcript read again from the start stored every turn a second time under a new id (two
+        of a hook packet's four slots could be the same sentence). The same app, conversation,
+        speaker, time to the microsecond and text hash is the same turn: the first one stays."""
+        if self.db.execute("SELECT 1 FROM store_flags WHERE name='deduplicated'").fetchone():
+            return 0
+        ids = [row[0] for row in self.db.execute("""
+          SELECT turn_id FROM (SELECT turn_id, ROW_NUMBER() OVER (
+              PARTITION BY client, client_session_id, role, happened_at, raw_sha256
+              ORDER BY revision) AS copy FROM conversation_turns) WHERE copy > 1""")]
+        if self.db.execute("SELECT 1 FROM sqlite_master "
+                           "WHERE name='semantic_ingestion_audit'").fetchone():
+            # erasing a turn erases the memory promoted from it: a copy that was promoted stays
+            promoted = {row[0] for row in self.db.execute(
+                "SELECT turn_id FROM semantic_ingestion_audit WHERE memory_id IS NOT NULL")}
+            ids = [i for i in ids if i not in promoted]
+        if ids:
+            erase(self.path, {"turn_ids": ids})
+        with self.db:
+            self.db.execute("INSERT OR REPLACE INTO store_flags VALUES('deduplicated','1')")
+        return len(ids)
+
     def compress_some(self, limit=2000, after=0) -> tuple[int, int]:
         """Compress up to `limit` plain turns with a revision above `after`; returns (packed,
         last revision looked at), so the caller resumes there instead of rereading the front.

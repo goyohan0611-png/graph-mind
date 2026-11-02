@@ -202,6 +202,36 @@ class ConversationMemoryTests(unittest.TestCase):
                 capture.scan()
                 self.assertEqual(store.search("Another Summary")["turns"], [])
 
+    def test_copies_stored_under_old_ids_are_dropped_once(self):
+        """Before 0.9.2 a re-read stored every turn again under a new id."""
+        def turn(turn_id, ordinal, at="2026-10-01T17:55:01.897000", text="그럴싸 하네"):
+            return {"turn_id": turn_id, "client": "claude-code", "client_session_id": "s",
+                    "scope": "global", "role": "user", "content_redacted": text,
+                    "raw_sha256": hashlib.sha256(text.encode()).hexdigest(), "source_path": "p",
+                    "happened_at": at, "known_at": at, "source_ordinal": ordinal}
+        with tempfile.TemporaryDirectory() as directory:
+            with ConversationMemoryStore(Path(directory) / "brain.sqlite") as store:
+                store.record(turn("first", 1))
+                store.record(turn("again", 15448))                       # the same turn
+                store.record(turn("later", 2, at="2026-10-02T09:00:00"))  # said again, later
+                self.assertEqual(store.drop_duplicates(), 1)
+                self.assertEqual(sorted(t["turn_id"] for t in store.search("그럴싸")["turns"]),
+                                 ["first", "later"])
+                self.assertEqual(store.drop_duplicates(), 0, "once per store")
+                store.record(turn("again", 15448))        # erased: not brought back by a sync
+                self.assertEqual(len(store.search("그럴싸")["turns"]), 2)
+                # a copy a memory was promoted from stays: erasing it would erase the memory
+                store.record(turn("kept-a", 3, at="2026-10-03T09:00:00"))
+                store.record(turn("kept-b", 4, at="2026-10-03T09:00:00"))
+                store.db.execute("CREATE TABLE semantic_ingestion_audit(turn_id TEXT PRIMARY KEY, "
+                                 "gate_version TEXT, disposition TEXT, reason TEXT, "
+                                 "memory_id TEXT, processed_at TEXT)")
+                store.db.execute("INSERT INTO semantic_ingestion_audit VALUES"
+                                 "('kept-b','g','PROMOTED','r','m1','t')")
+                store.db.execute("DELETE FROM store_flags WHERE name='deduplicated'")
+                store.db.commit()
+                self.assertEqual(store.drop_duplicates(), 0)
+
     def test_claude_code_keeps_only_what_was_said(self):
         """Of everything a Claude Code transcript holds, only typed user text and assistant text
         are conversation. Tool calls, tool results, thinking, sub-agent side chains, meta records

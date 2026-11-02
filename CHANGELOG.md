@@ -26,7 +26,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   compacts a long conversation it writes the model's summary as a "user" record; Turnbook
   stored it as something the user said, thousands of characters of AI summary each time,
   against its own rule of keeping only what was said. Those records are skipped now, and
-  the ones stored before are erased once, by the ids they were stored under.
+  the ones stored before are erased once (by id, or by the text's hash for turns stored before
+  0.9.2). Codex automations' heartbeats and its apps' page state, also sent as "user"
+  messages, are kept out the same way (150 were stored on one PC).
 - **Forgotten text leaves the file, not just the tables.** SQLite only marks a deleted row's space
   free, and the word index kept a deleted word until a merge: after `turnbook-forget`, the phrase
   was still in the memory file's bytes (8 copies in a test). Freed space is now zeroed on every

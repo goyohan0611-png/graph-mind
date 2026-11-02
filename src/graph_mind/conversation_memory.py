@@ -125,9 +125,14 @@ def _looks_random(token):
         return False
     counts = collections.Counter(core)
     return -sum(n / len(core) * math.log2(n / len(core)) for n in counts.values()) >= 3.7
+# Blocks an app puts in a "user" message, not the person: Codex's environment, plugins, its
+# automations' heartbeat and its apps' page state (the last two were stored: 150 on one PC)
+# Raised when what is kept out grows: each transcript folder is read once more, and what an older
+# version stored that is kept out now is erased (2: compaction summaries, heartbeats, app pages)
+CLEANUP = 2
 AUTOMATIC_BLOCKS = re.compile(
-    r"<(?:environment_context|recommended_plugins|in-app-browser-context)\b[^>]*>.*?"
-    r"</(?:environment_context|recommended_plugins|in-app-browser-context)>",
+    r"<(environment_context|recommended_plugins|in-app-browser-context|heartbeat|"
+    r"external_codex_apps_[a-z_]+)\b[^>]*>.*?</\1>",
     flags=re.DOTALL,
 )
 
@@ -572,7 +577,39 @@ class CodexConversationCapture:
         return f"{self.CLIENT}-turn-" + hashlib.sha256(binding).hexdigest()
 
     def _purge_summaries(self):
-        return 0
+        """Once: erase the user turns older versions stored that held nothing the person said
+        (blocks AUTOMATIC_BLOCKS now takes out), found by the hash of the text they stored."""
+        hashes = set()
+        for path in self._files():
+            try:
+                with path.open("rb") as handle:
+                    for line in handle:
+                        if b'"response_item"' not in line:
+                            continue
+                        try:
+                            item = json.loads(line.decode("utf-8", "strict"))
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            continue
+                        said = self._message(item) if isinstance(item, dict) else None
+                        raw = self._prepare(*said) if said and said[0] == "user" else None
+                        # nothing left once the app's blocks are taken out: an older version,
+                        # whose list of blocks was shorter, may have stored it
+                        if raw is not None and not _redact(raw)[0]:
+                            hashes.add(hashlib.sha256(raw.encode("utf-8")).hexdigest())
+            except OSError:
+                continue
+        return self._erase_by_hash(hashes, [])
+
+    def _erase_by_hash(self, hashes, ids):
+        hashes = sorted(hashes)
+        for start in range(0, len(hashes), 500):
+            chunk = hashes[start:start + 500]
+            ids += [row[0] for row in self.store.db.execute(
+                "SELECT turn_id FROM conversation_turns WHERE client=? AND role='user' AND "
+                f"raw_sha256 IN ({','.join('?' * len(chunk))})", (self.CLIENT, *chunk))]
+        if ids:
+            erase(self.store.path, {"turn_ids": sorted(set(ids))})
+        return len(set(ids))
 
     def initialize_baseline(self):
         files = {str(path): _complete_size(path) for path in self._files()}
@@ -587,14 +624,14 @@ class CodexConversationCapture:
         if value.get("capture_version") != CAPTURE_VERSION:
             raise ValueError("CONVERSATION_CAPTURE_VERSION_MISMATCH")
         self._forget_sessions = value.get("forget_sessions", {})
-        self._summaries_purged = value.get("compact_summaries_erased", False)
+        self._summaries_purged = value.get("cleanup", 0) >= CLEANUP
         return value.get("offsets", {})
 
     def _write_state(self, offsets):
         value = {"capture_version": CAPTURE_VERSION,
                  "sessions_root": str(self.sessions_root), "offsets": offsets,
                  "forget_sessions": getattr(self, "_forget_sessions", {}),
-                 "compact_summaries_erased": getattr(self, "_summaries_purged", True)}
+                 "cleanup": CLEANUP if getattr(self, "_summaries_purged", True) else 0}
         temporary = self.state_path.with_suffix(".tmp")
         temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n",
                              encoding="utf-8")
@@ -781,15 +818,7 @@ class ClaudeCodeConversationCapture(CodexConversationCapture):
                 continue
         # versions before 0.9.2 named turns differently (by line, not by the record's uuid): the
         # hash of the text they stored, which every version recorded the same way, finds those
-        hashes = sorted(hashes)
-        for start in range(0, len(hashes), 500):
-            chunk = hashes[start:start + 500]
-            ids += [row[0] for row in self.store.db.execute(
-                "SELECT turn_id FROM conversation_turns WHERE client=? AND role='user' AND "
-                f"raw_sha256 IN ({','.join('?' * len(chunk))})", (self.CLIENT, *chunk))]
-        if ids:
-            erase(self.store.path, {"turn_ids": sorted(set(ids))})
-        return len(set(ids))
+        return self._erase_by_hash(hashes, ids)
 
     def _said(self, item):
         queued = item.get("attachment") if item.get("type") == "attachment" else None

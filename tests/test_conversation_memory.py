@@ -90,6 +90,49 @@ class ConversationMemoryTests(unittest.TestCase):
             self.assertEqual(result["recorded_turns"], 1)
             self.assertEqual(found["status"], "KNOWN")
 
+    def test_what_codex_puts_in_a_user_message_is_not_the_users_words(self):
+        """An automation's heartbeat and an app's page state: Codex sends them as "user"
+        messages. Kept out, and the ones an older version stored are erased once."""
+        import re
+        from unittest import mock
+
+        from graph_mind import conversation_memory
+        injected = ["<heartbeat>\n  <automation_id>nightly brief</automation_id>\n</heartbeat>",
+                    '<external_codex_apps_open_page>{"page_id":"pagestate"}'
+                    "</external_codex_apps_open_page>"]
+        before = re.compile(r"<(?:environment_context|recommended_plugins)\b[^>]*>.*?"
+                            r"</(?:environment_context|recommended_plugins)>", flags=re.DOTALL)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sessions = root / "sessions"
+            sessions.mkdir()
+            source = sessions / "s.jsonl"
+            source.write_text(json.dumps({"type": "session_meta", "payload": {
+                "session_id": "session:s"}}) + "\n", encoding="utf-8")
+            with ConversationMemoryStore(root / "brain.sqlite") as store:
+                capture = CodexConversationCapture(sessions, store,
+                    state_path=root / "cursor.json", now=lambda: "2026-09-16T19:01:00")
+                capture.initialize_baseline()
+                with source.open("a", encoding="utf-8") as handle:
+                    for n, text in enumerate(injected + ["<environment_context>x"
+                                                         "</environment_context>배포는 금요일"]):
+                        handle.write(json.dumps(row(n, "user", text), ensure_ascii=False) + "\n")
+                with mock.patch.object(conversation_memory, "AUTOMATIC_BLOCKS", before):
+                    capture.scan()                                   # 0.10.4 and before
+                self.assertEqual(len(store.search("nightly brief")["turns"]), 1)
+                self.assertEqual(len(store.search("pagestate")["turns"]), 1)
+                state = json.loads((root / "cursor.json").read_text(encoding="utf-8"))
+                state["cleanup"] = 0
+                (root / "cursor.json").write_text(json.dumps(state), encoding="utf-8")
+                capture.scan()
+                self.assertEqual(store.search("nightly brief")["turns"], [])
+                self.assertEqual(store.search("pagestate")["turns"], [])
+                self.assertEqual(len(store.search("배포는 금요일")["turns"]), 1)
+                with source.open("a", encoding="utf-8") as handle:
+                    for n, text in enumerate(injected + ["그냥 한 말"], start=10):
+                        handle.write(json.dumps(row(n, "user", text), ensure_ascii=False) + "\n")
+                self.assertEqual(capture.scan()["recorded_turns"], 1)
+
     def test_existing_sessions_start_at_end_and_new_session_starts_at_zero(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -148,7 +191,7 @@ class ConversationMemoryTests(unittest.TestCase):
                               "known_at": "2026-09-16T10:00:00", "source_ordinal": 0})
                 self.assertEqual(len(store.search("Summary")["turns"]), 2)
                 state = json.loads((root / "cursor.json").read_text(encoding="utf-8"))
-                state["compact_summaries_erased"] = False                    # a cursor from then
+                state["cleanup"] = 0                    # a cursor from then
                 (root / "cursor.json").write_text(json.dumps(state), encoding="utf-8")
                 capture.scan()
                 self.assertEqual(store.search("Summary")["turns"], [], "both id schemes erased")

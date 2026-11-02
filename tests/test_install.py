@@ -190,6 +190,26 @@ class InstallTests(unittest.TestCase):
                 self.assertEqual(settings["instructions"], ["mine.md"])
                 self.assertFalse((folder / "plugins" / "graph-mind.js").exists())
 
+    def test_files_that_are_ours_by_name_go_with_uninstall(self):
+        """Left behind empty: Copilot CLI's hooks/turnbook.json and OpenCode's graph-mind.md."""
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            (home / ".copilot").mkdir()
+            (home / ".config" / "opencode").mkdir(parents=True)
+            environment = {"USERPROFILE": str(home), "HOME": str(home), "XDG_CONFIG_HOME": "",
+                           "APPDATA": str(home / "AppData" / "Roaming"), "COPILOT_HOME": "",
+                           "GRAPH_MIND_HOME": str(home / ".graph-mind"),
+                           "GRAPH_MIND_CONFIG": str(home / ".graph-mind" / "config.json")}
+            ours = [home / ".copilot" / "hooks" / "turnbook.json",
+                    home / ".config" / "opencode" / "graph-mind.md"]
+            with mock.patch.dict(os.environ, environment), \
+                    mock.patch("graph_mind.install.shutil.which", return_value=None), \
+                    mock.patch("builtins.print"):
+                install.main(["--skip-packages", "--skip-model", "--no-start", "--yes"])
+                self.assertTrue(all(path.exists() for path in ours))
+                install.uninstall([])
+            self.assertEqual([path for path in ours if path.exists()], [])
+
     def test_mangled_code_stops_before_anything_changes(self):
         with self.assertRaises(ValueError):
             install.main(["--skip-packages", "--join", "gm1.%%%"])

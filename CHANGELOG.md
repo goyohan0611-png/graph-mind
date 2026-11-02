@@ -58,6 +58,8 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 - **The per-message memory leaves out earlier messages with exactly the same words.** A short
   reply such as "했어" or "ok" brought back four older copies of itself (~1,500 characters of
   nothing) with every message. Text equality only; every message is still searched.
+- `turnbook-uninstall` also deletes the two files that are Turnbook's by name and were left
+  empty: Copilot CLI's `hooks/turnbook.json` and OpenCode's `graph-mind.md`.
 - Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
 
 ## 0.10.4 — 2026-10-30

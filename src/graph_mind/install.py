@@ -632,6 +632,7 @@ def uninstall(argv=None):
     if plugin.exists():
         plugin.unlink()
         removed.append("OpenCode plugin")
+    _opencode_dir(home).joinpath("graph-mind.md").unlink(missing_ok=True)   # ours by name
     codex_config = home / ".codex" / "config.toml"
     if codex_config.exists():
         text = codex_config.read_text(encoding="utf-8")
@@ -639,6 +640,14 @@ def uninstall(argv=None):
             codex_config.write_text(_without_codex_block(text), encoding="utf-8")
             removed.append("Codex")
     removed += agent_hooks(home, remove=True)
+    # Copilot CLI's hooks file is ours by name: deleted once nothing but ours was in it
+    copilot_hooks = (Path(os.environ.get("COPILOT_HOME") or home / ".copilot")
+                     / "hooks" / "turnbook.json")
+    try:
+        if not json.loads(copilot_hooks.read_text(encoding="utf-8")).get("hooks"):
+            copilot_hooks.unlink()
+    except (OSError, ValueError, AttributeError):
+        pass
     step("memory removed from: " + (", ".join(dict.fromkeys(removed)) or "no app had it"))
     item = _login_item()
     if item.exists():

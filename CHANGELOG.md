@@ -29,6 +29,12 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   the ones stored before are erased once (by id, or by the text's hash for turns stored before
   0.9.2). Codex automations' heartbeats and its apps' page state, also sent as "user"
   messages, are kept out the same way (150 were stored on one PC).
+- **No more memories made by keyword.** The capture service turned a turn into a "decision",
+  "preference" or "project principle" when it held Korean words such as "앞으로" or "하기로":
+  a question without a question mark, or a pasted group chat, became a decision, and no
+  English sentence ever did. It no longer runs; the model judges what to keep and saves it
+  with `brain_remember`. The memories it made are erased once (the turns stay); the ones
+  made because the user said "기억해" stay.
 - **Copies of the same turn stored before 0.9.2 are dropped once.** Back then a turn's id came
   from its row number in one read, so a transcript read again stored every turn a second
   time; two of a hook packet's four slots could be the same sentence. The same app,

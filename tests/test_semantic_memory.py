@@ -59,6 +59,25 @@ class SemanticMemoryTests(unittest.TestCase):
             self.assertEqual(decision["matches"][0]["provenance"]["source_type"],
                              "captured-conversation-turn")
 
+    def test_keyword_made_memories_are_dropped_once_but_remember_requests_stay(self):
+        """0.10.5: the gate no longer runs; what it made by keyword goes, the turns stay."""
+        from graph_mind.semantic_memory import drop_keyword_memories
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "brain.sqlite"
+            with ConversationMemoryStore(db) as store:
+                store.record(turn("t1", "user", "근데 저건 안하기로 하지않았나"))     # a question
+                store.record(turn("t2", "user", "기억해줘: 사물함은 북쪽 계단 아래"))
+            with SemanticMemoryIngestion(db, now=lambda: T) as ingestion:
+                self.assertEqual(ingestion.process_new()["promoted_count"], 2)
+            self.assertEqual(drop_keyword_memories(db), 1)
+            self.assertEqual(drop_keyword_memories(db), 0, "once per store")
+            with LocalBrainStore(db) as brain:
+                kinds = [row[0] for row in brain.db.execute(
+                    "SELECT memory_type FROM local_brain_memories")]
+            with ConversationMemoryStore(db) as conversations:
+                self.assertEqual(conversations.search("안하기로")["status"], "KNOWN")
+            self.assertEqual(kinds, ["FACT"])
+
     def test_redacted_content_is_never_automatically_promoted(self):
         category, reason = classify_durable_turn(
             "user", "앞으로 키는 [REDACTED_OPENAI_KEY]로 기억해")

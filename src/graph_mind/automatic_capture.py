@@ -26,7 +26,6 @@ from graph_mind.conversation_memory import (
     opencode_root,
 )
 from graph_mind.paths import default_coding_state_dir, default_development_db, graph_mind_home
-from graph_mind.semantic_memory import SemanticMemoryIngestion
 
 SERVICE_VERSION = "automatic-capture-v0.2"
 
@@ -312,7 +311,6 @@ class AutomaticCaptureService:
         else:
             coding.append({"status": "SKIPPED_NOT_DUE"})
         seconds["code"], clock = round(time.perf_counter() - clock, 3), time.perf_counter()
-        semantic = None
         conversation = {}
         try:
             with ConversationMemoryStore(self.db_path) as store:
@@ -337,34 +335,29 @@ class AutomaticCaptureService:
             except OSError:
                 version.append(None)
         unchanged = version is not None and version == getattr(self, "_maintenance_version", None)
+        # No memories are made from turns by keyword any more (0.10.5): "앞으로"/"하기로" in a
+        # question or a pasted chat made a "decision", and no English sentence ever did. The
+        # model judges what to keep and saves it with brain_remember.
         associative = None
         if unchanged:
-            semantic, associative = self._idle_indexes
+            associative = self._idle_indexes
         else:
-            try:
-                with SemanticMemoryIngestion(self.db_path, now=self.now) as ingestion:
-                    semantic = ingestion.process_new(limit=200)
-            except Exception as error:
-                errors.append({"source": "semantic", "error": type(error).__name__,
-                               "detail": str(error)})
-            associative = None
             try:
                 with AssociativeMemoryIndex(self.db_path) as index:
                     associative = index.sync_sources(limit=1000)
             except Exception as error:
                 errors.append({"source": "associative", "error": type(error).__name__,
                                "detail": str(error)})
-            if (not errors and semantic["processed_turns"] == 0
-                    and associative["indexed_total"] == 0):
+            if not errors and associative["indexed_total"] == 0:
                 self._maintenance_version = version
-                self._idle_indexes = semantic, associative
+                self._idle_indexes = associative
         seconds["indexes"] = round(time.perf_counter() - clock, 3)
         seconds["indexes_skipped"] = unchanged
         result = {"status": "CAPTURE_ERRORS" if errors else "CAPTURE_OK",
                   "service_version": SERVICE_VERSION, "started_at": started,
                   "completed_at": self.now(), "coding": coding,
                   "conversation": conversation.get("codex"),
-                  "conversation_sources": conversation, "semantic": semantic,
+                  "conversation_sources": conversation,
                   "associative": associative,
                   "errors": errors, "seconds": seconds,
                   "warnings": self._stall_warnings(conversation)}
@@ -520,9 +513,11 @@ class AutomaticCaptureService:
 
                 from graph_mind.install import remove_old_models
                 threading.Thread(target=remove_old_models, daemon=True).start()
-            try:                        # once per store: copies stored before 0.9.2
-                with ConversationMemoryStore(self.db_path) as store:
+            try:                        # once per store: copies stored before 0.9.2, and the
+                with ConversationMemoryStore(self.db_path) as store:      # keyword-made memories
                     store.drop_duplicates()
+                from graph_mind.semantic_memory import drop_keyword_memories
+                drop_keyword_memories(self.db_path)
             except Exception:
                 pass                    # tried again at the next start
         iteration, restart = 0, False

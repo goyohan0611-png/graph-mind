@@ -1,4 +1,10 @@
-"""Conservative semantic promotion gate for captured conversation turns."""
+"""The keyword gate that turned captured turns into memories, up to 0.10.4.
+
+No longer run: it judged Korean by keywords ("앞으로", "하기로"), so a question or a pasted chat
+became a "decision" and no English sentence ever did; the model now saves what matters with
+brain_remember. Kept for stores that hold its memories (forget.py and sharing.py follow a turn
+to the memory promoted from it) and for drop_keyword_memories below.
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -159,3 +165,31 @@ class SemanticMemoryIngestion:
                     sum(1 for other in evidence_only
                         if other["reason"] == item["reason"])
                     for item in evidence_only}.items()))}
+
+
+def drop_keyword_memories(path) -> int:
+    """Once per store: erase the decisions, preferences and project principles the gate made.
+    The turns they were copied from stay; memories made because the user said "기억해" stay too,
+    since that was the user's own request."""
+    from graph_mind.forget import erase
+    db = sqlite3.connect(str(path), timeout=30)
+    try:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
+        if "local_brain_memories" not in tables or "store_flags" not in tables:
+            return 0
+        if db.execute("SELECT 1 FROM store_flags WHERE name='keyword_memories'").fetchone():
+            return 0
+        ids = [row[0] for row in db.execute(
+            "SELECT memory_id FROM local_brain_memories WHERE memory_type != 'FACT' "
+            "AND tags_json LIKE '%\"automatic-semantic-memory\"%'")]
+    finally:
+        db.close()
+    if ids:
+        erase(path, {"memory_ids": ids})
+    db = sqlite3.connect(str(path), timeout=30)
+    try:
+        with db:
+            db.execute("INSERT OR REPLACE INTO store_flags VALUES('keyword_memories','dropped')")
+    finally:
+        db.close()
+    return len(ids)

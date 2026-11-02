@@ -48,6 +48,13 @@ def context(query: str, *, database=None, embedder=None) -> str:
     database = database or configured_db_path()
     recalled = gather(database, query, as_of=_now(), limit=LIMIT,
                       embedder=embedder or embedder_for(database), share=False)
+    # an earlier message with exactly these words says nothing new: "했어" brought back four
+    # older "했어" (and the message itself, once stored) in every packet. Text equality only,
+    # no judgement of meaning.
+    said = " ".join(query.split())
+    recalled["conversation_turns"] = [
+        turn for turn in recalled.get("conversation_turns", [])
+        if " ".join(str(turn.get("content", "")).split()) != said]
     packet = build_context_pack(recalled, max_chars=CHARS, short_sources=True)
     if packet["status"] != "KNOWN":
         return ""

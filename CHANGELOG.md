@@ -37,6 +37,9 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   nothing reads (mpnet ~290 MB and its vectors, the 0.9.9 model ~450 MB); before, only
   `turnbook-install` did, and an upgrade by pip alone kept them. A model you chose with
   `turnbook model REPO@FILE` is never deleted.
+- **The per-message memory leaves out earlier messages with exactly the same words.** A short
+  reply such as "했어" or "ok" brought back four older copies of itself (~1,500 characters of
+  nothing) with every message. Text equality only; every message is still searched.
 - Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
 
 ## 0.10.4 — 2026-10-30

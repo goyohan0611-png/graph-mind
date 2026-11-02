@@ -286,6 +286,28 @@ class HookTests(unittest.TestCase):
                            side_effect=AssertionError("hub synced per message")):
             inject.context("where did we leave off on the launch?")
 
+    def test_earlier_messages_with_the_same_words_are_left_out(self):
+        """"했어" brought back four older "했어" and nothing else, in every packet."""
+        from graph_mind import inject
+
+        def turn(n, text):
+            return {"turn_id": f"t{n}", "role": "user", "scope": "global", "content": text,
+                    "happened_at": f"2026-10-0{n}T10:00:00", "client": "codex",
+                    "source_path": "p", "client_session_id": "s", "source_ordinal": n}
+        echoes = {"matches": [], "conversation_turns": [turn(1, "했어"), turn(2, " 했어\n")]}
+        useful = {"matches": [], "conversation_turns": [turn(3, "했어"),
+                                                        turn(4, "배포는 금요일에 했어")]}
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory}), \
+                mock.patch("graph_mind.inject.from_service", return_value=None), \
+                mock.patch("graph_mind.mcp_server.embedder_for"):
+            with mock.patch("graph_mind.mcp_server.gather", return_value=echoes):
+                self.assertEqual(inject.context("했어"), "")
+            with mock.patch("graph_mind.mcp_server.gather", return_value=useful):
+                packet = inject.context("했어")
+        self.assertIn("배포는 금요일에 했어", packet)
+        self.assertEqual(packet.count("conversation turn"), 1)
+
     def test_the_hook_asks_the_capture_service_first(self):
         """Its index is warm: a fresh process per message took 1-2 s to import and read it.
         An older service (no "context" in embedder.json) leaves the hook to search itself."""

@@ -110,6 +110,22 @@ class ForgetTests(unittest.TestCase):
             finally:
                 os.environ.pop("GRAPH_MIND_DEVICE", None)
 
+    def test_the_forgotten_text_leaves_the_file_itself(self):
+        """Not just the rows: SQLite only marks deleted space free and FTS5 keeps a deleted
+        word until a merge, so the phrase was still in the file's bytes."""
+        with tempfile.TemporaryDirectory() as directory:
+            index = Path(directory) / "m.sqlite"
+            with ConversationMemoryStore(index) as store:
+                for n in range(300):
+                    store.record(turn(n, f"wifi is {SECRET} here" if n == 7 else
+                                      f"ordinary turn {n} " * 20))
+            with AssociativeMemoryIndex(index) as associative:
+                associative.sync_sources(limit=1000)
+            forget(SECRET, index)
+            left = sum(path.read_bytes().count(SECRET.encode()) for path
+                       in Path(directory).iterdir() if path.name.startswith("m.sqlite"))
+            self.assertEqual(left, 0)
+
     def test_short_phrases_are_refused(self):
         from graph_mind import forget as module
         with self.assertRaises(SystemExit):

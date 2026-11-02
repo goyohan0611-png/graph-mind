@@ -25,6 +25,10 @@ def use_wal(db):
     """
     import sqlite3
     import time
+    # space freed by a delete or a rewrite is zeroed: with only the forgetting connection doing
+    # it, a forgotten password was still in the file, in pages an earlier index merge had freed
+    # (no measurable cost: 400 turns stored and indexed in the same time)
+    db.execute("PRAGMA secure_delete = ON")
     for attempt in range(100):
         try:
             db.execute("PRAGMA journal_mode=WAL")

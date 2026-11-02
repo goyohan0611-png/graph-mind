@@ -44,6 +44,10 @@ What you pick is deleted from this PC and its search indexes, from the shared me
 your other PCs on their next sync; only ids are shared for that, never the text. Your AI app's own
 history (for Claude Code, `~/.claude/projects`) is separate and is not touched.
 
+The text leaves the file itself, not just the tables: the space it took is overwritten with zeros.
+A memory file written by a version before this one may still hold leftovers of older edits in
+its free space; run `turnbook compact` once to rewrite the file without them.
+
 ## On disk
 
 The memory is SQLite under `~/.graph-mind/`, not encrypted: anyone who can read your user folder

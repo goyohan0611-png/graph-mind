@@ -22,6 +22,12 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   request that happens to sit in an old conversation or a shared memory.
 - Anthropic keys (`sk-ant-…`) are masked as `[REDACTED_ANTHROPIC_KEY]` (they were masked before,
   under the OpenAI label).
+- **Forgotten text leaves the file, not just the tables.** SQLite only marks a deleted row's space
+  free, and the word index kept a deleted word until a merge: after `turnbook-forget`, the phrase
+  was still in the memory file's bytes (8 copies in a test). Freed space is now zeroed on every
+  connection (no measurable cost), the word index drops a forgotten word at once, and the
+  write-ahead log is emptied after forgetting. Run `turnbook compact` once to clear leftovers
+  from before.
 - Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
 
 ## 0.10.4 — 2026-10-30

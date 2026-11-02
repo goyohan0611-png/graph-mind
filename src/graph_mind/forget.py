@@ -49,15 +49,41 @@ def erase(index: Path, ids: dict) -> dict:
     try:
         with db:
             db.execute("BEGIN IMMEDIATE")
-            return _erase(db, ids)
+            result = _erase(db, ids)
+        _flush(db)
+        return result
     finally:
         db.close()
+
+
+def _wipe(db, tables):
+    """Deleted text must leave the file too: SQLite only marks a deleted row's space free, and
+    FTS5 keeps a deleted word in its index until a merge, so a forgotten password could still be
+    read from the file with a hex editor. secure_delete zeroes freed space; FTS5's
+    secure-delete removes the word at once (SQLite 3.44+; older ones keep the old behaviour)."""
+    db.execute("PRAGMA secure_delete = ON")
+    for table in ("conversation_turns_fts", "associative_engrams_fts"):
+        if table in tables:
+            try:
+                db.execute(f"INSERT INTO {table}({table}, rank) VALUES('secure-delete', 1)")
+            except sqlite3.OperationalError:
+                pass
+
+
+def _flush(db):
+    """Copy the zeroed pages into the file and empty the write-ahead log, which still held the
+    old ones. Another process reading at this moment keeps the log; it is emptied next time."""
+    try:
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except sqlite3.OperationalError:
+        pass
 
 
 def _erase(db, ids):
     """Caller owns the transaction, including any durable propagation job."""
     turns, memories = list(ids.get("turn_ids", [])), list(ids.get("memory_ids", []))
     tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master")}
+    _wipe(db, tables)
     if turns and "semantic_ingestion_audit" in tables:
         # a turn the capture service promoted to a memory lives on in that memory, word for
         # word: forgetting the turn by id left the copy behind
@@ -258,6 +284,7 @@ def forget_ids(ids: dict, index: Path, shared=None) -> dict:
                 job_id = hashlib.sha256((destination + "\0" + payload).encode()).hexdigest()
                 db.execute("INSERT OR IGNORE INTO forget_jobs(job_id,destination,ids_json) "
                            "VALUES(?,?,?)", (job_id, destination, payload))
+        _flush(db)
     finally:
         db.close()
     drop_from_outbox(ids)          # also when a notice arrives: this PC's queue held them too

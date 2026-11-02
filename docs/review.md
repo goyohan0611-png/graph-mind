@@ -48,3 +48,11 @@ quietly undoes that reason.
 Checked and fine: secret masking (14 formats), the local service's key check, the documents
 scan (locked files, encodings, deleted files), the service's load on this PC (1.2% of one core,
 382 MB).
+
+### 2026-11-02: bug and optimisation sweep
+
+| finding | class | evidence | outcome |
+|---|---|---|---|
+| Forgotten text stayed in the memory file's bytes (8 copies after forgetting, in a test) | gap | `forget.py` docstring and `docs/privacy.md` promise the text is gone from the store and its indexes; only transcripts and vectors are named as exceptions | freed space zeroed on every connection, FTS5 secure-delete on forget, WAL emptied; test checks the file bytes |
+| An idle capture pass takes 0.3-0.4 s of wall time | design | listing each app's transcript folder (Codex's dated tree: 55 ms); the service runs below normal priority, so it waits behind other work; CPU 1.2% of one core | kept |
+| Codex cursor keeps offsets of 214 files while 16 exist | gap, negligible | deleted session files are never dropped from the cursor; 29 KB file, read in under 1 ms | kept for now |

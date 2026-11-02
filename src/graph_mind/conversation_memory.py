@@ -554,6 +554,26 @@ class CodexConversationCapture:
             return None
         return payload["role"], _message_text(payload)
 
+    def _prepare(self, role, raw):
+        """The text a turn is stored and identified by, or None when there is none."""
+        if role == "user" and isinstance(raw, str) and INJECTED in raw:
+            # the memory our hook added (Copilot CLI keeps the extended prompt as the user's
+            # message): stored again, it would come back as their words
+            raw = raw[:raw.index(INJECTED)].rstrip()
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        # a lone surrogate ("\\ud800" in the JSON) cannot be encoded: it stopped every later line
+        # of the file from being stored
+        return raw.encode("utf-8", "replace").decode("utf-8")
+
+    def _turn_id(self, session_id, item, ordinal, raw):
+        raw_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        binding = f"{session_id}\0{self._identity(item, ordinal)}\0{raw_hash}".encode("utf-8")
+        return f"{self.CLIENT}-turn-" + hashlib.sha256(binding).hexdigest()
+
+    def _purge_summaries(self):
+        return 0
+
     def initialize_baseline(self):
         files = {str(path): _complete_size(path) for path in self._files()}
         self._write_state(files)
@@ -567,12 +587,14 @@ class CodexConversationCapture:
         if value.get("capture_version") != CAPTURE_VERSION:
             raise ValueError("CONVERSATION_CAPTURE_VERSION_MISMATCH")
         self._forget_sessions = value.get("forget_sessions", {})
+        self._summaries_purged = value.get("summaries_purged", False)
         return value.get("offsets", {})
 
     def _write_state(self, offsets):
         value = {"capture_version": CAPTURE_VERSION,
                  "sessions_root": str(self.sessions_root), "offsets": offsets,
-                 "forget_sessions": getattr(self, "_forget_sessions", {})}
+                 "forget_sessions": getattr(self, "_forget_sessions", {}),
+                 "summaries_purged": getattr(self, "_summaries_purged", True)}
         temporary = self.state_path.with_suffix(".tmp")
         temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n",
                              encoding="utf-8")
@@ -580,6 +602,10 @@ class CodexConversationCapture:
 
     def scan(self):
         offsets = self._load_state()
+        purged = self._summaries_purged
+        if not purged:                         # once: what older versions stored by mistake
+            self._purge_summaries()
+            self._summaries_purged = True
         new_offsets = dict(offsets)
         forget_before = {sid: dict(state) for sid, state in self._forget_sessions.items()}
         recorded, scanned_rows, redactions = [], 0, 0
@@ -623,15 +649,9 @@ class CodexConversationCapture:
                     if message is None:
                         continue
                     role, raw = message
-                    if role == "user" and isinstance(raw, str) and INJECTED in raw:
-                        # the memory our hook added (Copilot CLI keeps the extended prompt as
-                        # the user's message): stored again, it would come back as their words
-                        raw = raw[:raw.index(INJECTED)].rstrip()
-                    if not isinstance(raw, str) or not raw.strip():
+                    raw = self._prepare(role, raw)
+                    if raw is None:
                         continue
-                    # a lone surrogate ("\\ud800" in the JSON) cannot be encoded: it stopped every
-                    # later line of the file from being stored
-                    raw = raw.encode("utf-8", "replace").decode("utf-8")
                     quiet = self._forget_sessions.get(session_id)
                     if quiet and quiet.get("quiet"):
                         if role == "assistant":
@@ -646,10 +666,7 @@ class CodexConversationCapture:
                     # where the line sits in the file: unlike the row count of this one scan,
                     # it is the same every time the file is read
                     ordinal = int(ordinal_value) if ordinal_value is not None else line_start
-                    binding = (f"{session_id}\0{self._identity(item, ordinal)}\0{raw_hash}"
-                               .encode("utf-8"))
-                    turn = {"turn_id": f"{self.CLIENT}-turn-"
-                                       + hashlib.sha256(binding).hexdigest(),
+                    turn = {"turn_id": self._turn_id(session_id, item, ordinal, raw),
                         "client": self.CLIENT, "client_session_id": session_id,
                         "scope": scope, "cwd": cwd,
                         "happened_at": item.get("timestamp") or known_at,
@@ -667,7 +684,8 @@ class CodexConversationCapture:
                             pass
                     recorded.append(outcome)
                 new_offsets[key] = committed
-        if new_offsets != offsets or self._forget_sessions != forget_before:
+        if (new_offsets != offsets or self._forget_sessions != forget_before
+                or not purged):
             self._write_state(new_offsets)
         return {"status": "TURNS_RECORDED" if recorded else "NO_NEW_TURNS",
                 "recorded_turns": len(recorded), "scanned_rows": scanned_rows,
@@ -725,6 +743,46 @@ class ClaudeCodeConversationCapture(CodexConversationCapture):
     def _message(self, item):
         if item.get("isSidechain") or item.get("isMeta"):
             return None
+        if item.get("isCompactSummary"):
+            # the summary Claude Code writes when it compacts a conversation is a "user" record,
+            # but the model wrote it: stored, an AI summary sat in memory as the user's words
+            return None
+        return self._said(item)
+
+    def _purge_summaries(self):
+        """Erase the compaction summaries older versions stored as user turns, by the ids they
+        were stored under (same file, same record), never by their wording."""
+        ids = []
+        for path in self._files():
+            session_id = None
+            try:
+                with path.open("rb") as handle:
+                    start = 0
+                    for line in handle:
+                        line_start, start = start, start + len(line)
+                        if b'"isCompactSummary"' not in line:      # cheap test before parsing
+                            continue
+                        try:
+                            item = json.loads(line.decode("utf-8", "strict"))
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            continue
+                        if not isinstance(item, dict) or item.get("isCompactSummary") is not True:
+                            continue
+                        said = self._said(item)
+                        raw = self._prepare(*said) if said else None
+                        if raw is None:
+                            continue
+                        session_id = session_id or self._session_meta(path)[0]
+                        ordinal = item.get("ordinal")
+                        ordinal = int(ordinal) if ordinal is not None else line_start
+                        ids.append(self._turn_id(session_id, item, ordinal, raw))
+            except OSError:
+                continue
+        if ids:
+            erase(self.store.path, {"turn_ids": ids})
+        return len(ids)
+
+    def _said(self, item):
         queued = item.get("attachment") if item.get("type") == "attachment" else None
         if isinstance(queued, dict) and queued.get("type") == "queued_command":
             # A message typed while the assistant was still working is not a "user" record: it

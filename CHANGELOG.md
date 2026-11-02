@@ -22,6 +22,11 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
   request that happens to sit in an old conversation or a shared memory.
 - Anthropic keys (`sk-ant-…`) are masked as `[REDACTED_ANTHROPIC_KEY]` (they were masked before,
   under the OpenAI label).
+- **A compaction summary is no longer stored as the user's words.** When Claude Code (or Cowork)
+  compacts a long conversation it writes the model's summary as a "user" record; Turnbook
+  stored it as something the user said, thousands of characters of AI summary each time,
+  against its own rule of keeping only what was said. Those records are skipped now, and
+  the ones stored before are erased once, by the ids they were stored under.
 - **Forgotten text leaves the file, not just the tables.** SQLite only marks a deleted row's space
   free, and the word index kept a deleted word until a merge: after `turnbook-forget`, the phrase
   was still in the memory file's bytes (8 copies in a test). Freed space is now zeroed on every

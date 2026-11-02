@@ -111,6 +111,45 @@ class ConversationMemoryTests(unittest.TestCase):
             self.assertEqual(old_result["status"], "UNKNOWN")
             self.assertEqual(new_result["status"], "KNOWN")
 
+    def test_a_compaction_summary_is_not_the_users_words(self):
+        """Claude Code writes the summary of a compacted conversation as a "user" record. Older
+        versions stored it as something the user said; the next scan erases those, by id."""
+        from unittest import mock
+
+        def line(uuid, content, **extra):
+            return {"type": "user", "sessionId": "cc:1", "timestamp": "2026-09-16T10:00:00",
+                    "uuid": uuid, "message": {"role": "user", "content": content}, **extra}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            projects = root / "projects"
+            (projects / "p").mkdir(parents=True)
+            source = projects / "p" / "cc.jsonl"
+            source.write_text("", encoding="utf-8")
+            with ConversationMemoryStore(root / "brain.sqlite") as store:
+                capture = ClaudeCodeConversationCapture(projects, store,
+                    state_path=root / "cursor.json", now=lambda: "2026-09-16T10:01:00")
+                capture.initialize_baseline()
+                with source.open("a", encoding="utf-8") as handle:
+                    for item in (line("u1", "배포는 금요일로 하자"),
+                                 line("s1", "This session is being continued. Summary: ...",
+                                      isCompactSummary=True, isVisibleInTranscriptOnly=True)):
+                        handle.write(json.dumps(item, ensure_ascii=False) + "\n")
+                with mock.patch.object(ClaudeCodeConversationCapture, "_message",
+                                       ClaudeCodeConversationCapture._said):    # 0.10.4 and before
+                    capture.scan()
+                self.assertEqual(len(store.search("Summary")["turns"]), 1)
+                state = json.loads((root / "cursor.json").read_text(encoding="utf-8"))
+                state["summaries_purged"] = False                    # a cursor from then
+                (root / "cursor.json").write_text(json.dumps(state), encoding="utf-8")
+                capture.scan()
+                self.assertEqual(store.search("Summary")["turns"], [])
+                self.assertEqual(len(store.search("배포는 금요일로")["turns"]), 1)
+                with source.open("a", encoding="utf-8") as handle:
+                    handle.write(json.dumps(line("s2", "Another Summary text",
+                                                 isCompactSummary=True)) + "\n")
+                capture.scan()
+                self.assertEqual(store.search("Another Summary")["turns"], [])
+
     def test_claude_code_keeps_only_what_was_said(self):
         """Of everything a Claude Code transcript holds, only typed user text and assistant text
         are conversation. Tool calls, tool results, thinking, sub-agent side chains, meta records

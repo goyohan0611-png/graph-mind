@@ -248,7 +248,7 @@ class AssociativeMemoryIndex:
         if limit is not None and (type(limit) is not int or not 1 <= limit <= 100000):
             raise ValueError("INVALID_ENGRAM_SYNC_LIMIT")
         remaining = limit
-        counts = {"LOCAL_MEMORY": 0, "CONVERSATION": 0, "DEVELOPMENT_EVENT": 0}
+        counts = {"LOCAL_MEMORY": 0, "CONVERSATION": 0}
 
         def allowed():
             return remaining is None or sum(counts.values()) < remaining
@@ -296,23 +296,6 @@ class AssociativeMemoryIndex:
                     strength=0.4)
                 if result["disposition"] == "INDEXED":
                     counts["CONVERSATION"] += 1
-        if allowed() and self._table_exists("development_events"):
-            rows = self.db.execute("""SELECT d.* FROM development_events d
-              WHERE NOT EXISTS(SELECT 1 FROM associative_engrams a
-                WHERE a.engram_id='development:' || d.event_id)
-              ORDER BY d.revision LIMIT ?""", (left(),)).fetchall()
-            for row in rows:
-                if not allowed():
-                    break
-                result = self.add_engram(engram_id="development:" + row["event_id"],
-                    source_kind="DEVELOPMENT_EVENT", source_id=row["event_id"],
-                    scope=row["project_id"], happened_at=row["effective_at"],
-                    text=row["event_type"] + " " + row["subject_id"] + " "
-                         + row["payload_json"],
-                    cues=[row["event_type"], row["subject_id"], row["session_id"]],
-                    strength=0.65)
-                if result["disposition"] == "INDEXED":
-                    counts["DEVELOPMENT_EVENT"] += 1
         return {"status": "ENGRAMS_INDEXED" if sum(counts.values()) else "NO_NEW_ENGRAMS",
                 "indexed": counts, "indexed_total": sum(counts.values())}
 

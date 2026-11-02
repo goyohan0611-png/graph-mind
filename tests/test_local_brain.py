@@ -40,7 +40,9 @@ class LocalBrainTests(unittest.TestCase):
             self.assertNotIn("old", {item["memory_id"] for item in recalled["matches"]})
             self.assertEqual(private["status"], "UNKNOWN")
 
-    def test_development_events_are_federated_without_copying(self):
+    def test_development_notes_from_before_0_8_are_not_answered_as_memories(self):
+        """Nothing has written them since 0.8; read as memories, an agent's September task
+        summaries took the curated slots of every hook packet."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "brain.sqlite"
             event = {"event_id": "objective", "project_id": "project:demo",
@@ -64,8 +66,7 @@ class LocalBrainTests(unittest.TestCase):
                 db.commit()
             with LocalBrainStore(path) as brain:
                 result = brain.recall("기억 엔진", scopes=["project:demo"], as_of=T2)
-            self.assertEqual(result["status"], "KNOWN")
-            self.assertEqual(result["matches"][0]["memory_type"], "DEVELOPMENT_EVENT")
+            self.assertEqual(result["matches"], [])
 
 
 if __name__ == "__main__":

@@ -3,6 +3,11 @@
 Upgrade: `python -m pip install --upgrade turnbook`, then `turnbook-install`.
 Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 
+## Unreleased
+- **Development notes from before 0.8 are no longer answered as memories.** The feature that
+  wrote them went in 0.8, but search still read its table, so an agent's task summaries from
+  then took the curated-memory slots of hook packets. The notes stay in the file, unread.
+
 ## 0.10.5 — 2026-11-02
 - **A synced folder holds only ciphertext.** A memory kept in a OneDrive, Google Drive or Dropbox
   folder was written there as plain text; its lines are now sealed like a hub's. The first PC

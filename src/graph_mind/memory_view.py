@@ -44,15 +44,14 @@ def _graph(db, limit, with_text):
               and "content_z" in text_columns(db) else "NULL")
     nodes = db.execute(
         f"""SELECT e.engram_id, e.source_kind, e.scope, e.happened_at,
-                  COALESCE(t.content_redacted, m.title || ': ' || m.content, d.event_type, ''),
+                  COALESCE(t.content_redacted, m.title || ': ' || m.content, ''),
                   COALESCE(t.role, ''), {packed}
            FROM associative_engrams e
            LEFT JOIN {source("conversation_turns", "'' turn_id, '' content_redacted, '' role")} t
              ON e.source_kind='CONVERSATION' AND t.turn_id=e.source_id
            LEFT JOIN {source("local_brain_memories", "'' memory_id, '' title, '' content")} m
              ON e.source_kind='LOCAL_MEMORY' AND m.memory_id=e.source_id
-           LEFT JOIN {source("development_events", "'' event_id, '' event_type")} d
-             ON e.source_kind='DEVELOPMENT_EVENT' AND d.event_id=e.source_id
+           WHERE e.source_kind != 'DEVELOPMENT_EVENT'      -- notes of a feature gone in 0.8
            ORDER BY e.happened_at DESC LIMIT ?""", (limit,)).fetchall()
     keep = {row[0] for row in nodes}
     edges = db.execute(

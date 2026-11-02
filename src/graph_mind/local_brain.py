@@ -288,33 +288,6 @@ class LocalBrainStore:
                 "provenance": provenance,
                 "supersedes_memory_id": row["supersedes_memory_id"], **profile}
 
-    def _development_memories(self, effective, cutoff, scopes):
-        exists = self.db.execute("""SELECT 1 FROM sqlite_master
-          WHERE type='table' AND name='development_events'""").fetchone()
-        if not exists:
-            return []
-        parameters = [effective, cutoff]
-        where = "effective_at<=? AND known_at<=?"
-        if scopes:
-            where += " AND project_id IN (" + ",".join("?" for _ in scopes) + ")"
-            parameters.extend(scopes)
-        rows = self.db.execute(
-            f"SELECT * FROM development_events WHERE {where} ORDER BY revision DESC",
-            parameters).fetchall()
-        superseded = {row["supersedes_event_id"] for row in rows
-                      if row["supersedes_event_id"]}
-        return [{"revision": row["revision"],
-                 "memory_id": "development-event:" + row["event_id"],
-                 "scope": row["project_id"], "memory_type": "DEVELOPMENT_EVENT",
-                 "title": row["event_type"] + ": " + row["subject_id"],
-                 "content": _canonical_json(json.loads(row["payload_json"])),
-                 "effective_at": row["effective_at"], "known_at": row["known_at"],
-                 "actor": row["actor"],
-                 "tags": [row["project_id"], row["event_type"]],
-                 "entities": [row["subject_id"]],
-                 "provenance": json.loads(row["provenance_json"]),
-                 "supersedes_memory_id": None}
-                for row in rows if row["event_id"] not in superseded]
 
     def recall(self, query, *, scopes=None, as_of, knowledge_cutoff=None, limit=8,
                since=None, recent=False, meaning=None):
@@ -358,7 +331,6 @@ class LocalBrainStore:
         superseded = {item["supersedes_memory_id"] for item in memories
                       if item["supersedes_memory_id"]}
         memories = current_facts([m for m in memories if m["memory_id"] not in superseded])
-        memories.extend(self._development_memories(effective, cutoff, scope_list))
         floor = self._time(since) if since else None
         query_normalized = _normalized(query)
         query_tokens = _tokens(query)

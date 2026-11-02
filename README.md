@@ -302,8 +302,10 @@ conversations already on the PC are read in the background while word search ans
 **Which search model?** [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m)
 (about 200 MB, downloaded from Hugging Face on first use). A memory from 0.9.47 or before keeps
 searching with its old model (mpnet) while the background service reads it again with
-EmbeddingGemma, a few pieces at a time when nothing else is due; then it moves over by itself.
-`turnbook model` shows which model is in use; `turnbook model multilingual` keeps mpnet for good.
+EmbeddingGemma, a few pieces at a time when nothing else is due; then it moves over by itself
+and the old model is deleted. `turnbook model` shows which model is in use; `turnbook model
+REPO@FILE` switches to any ONNX embedding model on Hugging Face (memory is read again with it in
+the background). A model you picked is never deleted.
 EmbeddingGemma is provided under the
 [Gemma Terms of Use](https://ai.google.dev/gemma/terms); it is not part of Turnbook's own code
 or license.

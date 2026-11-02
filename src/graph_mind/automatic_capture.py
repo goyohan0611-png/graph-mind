@@ -514,6 +514,12 @@ class AutomaticCaptureService:
                 pass
             self.lend_model()
             migrate = migrating()
+            if not migrate:
+                # models nothing reads any more: an upgrade by pip alone never ran the installer
+                import threading
+
+                from graph_mind.install import remove_old_models
+                threading.Thread(target=remove_old_models, daemon=True).start()
         iteration, restart = 0, False
         last_code_scan = None
         pending, packing, last_embed = True, max_iterations is None, time.monotonic()

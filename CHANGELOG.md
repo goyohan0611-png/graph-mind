@@ -31,6 +31,12 @@ Memory is kept across upgrades (checked in CI on Windows, Linux and macOS).
 - **Code capture keeps only the current version of each file.** Every past version was kept
   as a snapshot (169 MB for a 182-file project in three weeks), though only the latest is
   read; the patches keep the history. Old ones go at the next change.
+- **One search model.** EmbeddingGemma reads English and Korean better than mpnet, so mpnet is no
+  longer offered (`turnbook model multilingual` is gone from the help). Once a memory has been
+  read again with gemma, the capture service deletes the models Turnbook downloaded that
+  nothing reads (mpnet ~290 MB and its vectors, the 0.9.9 model ~450 MB); before, only
+  `turnbook-install` did, and an upgrade by pip alone kept them. A model you chose with
+  `turnbook model REPO@FILE` is never deleted.
 - Docs: a careful install (read the script, pin a version), and what is not encrypted on disk.
 
 ## 0.10.4 — 2026-10-30

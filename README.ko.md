@@ -287,8 +287,9 @@ mpnet으로 검색 전체(단어, 의미, 재정렬)를 쓴 0.9.47에서는 한�
 
 **검색 모델은 뭔가요?** [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m)입니다(약 200MB,
 처음 쓸 때 Hugging Face에서 내려받음). 0.9.47 이전부터 쓰던 기억은 예전 모델(mpnet)로 계속 검색하는 동안,
-백그라운드 서비스가 할 일이 없을 때 조금씩 EmbeddingGemma로 다시 읽고, 다 읽으면 알아서 넘어갑니다.
-`turnbook model`로 지금 모델을 볼 수 있고, `turnbook model multilingual`이면 mpnet을 계속 씁니다.
+백그라운드 서비스가 할 일이 없을 때 조금씩 EmbeddingGemma로 다시 읽고, 다 읽으면 알아서 넘어가며 예전
+모델은 지웁니다. `turnbook model`로 지금 모델을 볼 수 있고, `turnbook model 저장소@파일`로 Hugging Face의
+다른 ONNX 임베딩 모델로 바꿀 수 있습니다(기억은 백그라운드에서 새 모델로 다시 읽음). 직접 고른 모델은 지우지 않습니다.
 EmbeddingGemma는 [Gemma 이용 약관](https://ai.google.dev/gemma/terms)을 따르며,
 Turnbook 자체 코드나 라이선스에 포함되지 않습니다.
 

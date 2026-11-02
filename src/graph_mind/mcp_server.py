@@ -1537,7 +1537,7 @@ def keep_capture_running(every=60.0):
 def terminal_command(argv):
     """turnbook folder [PATH | local | share | CODE] [--share-existing]
     turnbook export FILE [--project FOLDER] | turnbook import FILE | turnbook compact
-    turnbook model [gemma|multilingual]
+    turnbook model [gemma | REPO@FILE]
     turnbook team invite NAME --role viewer|editor|owner --project P [--project P2]
     turnbook team host
     turnbook docs [add FOLDER | remove FOLDER]
@@ -1560,8 +1560,8 @@ def terminal_command(argv):
     export.add_argument("--project", help="only the conversations held in this folder")
     commands.add_parser("import", help="add a memory file to this memory").add_argument("file")
     commands.add_parser("model", help="show or change the search model: gemma "
-                                      "(EmbeddingGemma) or multilingual (mpnet)").add_argument(
-        "name", nargs="?", help="gemma, multilingual, or repo@onnx/file.onnx")
+                                      "(EmbeddingGemma) or any ONNX model").add_argument(
+        "name", nargs="?", help="gemma, or repo@onnx/file.onnx")
     docs = commands.add_parser("docs", help="project documents (Markdown, text) to remember")
     docs.add_argument("action", nargs="?", choices=["add", "remove"])
     docs.add_argument("folder", nargs="?")
@@ -1581,9 +1581,8 @@ def terminal_command(argv):
             print(f"Search model: {local_embedder.mode()} ({local_embedder.chosen_model()})\n"
                   "  turnbook model gemma          EmbeddingGemma: most accurate, English and "
                   "Korean alike (default)\n"
-                  "  turnbook model multilingual   mpnet: what memories from 0.9.47 and before "
-                  "were read with\n"
-                  "  turnbook model REPO@FILE      any ONNX embedding model on Hugging Face")
+                  "  turnbook model REPO@FILE      any ONNX embedding model on Hugging Face, "
+                  "e.g. intfloat/multilingual-e5-base@onnx/model.onnx")
             return
         local_embedder.model_file().parent.mkdir(parents=True, exist_ok=True)
         local_embedder.model_file().write_text(args.name.strip() + "\n", encoding="utf-8")

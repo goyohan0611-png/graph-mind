@@ -480,21 +480,35 @@ def embedding_model():
 
 
 def remove_old_models():
-    """The model 0.9.9 and before used (~450 MB): nothing reads it once the apps restart. Through
-    Hugging Face's own cache API: its files live in a shared blobs folder, not the repo's."""
+    """Models Turnbook downloaded that nothing reads any more (local_embedder.unused_models: the
+    0.9.9 one, ~450 MB, and mpnet once gemma has replaced it, ~290 MB) and mpnet's vectors.
+    Through Hugging Face's own cache API: its files live in a shared blobs folder, not the
+    repo's. Also run by the capture service at start: an upgrade by pip alone never ran it."""
+    import shutil
+
     from huggingface_hub import scan_cache_dir
     from huggingface_hub.constants import HF_HUB_CACHE
 
-    from graph_mind.local_embedder import OLD_MODELS, own_hf_home
+    from graph_mind.local_embedder import PRESETS, own_hf_home, unused_models
+    from graph_mind.paths import graph_mind_home
+    unused = unused_models()
     for cache in {Path(HF_HUB_CACHE), own_hf_home() / "hub"}:
         try:
             found = scan_cache_dir(cache)
-            old = [revision.commit_hash for repo in found.repos if repo.repo_id in OLD_MODELS
+            old = [revision.commit_hash for repo in found.repos if repo.repo_id in unused
                    for revision in repo.revisions]
             if old:
                 found.delete_revisions(*old).execute()
         except Exception:            # no cache there, or a file in use: try again next install
             pass
+    if PRESETS["multilingual"].split("@")[0] in unused:
+        # mpnet's vectors ("mpnet8") and the ones before the per-model names ("cache")
+        for stale in [*graph_mind_home().glob("*.semantic-embed-mpnet8.*"),
+                      *graph_mind_home().glob("*.semantic-embed-cache.*")]:
+            try:
+                shutil.rmtree(stale) if stale.is_dir() else stale.unlink()
+            except OSError:
+                pass
 
 
 CHANGES = """Turnbook will change these settings on this PC (turnbook-uninstall undoes them):

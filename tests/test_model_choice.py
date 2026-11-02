@@ -47,6 +47,23 @@ class ModelChoiceTests(unittest.TestCase):
                 self.assertEqual(chosen_model(), PRESETS["gemma"])
                 self.assertFalse(migrating())
 
+    def test_mpnet_goes_only_when_nothing_reads_it_and_a_chosen_model_never(self):
+        from graph_mind.local_embedder import unused_models
+        mpnet = PRESETS["multilingual"].split("@")[0]
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            with mock.patch.dict(os.environ, {"GRAPH_MIND_HOME": directory,
+                                              "GRAPH_MIND_MODEL": ""}):
+                (home / "development.semantic-embed-mpnet8.vec").mkdir()
+                self.assertNotIn(mpnet, unused_models(), "still read while migrating")
+                (home / "model.txt").write_text("gemma\n", encoding="utf-8")
+                self.assertIn(mpnet, unused_models())
+                (home / "model.txt").write_text("multilingual\n", encoding="utf-8")
+                self.assertNotIn(mpnet, unused_models(), "the user chose it")
+                custom = "intfloat/multilingual-e5-base@onnx/model.onnx"
+                (home / "model.txt").write_text(custom + "\n", encoding="utf-8")
+                self.assertNotIn("intfloat/multilingual-e5-base", unused_models())
+
 
 if __name__ == "__main__":
     unittest.main()

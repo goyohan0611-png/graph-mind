@@ -92,6 +92,18 @@ LOCAL_MODEL = chosen_model()
 OLD_MODELS = ("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",)
 
 
+def unused_models() -> tuple:
+    """Models Turnbook itself downloaded that nothing reads any more. EmbeddingGemma is the one
+    model now (Korean too); mpnet stays only while an old memory is still read again with gemma
+    (migrating()) or for someone who chose it. A model the user picked (`turnbook model
+    repo@file`) is never in here."""
+    old = list(OLD_MODELS)
+    mpnet = PRESETS["multilingual"]
+    if chosen_model() != mpnet and not migrating():
+        old.append(mpnet.split("@")[0])
+    return tuple(old)
+
+
 def own_hf_home() -> Path:
     from graph_mind.paths import graph_mind_home
     return graph_mind_home() / "huggingface"
